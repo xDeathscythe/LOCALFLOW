@@ -25,11 +25,11 @@ type NavSection = "transcribe" | "files" | "history" | "models" | "settings" | "
 type WhisperModelId = "large-v3-turbo" | "large-v3";
 
 const initialOptions: PolishOptions = {
-  cleanup: true,
-  cleanupLevel: "light",
-  removeFillers: true,
-  punctuation: true,
-  logicalCorrection: true,
+  cleanup: false,
+  cleanupLevel: "none",
+  removeFillers: false,
+  punctuation: false,
+  logicalCorrection: false,
 };
 
 const defaultConfig = {
@@ -689,7 +689,7 @@ export function App() {
         <div className="infoGrid">
           <div>
             <small>Version</small>
-            <strong>0.1.18</strong>
+            <strong>0.1.19</strong>
           </div>
           <div>
             <small>Privacy</small>
@@ -941,7 +941,7 @@ export function App() {
           <span><CheckCircle2 size={18} /> {state === "done" && hasText ? "Transcript ready" : status}</span>
           <span>GPU: local hardware</span>
           <span>Cache: X:\wORK cODEX\localflow\runtime</span>
-          <span>Version 0.1.18</span>
+          <span>Version 0.1.19</span>
           <span className="greenDot" />
         </footer>
       </section>

@@ -1,6 +1,6 @@
 # LocalFlow
 
-Version: `0.1.18`
+Version: `0.1.19`
 
 LocalFlow is a Windows desktop dictation app that runs locally:
 
