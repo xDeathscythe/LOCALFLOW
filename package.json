@@ -1,48 +1,178 @@
 {
   "name": "localflow",
-  "version": "0.1.19",
+  "version": "0.1.77",
   "private": true,
-  "description": "Windows desktop dictation app using local Whisper and local Ollama cleanup.",
+  "description": "Windows desktop dictation app using local Whisper and Codex cleanup.",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "desktop": "electron .",
     "build": "tsc && vite build",
+    "test:notes": "node --experimental-strip-types tests/notes-model.test.ts",
+    "test:appearance": "electron tests/appearance.test.cjs",
+    "test:shortcuts": "node tests/shortcut-config.test.cjs && node scripts/run-python.cjs backend/hotkey_watcher.py --self-check && node scripts/run-python.cjs tests/mouse-shortcut.test.py",
+    "test:cleanup": "node scripts/run-python.cjs tests/codex-cleanup.test.py",
+    "test:cleanup-auth": "node tests\\cleanup-auth.test.cjs",
+    "test:settings-ui": "electron tests\\settings-ui-smoke.cjs",
+    "test:stt": "node scripts/run-python.cjs tests/stt-models.test.py && node scripts/run-python.cjs tests/worker-config.test.py",
+    "test:tts": "node tests\\tts-runtime.test.cjs && node tests/voice-output.test.cjs && npm run verify:tts",
+    "models:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-whisper-models.ps1",
+    "runtime:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-transcription-runtime.ps1",
+    "agent:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1",
+    "agent:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1 -VerifyOnly",
+    "package:offline": "npm run models:stage && npm run agent:stage && npm run build && electron-builder --win --dir",
     "start": "electron .",
     "setup:python": "uv venv --python 3.11 .venv && uv pip install --python .venv\\Scripts\\python.exe -r backend\\requirements.txt",
-    "dist:win": "npm run build"
+    "setup:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1",
+    "verify:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1 -VerifyOnly",
+    "dist:win": "npm run package:offline && node scripts/build-offline-installer.cjs",
+    "test:runtime": "node tests/transcription-worker.test.cjs",
+    "test:performance": "electron tests/recording-performance.test.cjs && node scripts/run-python.cjs tests/recording-overlay.test.py",
+    "test:latency": "node tests/paste-text.test.cjs && node scripts/run-python.cjs tests/paste-input.test.py && npm run test:cleanup && electron tests/latency-ui.test.cjs",
+    "test:niwa": "node tests/niwa.test.mjs",
+    "test:niwa-voice": "node tests/niwa-voice.test.cjs && electron tests/niwa-push-to-talk.test.cjs",
+    "test:niwa-screen": "node tests/niwa-screen.test.mjs"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
-    "lucide-react": "^0.555.0",
-    "vite": "^7.2.6",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "@modelcontextprotocol/client": "2.2.0",
+    "@mozilla/readability": "0.6.0",
+    "@openai/codex": "0.159.0",
+    "linkedom": "0.18.13",
+    "playwright": "1.63.0",
+    "typebox": "1.3.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "electron": "^39.2.6",
-    "typescript": "^5.9.3"
+    "electron-builder": "^26.15.3",
+    "framer-motion": "^13.0.0",
+    "lucide-react": "^0.555.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
+  },
+  "overrides": {
+    "esbuild": "0.27.2"
   },
   "build": {
     "appId": "local.localflow.desktop",
     "productName": "LocalFlow",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "backend/**/*",
-      "package.json"
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "licenses/**/*"
     ],
     "extraResources": [
       {
         "from": "backend",
-        "to": "backend"
+        "to": "backend",
+        "filter": [
+          "worker.py",
+          "codex_cleanup.py",
+          "onnx_stt.py",
+          "hotkey_watcher.py",
+          "paste_input.py",
+          "recording_overlay.py",
+          "voice_output_worker.py",
+          "*.json",
+          "requirements.txt",
+          "host_cleanup.py"
+        ]
+      },
+      {
+        "from": "scripts",
+        "to": "scripts"
+      },
+      {
+        "from": "tts",
+        "to": "tts"
+      },
+      {
+        "from": "assets/tts",
+        "to": "assets/tts"
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "localflow-logo*",
+          "localflow-wordmark.svg",
+          "localflow.ico"
+        ]
+      },
+      {
+        "from": "models/whisper",
+        "to": "models/whisper",
+        "filter": [
+          "large-v3/**/*",
+          "large-v3-turbo/**/*"
+        ]
+      },
+      {
+        "from": "runtime/python",
+        "to": "runtime/python"
+      },
+      {
+        "from": "runtime/python-packages",
+        "to": "runtime/python-packages"
+      },
+      {
+        "from": "runtime/cuda",
+        "to": "runtime/cuda"
+      },
+      {
+        "from": "runtime/distribution",
+        "to": "runtime"
+      },
+      {
+        "from": "runtime/browsers",
+        "to": "runtime/browsers"
       }
     ],
+    "asarUnpack": [
+      "node_modules/@openai/codex-win32-x64/**/*",
+      "node_modules/playwright/**/*",
+      "node_modules/playwright-core/**/*",
+      "electron/niwa/host/*.ps1",
+      "electron/niwa/host/*.jxa"
+    ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "include": "build/installer.nsh",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "nsisWeb": {
+      "differentialPackage": false,
+      "include": "build/installer.nsh",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "LocalFlow Offline Setup ${version}.${ext}",
+      "appPackageUrl": "https://offline.invalid/localflow"
     }
-  }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xDeathscythe/LOCALFLOW.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xDeathscythe/LOCALFLOW/issues"
+  },
+  "homepage": "https://github.com/xDeathscythe/LOCALFLOW#readme"
 }

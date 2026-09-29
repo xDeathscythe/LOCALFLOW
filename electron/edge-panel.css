@@ -1,0 +1,38 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; font-family: system-ui; }
+.edge { height: 100%; position: relative; --surface: #080a09; --ink: #888e89; --active: #a44618; }
+.silhouette { position: absolute; right: 0; top: 0; width: 37px; height: 146px; fill: var(--surface); transform-origin: right center; transition: transform 620ms cubic-bezier(.4, 0, .2, 1); }
+.silhouette path { d: path('M37 0 C37 10.217 28.717 18.5 18.5 18.5 C8.283 18.5 0 26.783 0 37 L0 109 C0 119.217 8.283 127.5 18.5 127.5 C28.717 127.5 37 135.783 37 146 Z'); transition: d 620ms cubic-bezier(.4, 0, .2, 1); }
+.collapsed .silhouette { transform: scaleY(.58); }
+.collapsed .silhouette path { d: path('M37 0 C37 10.217 36.1 18.5 35 18.5 C33.9 18.5 33 26.783 33 37 L33 109 C33 119.217 33.9 127.5 35 127.5 C36.1 127.5 37 135.783 37 146 Z'); }
+.controls { position: absolute; right: 7px; top: 28px; width: 23px; display: flex; align-items: center; flex-direction: column; gap: 3px; opacity: 1; transform: translateX(0) scale(1); transform-origin: right center; transition: transform 520ms cubic-bezier(.4, 0, .2, 1), opacity 260ms ease 75ms; }
+.collapsed .controls { opacity: 0; transform: translateX(16px) scale(.76, .84); pointer-events: none; transition-delay: 0ms; }
+.selector { position: absolute; inset: 0 2px auto; height: 28px; border-radius: 18px; background: var(--active); box-shadow: inset 0 0 0 .7px #f4a86c40; transform: translateY(31px); transition: transform 420ms cubic-bezier(.2, .85, .2, 1); pointer-events: none; }
+.controls[data-target=agent] .selector { transform: translateY(0); }
+.controls[data-target=notes] .selector { transform: translateY(62px); }
+button { position: relative; flex-shrink: 0; border: 0; border-radius: 18px; background: transparent; color: var(--ink); width: 23px; height: 28px; display: grid; place-items: center; cursor: pointer; padding: 0; outline-offset: -2px; transition: color 200ms; }
+button:focus-visible { outline: 1px solid currentColor; }
+.controls[data-target=agent] [data-action=agent], .controls[data-target=microphone] [data-action=microphone], .controls[data-target=notes] [data-action=notes] { color: #fff2e3; }
+button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: center; }
+button[data-action=agent] svg { stroke-width: 3.2; }
+.mic { transition: opacity 200ms; }
+.levels { position: absolute; top: 5px; left: 5px; right: 5px; height: 10px; display: flex; align-items: center; justify-content: space-between; opacity: 0; transition: opacity 200ms; }
+.levels i { width: 1.8px; height: 100%; border-radius: 2px; background: currentColor; transform: scaleY(.25); }
+.recording .mic { opacity: 0; }
+.recording .levels { opacity: 1; }
+.recording .levels i { animation: recording-wave 1050ms ease-in-out infinite; }
+.levels i:nth-child(2) { animation-delay: -210ms; }
+.levels i:nth-child(3) { animation-delay: -420ms; }
+.levels i:nth-child(4) { animation-delay: -630ms; }
+.levels i:nth-child(5) { animation-delay: -840ms; }
+output { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 6px; line-height: 7px; font-variant-numeric: tabular-nums; text-align: center; }
+.voice button[data-action=agent] svg, .busy button[data-action=agent] svg { animation: star-orbit 4200ms linear infinite, star-breath 1400ms ease-in-out infinite; }
+.handle { position: absolute; right: 0; top: 54px; width: 2px; height: 38px; border-radius: 3px 0 0 3px; background: var(--ink); opacity: 0; pointer-events: none; transition: opacity 220ms; }
+.collapsed .handle { opacity: .55; transition-delay: 260ms; }
+body[data-theme=light] .edge { --surface: #eeeee7; --ink: #525b54; --active: #aa4e24; }
+body[data-theme=static-white] .edge { --surface: #fff; --ink: #5c625c; --active: #a3481b; }
+body[data-theme=static-black] .edge { --surface: #000; --ink: #a0a0a0; }
+@keyframes recording-wave { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(.9); } }
+@keyframes star-orbit { to { rotate: 90deg; } }
+@keyframes star-breath { 0%, 100% { scale: .88; opacity: .7; } 50% { scale: 1.08; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } .recording .levels i { transform: scaleY(.6); } }

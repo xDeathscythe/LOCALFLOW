@@ -1,0 +1,220 @@
+/* Opaque frontend themes. Each preset uses the same component color tokens. */
+.niwa-widget[data-niwa-theme^="static-"],
+.niwa-attention-bubble[data-niwa-theme^="static-"] {
+  color-scheme: dark;
+  --niwa-color-primary: #d7dcf5;
+  --niwa-color-primary-active: #ffffff;
+  --niwa-color-primary-subtle: rgba(255,255,255,.12);
+  --niwa-color-accent: #c5c9ef;
+  --niwa-color-accent-hover: #ffffff;
+  --niwa-color-surface-base: #11121b;
+  --niwa-color-surface-raised: #232433;
+  --niwa-color-surface-overlay: rgba(255,255,255,.08);
+  --niwa-color-surface-sunken: rgba(0,0,0,.16);
+  --niwa-color-text-primary: #eeeeF4;
+  --niwa-color-text-secondary: #c2c4d3;
+  --niwa-color-text-tertiary: #969aaa;
+  --niwa-color-text-inverse: #11121b;
+  --niwa-color-text-link: #d7dcff;
+  --niwa-color-border-default: rgba(255,255,255,.16);
+  --niwa-color-border-subtle: rgba(255,255,255,.10);
+  --niwa-color-border-focus: #b6c4ff;
+  --niwa-color-bubble-bot: var(--niwa-product-panel-bg);
+  --niwa-color-bubble-bot-text: #e5e5ed;
+  --niwa-color-bubble-user: var(--niwa-product-panel-bg);
+  --niwa-color-bubble-user-text: #ffffff;
+  --niwa-color-message-time: #969aaa;
+  --niwa-product-panel-bg: rgba(255,255,255,.09);
+  --niwa-product-control-bg: rgba(255,255,255,.13);
+  --niwa-product-control-active: rgba(255,255,255,.20);
+  --niwa-product-chip-bg: rgba(255,255,255,.10);
+  --niwa-product-chip-active-bg: rgba(255,255,255,.18);
+  --niwa-product-action-bg: rgba(255,255,255,.12);
+  --niwa-product-close-bg: rgba(255,255,255,.13);
+  --niwa-product-text: #ffffff;
+  --niwa-product-muted: #c8cad5;
+  --niwa-product-option-border: rgba(255,255,255,.22);
+  --niwa-product-option-text: #d8dbe5;
+  --niwa-product-option-active-bg: rgba(255,255,255,.16);
+  --niwa-product-selected-border: #ffffff;
+  --niwa-product-primary-bg: #ffffff;
+  --niwa-product-primary-text: #22242a;
+  --niwa-glass-bg: #11121b;
+  --niwa-glass-reflection: none;
+  --niwa-glass-blur: none;
+  --niwa-glass-border: 1px solid transparent;
+  --niwa-glass-shadow: 0 12px 32px rgba(0,0,0,.24);
+}
+
+:is(.niwa-widget,.niwa-attention-bubble)[data-niwa-theme="static-purple"] {
+  --niwa-glass-bg: #21195b;
+  --niwa-glass-reflection: linear-gradient(165deg,#1e155d 0%,#2b275f 52%,#575869 100%);
+}
+
+:is(.niwa-widget,.niwa-attention-bubble)[data-niwa-theme="static-dark-purple"] {
+  --niwa-glass-bg: #171439;
+  --niwa-glass-reflection: linear-gradient(160deg,#2b2869 0%,#191545 54%,#08090e 100%);
+}
+
+:is(.niwa-widget,.niwa-attention-bubble)[data-niwa-theme="static-black"] {
+  --niwa-glass-bg: #000000;
+  --niwa-color-surface-base: #000000;
+  --niwa-color-surface-raised: #111111;
+  --niwa-product-panel-bg: #111111;
+  --niwa-glass-border: 1px solid rgba(255,255,255,.10);
+  --niwa-color-text-primary: #e5e5e5;
+  --niwa-color-text-secondary: #b5b5b5;
+  --niwa-color-text-tertiary: #888888;
+  --niwa-color-message-time: #888888;
+}
+
+:is(.niwa-widget,.niwa-attention-bubble)[data-niwa-theme="static-light-blue"] {
+  --niwa-glass-bg: #6597b7;
+  --niwa-glass-reflection: radial-gradient(ellipse at 100% 25%,#bdc6e4 0%,transparent 65%),linear-gradient(150deg,#619dbe 0%,#749bb8 52%,#355f7b 100%);
+  --niwa-color-text-primary: #ffffff;
+  --niwa-color-text-secondary: #f0f5ff;
+  --niwa-color-text-tertiary: #e4edf7;
+  --niwa-color-message-time: #e4edf7;
+  --niwa-color-bubble-bot-text: #ffffff;
+  --niwa-product-panel-bg: rgba(31,67,96,.32);
+  --niwa-product-muted: #edf5ff;
+}
+
+:is(.niwa-widget,.niwa-attention-bubble)[data-niwa-theme="static-azure"] {
+  --niwa-glass-bg: #071522;
+  --niwa-glass-reflection: radial-gradient(ellipse at 0% 105%,#23596b 0%,#113c50 28%,transparent 68%),linear-gradient(115deg,#0c2437 0%,#03080d 68%);
+  --niwa-color-text-primary: #e6edf3;
+  --niwa-color-text-secondary: #c1ceda;
+  --niwa-color-text-tertiary: #889eaf;
+  --niwa-color-message-time: #889eaf;
+  --niwa-product-chip-bg: rgba(0,0,0,.27);
+}
+
+/* Full White follows the Niwa admin agent's white/grey surfaces. */
+.niwa-widget[data-niwa-theme="static-white"],
+.niwa-attention-bubble[data-niwa-theme="static-white"] {
+  color-scheme: light;
+  --niwa-color-primary: #202020;
+  --niwa-color-primary-active: #111111;
+  --niwa-color-primary-subtle: #f3f3f3;
+  --niwa-color-accent: #555555;
+  --niwa-color-accent-hover: #171717;
+  --niwa-color-surface-base: #ffffff;
+  --niwa-color-surface-raised: #ffffff;
+  --niwa-color-surface-overlay: #f3f3f3;
+  --niwa-color-surface-sunken: #f5f5f5;
+  --niwa-color-text-primary: #171717;
+  --niwa-color-text-secondary: #666666;
+  --niwa-color-text-tertiary: #777777;
+  --niwa-color-text-inverse: #ffffff;
+  --niwa-color-text-link: #333333;
+  --niwa-color-border-default: #dedede;
+  --niwa-color-border-subtle: #e8e8e8;
+  --niwa-color-border-focus: #666666;
+  --niwa-color-bubble-bot-text: #171717;
+  --niwa-color-bubble-user-text: #171717;
+  --niwa-color-message-time: #777777;
+  --niwa-product-panel-bg: #f3f3f3;
+  --niwa-product-control-bg: #e7e7e7;
+  --niwa-product-control-active: #dddddd;
+  --niwa-product-chip-bg: #eeeeee;
+  --niwa-product-chip-active-bg: #dddddd;
+  --niwa-product-action-bg: #e7e7e7;
+  --niwa-product-close-bg: #e2e2e2;
+  --niwa-product-text: #202020;
+  --niwa-product-muted: #666666;
+  --niwa-product-option-border: #cccccc;
+  --niwa-product-option-text: #555555;
+  --niwa-product-option-active-bg: #dedede;
+  --niwa-product-selected-border: #555555;
+  --niwa-product-primary-bg: #202020;
+  --niwa-product-primary-text: #ffffff;
+  --niwa-glass-bg: #ffffff;
+  --niwa-glass-border: 1px solid #dedede;
+  --niwa-glass-shadow: 0 8px 24px #0000000d;
+}
+
+/* Keep all launcher states opaque, including hover; no colored glow. */
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph,.niwa-center),
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph,.niwa-center):hover {
+  background: var(--niwa-glass-bg);
+  background-image: var(--niwa-glass-reflection);
+  background-clip: padding-box;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: var(--niwa-glass-border);
+  box-shadow: var(--niwa-glass-shadow);
+  filter: none !important;
+}
+
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__header,.niwa-center__header) {
+  border-bottom-color: var(--niwa-color-border-subtle);
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__pill,.niwa-center__pill) {
+  border-top-color: var(--niwa-color-border-subtle);
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__textarea,.niwa-center__textarea,.niwa-morph__label,.niwa-center__label),
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__textarea,.niwa-center__textarea)::placeholder {
+  color: var(--niwa-color-text-primary) !important;
+  -webkit-text-fill-color: var(--niwa-color-text-primary) !important;
+  caret-color: var(--niwa-color-text-primary);
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__close,.niwa-center__close) {
+  color: var(--niwa-color-text-secondary);
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__send,.niwa-center__send) {
+  background: var(--niwa-product-primary-bg) !important;
+  color: var(--niwa-product-primary-text) !important;
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-morph__send--disabled,.niwa-center__send--disabled) {
+  background: var(--niwa-product-control-bg) !important;
+  color: var(--niwa-color-text-secondary) !important;
+}
+.niwa-widget[data-niwa-theme^="static-"] :is(.niwa-product-focus__action--primary,.niwa-product-focus__action.is-added,.niwa-lf-card__continue,.niwa-scheduler__primary) {
+  background: var(--niwa-product-primary-bg) !important;
+  color: var(--niwa-product-primary-text) !important;
+}
+.niwa-widget[data-niwa-theme="static-white"] .niwa-morph__wordmark {
+  filter: invert(1);
+  opacity: .35;
+}
+.niwa-widget[data-niwa-theme="static-white"] .niwa-product-focus__favorite {
+  color: var(--niwa-product-text) !important;
+}
+
+.niwa-widget[data-niwa-theme="static-light-blue"] :is(.niwa-morph,.niwa-center)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: url('../img/niwa-grain.png') repeat;
+  background-size: 128px 128px;
+  opacity: .04;
+  pointer-events: none;
+}
+.niwa-widget[data-niwa-theme="static-light-blue"] :is(.niwa-morph__chat,.niwa-center__chat,.niwa-morph__pill,.niwa-center__pill) {
+  position: relative;
+  z-index: 1;
+}
+
+.niwa-attention-bubble[data-niwa-theme^="static-"] {
+  background: var(--niwa-glass-bg);
+  background-image: var(--niwa-glass-reflection);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: var(--niwa-glass-border);
+  color: var(--niwa-color-text-primary);
+}
+.niwa-attention-bubble[data-niwa-theme^="static-"] :is(.niwa-bubble-title,.niwa-bubble-text) {
+  color: var(--niwa-color-text-primary);
+}
+.niwa-attention-bubble[data-niwa-theme^="static-"] .niwa-bubble-close {
+  color: var(--niwa-color-text-secondary);
+  background: var(--niwa-product-control-bg);
+}
+.niwa-attention-bubble[data-niwa-theme^="static-"] .niwa-bubble-action-btn {
+  background: var(--niwa-product-primary-bg);
+  color: var(--niwa-product-primary-text);
+  border-color: var(--niwa-color-border-default);
+}

@@ -1,0 +1,76 @@
+/* ==========================================================================
+   Niwa Chatbot – Dark Theme
+   ---------------------------------------------------------------------------
+   Deep charcoal palette with a subtle midnight-blue undertone.
+   Applied when:  data-niwa-theme="dark"  on .niwa-widget
+
+   NOTE: Primary green is BRIGHTER in dark mode for sufficient contrast
+   against dark backgrounds (WCAG AA 4.5:1 minimum).
+   ========================================================================== */
+
+.niwa-widget[data-niwa-theme="dark"] {
+  /* Brand – brighter green for dark bg contrast */
+  --niwa-color-primary:             #4A9D6E;
+  --niwa-color-primary-active:      #3D8A5E;
+  --niwa-color-primary-subtle:      #1A2F22;
+  --niwa-color-accent:              #E4B863;
+  --niwa-color-accent-hover:        #F0C873;
+
+  /* Surfaces – dark with subtle blue undertone */
+  --niwa-color-surface-base:        #111318;
+  --niwa-color-surface-raised:      #1A1D24;
+  --niwa-color-surface-overlay:     rgba(255, 255, 255, 0.06);
+  --niwa-color-surface-sunken:      #0D0F13;
+
+  /* Text – warm whites for comfort */
+  --niwa-color-text-primary:        #E8E6E1;
+  --niwa-color-text-secondary:      #9CA3AF;
+  --niwa-color-text-tertiary:       #6B7280;
+  --niwa-color-text-inverse:        #111318;
+  --niwa-color-text-link:           #5AB87E;
+
+  /* Borders */
+  --niwa-color-border-default:      #2A2D35;
+  --niwa-color-border-subtle:       #1F2229;
+  --niwa-color-border-focus:        #4A9D6E;
+
+  /* Message Bubbles */
+  --niwa-color-bubble-bot:          var(--niwa-product-panel-bg);
+  --niwa-color-bubble-bot-text:     #D1D5DB;
+  --niwa-color-bubble-user:         var(--niwa-product-panel-bg);
+  --niwa-color-bubble-user-text:    #FFFFFF;
+  --niwa-color-message-time:        #6B7280;
+
+  /* In-chat products */
+  --niwa-product-related-heart-bg: rgba(128, 130, 128, 0.72);
+  --niwa-product-option-border:    rgba(255, 255, 255, 0.22);
+  --niwa-product-option-text:      var(--niwa-product-muted);
+  --niwa-product-option-active-bg: var(--niwa-product-control-bg);
+  --niwa-product-panel-bg:          rgba(255, 255, 255, 0.08);
+  --niwa-product-control-bg:        rgba(255, 255, 255, 0.11);
+  --niwa-product-control-active:    rgba(255, 255, 255, 0.11);
+  --niwa-product-chip-bg:           rgba(255, 255, 255, 0.085);
+  --niwa-product-chip-active-bg:    rgba(255, 255, 255, 0.14);
+  --niwa-product-action-bg:         rgba(255, 255, 255, 0.085);
+  --niwa-product-close-bg:          rgba(255, 255, 255, 0.11);
+  --niwa-product-text:              #FFFFFF;
+  --niwa-product-muted:             rgba(255, 255, 255, 0.78);
+  --niwa-product-selected-border:   #FFFFFF;
+
+  /* Shadows – deeper, with colored tint */
+  --niwa-shadow-sm:     0 1px 3px rgba(0, 0, 0, 0.3);
+  --niwa-shadow-md:     0 4px 12px rgba(0, 0, 0, 0.4);
+  --niwa-shadow-lg:     0 8px 30px rgba(0, 0, 0, 0.5);
+  --niwa-shadow-xl:     0 12px 40px rgba(0, 0, 0, 0.6);
+
+  /* Glass morphism - dark */
+  --niwa-glass-bg:      rgba(5, 10, 20, 0.6);
+  --niwa-glass-blur:    blur(24px) saturate(0.6);
+  --niwa-glass-border:  1px solid rgba(255, 255, 255, 0.08);
+  --niwa-glass-shadow:  0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+/* Keep chat-feed avatars neutral instead of inheriting the dark green brand tint. */
+.niwa-widget[data-niwa-theme="dark"] :is(.niwa-message__avatar, .niwa-typing__avatar) {
+  background: rgba(255, 255, 255, 0.12);
+}

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>LocalFlow · Niwa design preview</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="niwa/css/niwa-tokens.css">
+  <link rel="stylesheet" href="niwa/css/niwa-theme-dark.css">
+  <link rel="stylesheet" href="niwa/css/niwa-theme-light.css">
+  <link rel="stylesheet" href="niwa/css/niwa-theme-static.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-backdrop="slate">
+  <div class="wallpaper" aria-hidden="true"><div class="ribbon ribbon-a"></div><div class="ribbon ribbon-b"></div></div>
+  <div class="preview-wrap">
+    <header class="preview-toolbar">
+      <a class="preview-brand" href="#transcribe"><span class="tiny-orb"></span> LocalFlow <span>/ Niwa edition</span></a>
+      <div class="theme-picker" role="group" aria-label="Appearance">
+        <button data-theme="dark" aria-pressed="true"><i class="swatch swatch-dark"></i>Dark glass</button>
+        <button data-theme="light" aria-pressed="false"><i class="swatch swatch-light"></i>Light glass</button>
+        <button data-theme="static-black" aria-pressed="false"><i class="swatch swatch-black"></i>Pure black</button>
+        <button data-theme="static-white" aria-pressed="false"><i class="swatch swatch-white"></i>Pure white</button>
+      </div>
+      <button class="backdrop-button" id="backdrop-button" title="Change the background behind the window"><span data-icon="landscape"></span><span>Backdrop</span></button>
+    </header>
+
+    <div class="app niwa-widget" data-niwa-theme="dark">
+      <aside class="sidebar">
+        <a class="wordmark" href="#transcribe" aria-label="LocalFlow home"><span class="flow-mark" data-icon="flow"></span>localflow<span class="wordmark-dot">.</span></a>
+        <div class="workspace-label">Your workspace</div>
+        <nav aria-label="Main navigation">
+          <a href="#transcribe" class="nav-item" data-nav="transcribe" aria-current="page"><span data-icon="wave"></span><span>Transcribe</span><kbd>1</kbd></a>
+          <a href="#notes" class="nav-item" data-nav="notes"><span data-icon="note"></span><span>Notes</span><span class="nav-count" id="note-count">3</span></a>
+          <a href="#hermes" class="nav-item" data-nav="hermes"><span data-icon="chat"></span><span>Hermes</span></a>
+          <a href="#history" class="nav-item" data-nav="history"><span data-icon="history"></span><span>History</span></a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="local-status"><span class="status-dot"></span><div>On your device<small>Private by default</small></div><span data-icon="shield"></span></div>
+          <a href="#settings" class="nav-item" data-nav="settings"><span data-icon="settings"></span><span>Settings</span></a>
+          <div class="profile-row"><span class="avatar">A</span><div>Aleksandar<small>Personal workspace</small></div><span class="preview-tag">Preview</span></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="app-header"><div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-divider">/</span><strong id="page-title">Transcribe</strong></div><span class="private-label"><span data-icon="lock"></span>Local workspace</span></header>
+
+        <section class="page" data-panel="transcribe" aria-labelledby="transcribe-title">
+          <div class="page-heading"><div><h1 id="transcribe-title">A little less typing.</h1><p>Your voice, with room to think.</p></div><button class="pill" id="new-session"><span data-icon="plus"></span>New session</button></div>
+          <div class="transcript-toolbar"><span class="session-name"><span data-icon="wave"></span><span id="session-name">A thought worth keeping</span><span class="sample-label">Sample</span></span><div class="select-wrap"><span data-icon="globe"></span><select aria-label="Transcription language" id="language"><option>Auto detect</option><option>Serbian</option><option>English</option></select><span data-icon="chevron"></span></div></div>
+          <div class="transcript-grid">
+            <article class="surface transcript-card">
+              <header class="card-heading"><h2>Original transcript</h2><div class="icon-actions"><button class="icon-button" data-copy="raw-text" aria-label="Copy original transcript" title="Copy original"><span data-icon="copy"></span></button><button class="icon-button" data-download="raw-text" aria-label="Download original transcript" title="Download original"><span data-icon="download"></span></button></div></header>
+              <textarea id="raw-text" aria-label="Original transcript" spellcheck="false">Let's keep the interface quiet. The words should have the most space, and everything I need should be one click away.
+
+I want to speak, collect a thought, and get back to what I was doing. No extra steps. Just a little more flow.</textarea>
+              <footer class="card-footer"><span id="word-count">47 words</span><span>Editable transcript</span></footer>
+            </article>
+            <article class="surface transcript-card cleanup-card">
+              <header class="card-heading"><h2><span data-icon="sparkles"></span>Refined text</h2><div class="select-wrap small"><select id="cleanup" aria-label="Cleanup level"><option value="none">Cleanup off</option><option value="light" selected>Light cleanup</option><option value="medium">Medium cleanup</option><option value="high">High cleanup</option></select><span data-icon="chevron"></span></div></header>
+              <textarea id="clean-text" aria-label="Refined transcript" spellcheck="false">Keep the interface quiet. Give the words the most space, and keep everything I need one click away.
+
+I want to speak, capture a thought, and return to what I was doing. No extra steps. Just a little more flow.</textarea>
+              <div class="cleanup-empty" id="cleanup-empty" hidden><span data-icon="sparkles"></span><h3>Your words, untouched.</h3><p id="cleanup-explanation">Turn on cleanup to preview the refined version.</p></div>
+              <footer class="card-footer"><span id="cleanup-caption">Meaning preserved</span><button class="text-button" data-copy="clean-text"><span data-icon="copy"></span>Copy text</button></footer>
+            </article>
+          </div>
+          <div class="recording-dock">
+            <div class="recording-info"><span class="microphone-badge" data-icon="mic"></span><div><strong id="recording-status">Ready when you are</strong><span id="recording-hint">Hold <kbd>Ctrl</kbd> + <kbd>Shift</kbd> to speak</span></div></div>
+            <div class="waveform" id="waveform" aria-hidden="true"></div>
+            <div class="recording-action"><time id="recording-time">00:00</time><button class="pill primary record-button" id="record-button"><span data-icon="mic"></span><span id="record-button-label">Record</span></button></div>
+          </div>
+          <div class="under-dock"><span><span class="status-dot"></span><span id="model-status">Whisper large-v3</span><span class="detail-separator">/</span>On-device transcription</span><button class="text-button" id="save-note"><span data-icon="note"></span>Save to notes</button></div>
+          <div class="section-divider"></div>
+          <div class="recent-heading"><h2>Pick up a thought</h2><a href="#history" class="text-link">View history<span data-icon="arrow-right"></span></a></div>
+          <div class="recent-grid"><button class="surface recent-card" data-history="0"><span class="file-symbol" data-icon="wave"></span><div><strong>Ideas for the new workspace</strong><small>Today, 10:42 <span>00:28</span></small></div><span data-icon="arrow-up-right"></span></button><button class="surface recent-card" data-history="1"><span class="file-symbol" data-icon="wave"></span><div><strong>A note before the next call</strong><small>Today, 09:16 <span>01:12</span></small></div><span data-icon="arrow-up-right"></span></button></div>
+        </section>
+
+        <section class="page" data-panel="notes" aria-labelledby="notes-title" hidden>
+          <div class="page-heading"><div><h1 id="notes-title">Keep the good thoughts.</h1><p>A small place for things you don't want to lose.</p></div><button class="pill primary" id="new-note"><span data-icon="plus"></span>New note</button></div>
+          <div class="notes-layout"><div class="note-list" id="note-list"></div><article class="surface note-editor"><div class="card-heading"><span class="sample-label">Preview notebook</span><button class="icon-button" id="delete-note" aria-label="Delete selected note"><span data-icon="trash"></span></button></div><input id="note-title" aria-label="Note title" value="Ideas for the new workspace"><textarea id="note-body" aria-label="Note content"></textarea><footer class="card-footer"><span id="note-save-status">Changes stay in this preview</span><button class="pill" id="save-note-editor"><span data-icon="check"></span>Save note</button></footer></article></div>
+        </section>
+
+        <section class="page" data-panel="hermes" aria-labelledby="hermes-title" hidden>
+          <div class="page-heading"><div><h1 id="hermes-title">A thought, continued.</h1><p>Give your words somewhere to go.</p></div><span class="pill status-pill"><span class="tiny-orb"></span>Hermes<span class="sample-label">Demo</span></span></div>
+          <div class="chat-feed" id="chat-feed" aria-live="polite" aria-label="Preview conversation"><div class="chat-timestamp">Sample conversation</div><div class="chat-message user-message"><p>Can you turn my workspace idea into a short checklist?</p></div><div class="chat-message assistant-message"><div class="assistant-name"><span class="tiny-orb"></span>Hermes</div><p>Here's a simple starting point. Keep the writing area open, bring the controls closer, and give every action a clear place.</p><div class="surface attachment-card"><span class="attachment-icon" data-icon="note"></span><div><strong>A quieter workspace</strong><small>3 things to keep in mind</small></div><button class="icon-button" id="copy-checklist" aria-label="Copy checklist"><span data-icon="copy"></span></button><ul><li>Keep the transcript in focus.</li><li>Use one clear recording control.</li><li>Make the next step easy to find.</li></ul></div><span class="chat-caption">Preview response</span></div></div>
+          <form id="chat-form" class="chat-composer"><label class="sr-only" for="chat-input">Message Hermes</label><textarea id="chat-input" rows="1" placeholder="Continue the thought…"></textarea><button class="icon-button primary" type="submit" aria-label="Send preview message"><span data-icon="arrow-up"></span></button></form><p class="composer-hint">A visual conversation demo. No messages are sent to Hermes.</p>
+        </section>
+
+        <section class="page" data-panel="history" aria-labelledby="history-title" hidden>
+          <div class="page-heading"><div><h1 id="history-title">Nothing gets lost.</h1><p>Your recent sessions, ready to return to.</p></div><span class="sample-label">Sample history</span></div><div class="surface history-list" id="history-list"></div>
+        </section>
+
+        <section class="page settings-page" data-panel="settings" aria-labelledby="settings-title" hidden>
+          <div class="page-heading"><div><h1 id="settings-title">Make room for your way.</h1><p>The same workspace, in a different light.</p></div></div>
+          <h2 class="settings-label">Appearance</h2><div class="appearance-grid" role="group" aria-label="Choose a theme">
+            <button class="appearance-card" data-theme="dark" aria-pressed="true"><span class="mini-app mini-dark"><i></i><span><b></b><b></b><em></em></span></span><strong>Dark glass</strong><small>Depth, with a little atmosphere</small><span class="selection-check" data-icon="check"></span></button>
+            <button class="appearance-card" data-theme="light" aria-pressed="false"><span class="mini-app mini-light"><i></i><span><b></b><b></b><em></em></span></span><strong>Light glass</strong><small>Soft surfaces, visible surroundings</small><span class="selection-check" data-icon="check"></span></button>
+            <button class="appearance-card" data-theme="static-black" aria-pressed="false"><span class="mini-app mini-black"><i></i><span><b></b><b></b><em></em></span></span><strong>Pure black</strong><small>Solid black. No transparency.</small><span class="selection-check" data-icon="check"></span></button>
+            <button class="appearance-card" data-theme="static-white" aria-pressed="false"><span class="mini-app mini-white"><i></i><span><b></b><b></b><em></em></span></span><strong>Pure white</strong><small>Solid white. No transparency.</small><span class="selection-check" data-icon="check"></span></button>
+          </div>
+          <h2 class="settings-label">Your workflow</h2><div class="surface settings-rows"><div class="setting-row"><span class="setting-icon" data-icon="wave"></span><div><strong>Transcription model</strong><small>Choose how the model selector feels.</small></div><div class="select-wrap"><select id="model" aria-label="Transcription model"><option>Whisper large-v3</option><option>Whisper large-v3-turbo</option><option>Parakeet V3</option><option>Canary 1B V2</option></select><span data-icon="chevron"></span></div></div><div class="setting-row"><span class="setting-icon" data-icon="keyboard"></span><div><strong>Hold to speak</strong><small>Release the shortcut to finish your thought.</small></div><button class="toggle" id="hold-toggle" role="switch" aria-checked="true" aria-label="Hold to speak"><span></span></button></div><div class="setting-row"><span class="setting-icon" data-icon="sparkles"></span><div><strong>Text cleanup</strong><small>Preview a lightly edited version.</small></div><button class="toggle" id="cleanup-toggle" role="switch" aria-checked="true" aria-label="Text cleanup"><span></span></button></div></div>
+          <p class="settings-note"><span data-icon="info"></span>These settings belong to this design preview. Your LocalFlow app settings stay as they are.</p>
+        </section>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </main>
+    </div>
+    <footer class="preview-footer"><span>Niwa frontend materials. LocalFlow workspace.</span><span>Experimental v0.1.0<span class="detail-separator">/</span>Sample content · no microphone or AI connection</span></footer>
+  </div>
+  <script src="prototype.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+function run(argv) {
+  const params = JSON.parse(argv[0]);
+  const events = Application("System Events");
+  if (params.action === "inspect") {
+    const processes = events.applicationProcesses.whose({ backgroundOnly: false })();
+    return JSON.stringify(processes.map(function (process) {
+      const windows = process.windows();
+      return { name: process.name(), pid: process.unixId(), windows: windows.map(function (window) {
+        return { name: window.name(), position: window.position(), size: window.size(), controls: window.uiElements().slice(0, 100).map(function (control) {
+          return { role: control.role(), description: control.description(), position: control.position(), size: control.size() };
+        }) };
+      }) };
+    }));
+  }
+  if (params.action === "type") events.keystroke(params.text);
+  else if (params.action === "click") {
+    if (!Number.isInteger(params.x) || !Number.isInteger(params.y)) throw new Error("Coordinates are required.");
+    events.click({ at: [params.x, params.y] });
+  } else if (params.action === "key") {
+    const keys = { enter: 36, escape: 53, tab: 48, backspace: 51 };
+    const commands = { copy: "c", paste: "v", select_all: "a" };
+    if (Object.prototype.hasOwnProperty.call(keys, params.key)) events.keyCode(keys[params.key]);
+    else if (commands[params.key]) events.keystroke(commands[params.key], { using: "command down" });
+    else throw new Error("Unsupported key.");
+  } else throw new Error("Unsupported computer action.");
+  return JSON.stringify({ ok: true });
+}

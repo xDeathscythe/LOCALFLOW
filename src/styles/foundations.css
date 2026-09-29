@@ -1,0 +1,94 @@
+:root {
+  font-family: var(--niwa-font-family);
+  color: var(--color-text);
+  background: transparent;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  min-width: 760px;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--app-background-color);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+button,
+textarea,
+input {
+  transition: background var(--niwa-transition-fast), border-color var(--niwa-transition-fast), color var(--niwa-transition-fast), box-shadow var(--niwa-transition-fast), transform var(--niwa-transition-fast), opacity var(--niwa-transition-fast);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--niwa-color-border-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+::selection {
+  background: var(--niwa-color-primary-subtle);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--niwa-color-border-default);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--niwa-color-border-focus);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}

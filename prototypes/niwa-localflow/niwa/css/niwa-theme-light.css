@@ -1,0 +1,89 @@
+/* ==========================================================================
+   Niwa Chatbot – Light Theme
+   ---------------------------------------------------------------------------
+   Frosted light grey surface with grey bubbles and white product copy.
+   Applied when:  data-niwa-theme="light"  on .niwa-widget
+   ========================================================================== */
+
+.niwa-widget[data-niwa-theme="light"] {
+  /* Brand */
+  --niwa-color-primary:             #2D5A3D;
+  --niwa-color-primary-active:      #1B4227;
+  --niwa-color-primary-subtle:      #E8F0EB;
+  --niwa-color-accent:              #D4A853;
+  --niwa-color-accent-hover:        #C49A45;
+
+  /* Surfaces */
+  --niwa-color-surface-base:        #F8F7F4;
+  --niwa-color-surface-raised:      #FFFFFF;
+  --niwa-color-surface-overlay:     rgba(0, 0, 0, 0.06);
+  --niwa-color-surface-sunken:      #F0EDE6;
+
+  /* Text */
+  --niwa-color-text-primary:        #1A1A1A;
+  --niwa-color-text-secondary:      #6B7280;
+  --niwa-color-text-tertiary:       #9CA3AF;
+  --niwa-color-text-inverse:        #FFFFFF;
+  --niwa-color-text-link:           #2D5A3D;
+
+  /* Borders */
+  --niwa-color-border-default:      #E5E7EB;
+  --niwa-color-border-subtle:       #F0F0F0;
+  --niwa-color-border-focus:        #2D5A3D;
+
+  /* Message bubbles share the product card's translucent surface. */
+  --niwa-color-bubble-bot:          var(--niwa-product-panel-bg);
+  --niwa-color-bubble-bot-text:     #FFFFFF;
+  --niwa-color-bubble-user:         var(--niwa-product-panel-bg);
+  --niwa-color-bubble-user-text:    #FFFFFF;
+  --niwa-color-message-time:        rgba(66, 68, 65, 0.28);
+
+  /* In-chat products */
+  --niwa-product-primary-text:     #404040;
+  --niwa-product-related-heart-bg: rgba(0, 0, 0, 0.12);
+  --niwa-product-option-border:    rgba(255, 255, 255, 0.24);
+  --niwa-product-option-text:      #FFFFFF;
+  --niwa-product-panel-bg:          rgba(66, 68, 65, 0.28);
+  --niwa-product-control-bg:        rgba(255, 255, 255, 0.22);
+  --niwa-product-control-active:    rgba(255, 255, 255, 0.22);
+  --niwa-product-chip-bg:           rgba(66, 68, 65, 0.26);
+  --niwa-product-chip-active-bg:    rgba(66, 68, 65, 0.36);
+  --niwa-product-action-bg:         rgba(255, 255, 255, 0.22);
+  --niwa-product-close-bg:          rgba(255, 255, 255, 0.22);
+  --niwa-product-text:              #FFFFFF;
+  --niwa-product-muted:             #FFFFFF;
+  --niwa-product-selected-border:   #FFFFFF;
+
+  /* Shadows */
+  --niwa-shadow-sm:     0 1px 3px rgba(0, 0, 0, 0.08);
+  --niwa-shadow-md:     0 4px 12px rgba(0, 0, 0, 0.1);
+  --niwa-shadow-lg:     0 8px 30px rgba(0, 0, 0, 0.12);
+  --niwa-shadow-xl:     0 12px 40px rgba(0, 0, 0, 0.18);
+
+  /* Thin frosted glass: keep the page colors visible through the surface. */
+  --niwa-glass-bg:      rgba(232, 233, 236, 0.16);
+  --niwa-glass-blur:    blur(12px) saturate(1);
+  --niwa-glass-border:  1px solid rgba(255, 255, 255, 0.52);
+  --niwa-glass-shadow:  0 12px 36px rgba(33, 40, 36, 0.08), 0 1px 0 rgba(255, 255, 255, 0.50) inset;
+}
+
+/* Keep input copy legible on the approved light frosted surface. */
+.niwa-widget[data-niwa-theme="light"] :is(.niwa-morph__textarea, .niwa-center__textarea, .niwa-morph__label, .niwa-center__label),
+.niwa-widget[data-niwa-theme="light"] :is(.niwa-morph__textarea, .niwa-center__textarea)::placeholder {
+  color: #626262 !important;
+  -webkit-text-fill-color: #626262 !important;
+  caret-color: #626262;
+  opacity: 1;
+}
+
+.niwa-widget[data-niwa-theme="light"] :is(.niwa-morph__close, .niwa-center__close) {
+  color: rgba(0, 0, 0, 0.35) !important;
+}
+
+.niwa-widget--frontend-shell[data-niwa-theme="light"] .niwa-welcome__text {
+  color: rgba(0, 0, 0, 0.35) !important;
+}
+
+.niwa-widget[data-niwa-theme="light"] :is(.niwa-product-focus__copy, .niwa-product-panel__text, .niwa-product-panel__header, .niwa-product-focus__chip, .niwa-product-focus__action:not(.niwa-product-focus__action--primary)) {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}

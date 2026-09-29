@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { createNiwaAgent } from '../electron/niwa-agent.mjs';
+import { createNiwaMemory } from '../electron/niwa/host/niwa-memory.mjs';
+import { createNiwaHistory } from '../electron/niwa/host/niwa-history.mjs';
+import { workspacePath } from '../electron/niwa/host/niwa-tools.mjs';
+import shortcuts from '../electron/shortcuts.cjs';
+mkdirSync('runtime/niwa-tests', { recursive: true });
+const directory = mkdtempSync(resolve('runtime/niwa-tests/run-'));
+const memory = createNiwaMemory(directory);
+memory.capture({ category: 'user_preference', fact: '日本語で話してください', source: 'test' });
+assert.equal(createNiwaMemory(directory).review().active_facts, 1);
+const history = createNiwaHistory(directory);
+history.sync({ id: 'test', projectId: 'test', transcript: [{ role: 'user', content: '你好，世界', timestamp: Date.now() }] });
+assert.equal(history.search({ query: '你好' }).length, 1);
+assert.throws(() => workspacePath(directory, '../outside.txt', true), /outside/);
+history.close();
+const agent = createNiwaAgent({ directory, appRoot: resolve('.'), binary: () => '', notify: () => {}, speak: async () => {} });
+try {
+  assert.equal(agent.snapshot().settings.voiceMode, 'realtime');
+  assert.equal(agent.snapshot().settings.effort, 'medium');
+  assert.equal(agent.snapshot().settings.voice, 'juniper');
+  assert.equal(agent.snapshot().voices.length, 9);
+  await assert.rejects(agent.configure({ voice: 'shimmer' }), /supported Live1/);
+  await agent.configure({ voice: 'maple' });
+  assert.equal(JSON.parse(readFileSync(join(directory, 'niwa/settings.json'))).voice, 'maple');
+  await assert.rejects(agent.configure({ access: 'invalid' }), /Invalid/);
+  await assert.rejects(agent.configure({ voiceMode: 'invalid' }), /Invalid/);
+  await assert.rejects(agent.saveConnector({ id: '__proto__' }), /Invalid/);
+  await assert.rejects(agent.saveConnector({ id: 'bad', url: 'file:///secret' }), /Invalid/);
+  assert.equal((await agent.saveConnector({ id: 'test', command: 'node', args: [], enabled: false }))[0].enabled, false);
+  await agent.configure({ voiceMode: 'local' });
+  assert.equal(JSON.parse(readFileSync(join(directory, 'niwa/settings.json'))).voiceMode, 'local');
+  assert.equal(shortcuts.readShortcuts(directory)['niwa-agent'].label, 'Ctrl + Caps Lock');
+  assert.throws(() => shortcuts.saveShortcut(directory, 'niwa-agent', { keys: [0x11, 0x10], label: 'Ctrl + Shift' }), /already assigned/);
+} finally { await agent.close(); }
+console.log('NIWA_ISOLATION_PERSISTENCE_VALIDATION_OK');

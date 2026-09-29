@@ -1,0 +1,31 @@
+/* Shared desktop shell, matching the approved Niwa preview. */
+.appShell { position: relative; display: grid; grid-template-columns: 208px minmax(0,1fr); width: 100%; height: 100vh; overflow: hidden; border: var(--niwa-window-border); border-radius: 0; background: var(--niwa-window-bg); }
+.windowDragRegion { position: fixed; z-index: 100; top: 0; left: 0; right: 138px; height: 30px; -webkit-app-region: drag; }
+.sidebar { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 30px 17px 18px; border-right: 1px solid var(--color-border); }
+.brand { display: flex; align-items: center; gap: 7px; padding: 0 7px; margin-bottom: 49px; }
+.brandLogo { width: 28px; height: 28px; flex-shrink: 0; object-fit: contain; border-radius: 50%; }
+.brand strong { font-size: 25px; letter-spacing: -1.6px; font-weight: 600; }
+.workspaceLabel { font-size: 10px; color: var(--color-text-soft); padding: 0 13px; margin-bottom: 11px; }
+.navList, .secondaryNav { display: flex; flex-direction: column; gap: 5px; }
+.navList { min-height: 0; overflow: auto; }
+.navItem { display: flex; align-items: center; gap: 12px; min-height: 43px; width: 100%; padding: 11px 13px; border-radius: 999px; background: transparent; color: var(--color-text-soft); font-size: 12px; font-weight: 400; text-align: left; }
+.navItem svg { width: 17px; height: 17px; flex-shrink: 0; stroke-width: 1.5; }
+.navItem:hover, .navItem.active { background: var(--niwa-control-bg); color: var(--color-text); }
+.navItem.active { font-weight: 600; }
+.sidebarBottom { margin-top: auto; padding-top: 20px; }
+.engineStatus { display: flex; align-items: center; gap: 9px; padding: 12px 10px 18px; font-size: 11px; }
+.engineStatus strong { display: block; font-weight: 500; }
+.engineStatus small { display: block; color: var(--color-text-soft); font-size: 10px; margin-top: 4px; }
+.engineStatus > svg { margin-left: auto; color: var(--color-text-soft); }
+.statusDot, .onlineDot { width: 5px; height: 5px; border-radius: 50%; background: var(--niwa-color-success); display: inline-block; flex-shrink: 0; }
+.workspaceIdentity { display: flex; align-items: center; gap: 9px; padding-top: 20px; margin: 14px 5px 0; border-top: 1px solid var(--color-border); font-size: 10px; }
+.workspaceIdentity > span { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; background: var(--niwa-control-bg); font-size: 10px; }
+.workspaceIdentity small { display: block; margin-top: 4px; color: var(--color-text-soft); font-size: 8px; }
+.workspace { display: grid; grid-template-rows: 69px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }
+.workspaceHeader { height: 69px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 33px; border-bottom: 1px solid var(--color-border); font-size: 10px; }
+.workspaceHeader > div, .workspaceHeader > span { display: flex; gap: 13px; align-items: center; color: var(--color-text-soft); }
+.workspaceHeader strong { font-weight: 500; color: var(--color-text); }
+.workspaceHeader i { font-style: normal; opacity: .45; }
+.workspaceHeader > span { gap: 7px; padding-right: 118px; }
+/* The existing notes/folders picker remains structurally and visually intact. */
+.notesPage { display: grid; grid-template-columns: 296px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }

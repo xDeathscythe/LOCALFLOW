@@ -9,8 +9,9 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-import requests
-from faster_whisper import WhisperModel
+from codex_cleanup import clean_transcript
+from host_cleanup import clean_with_host, next_command
+from onnx_stt import is_onnx_stt_model, load_model as load_onnx_stt_model, model_cache_root, model_label, transcribe as transcribe_onnx
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -19,21 +20,21 @@ if hasattr(sys.stderr, "reconfigure"):
 
 DEFAULT_WHISPER_MODEL = "large-v3-turbo"
 DEFAULT_LANGUAGE = "sr"
-DEFAULT_OUTPUT_LANGUAGE = "Serbian Latin"
-DEFAULT_OLLAMA_MODEL = "qwen3:8b"
-DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
-DEFAULT_WHISPER_DOWNLOAD_ROOT = "X:\\stt-models"
-ASR_EXAMPLES_BY_LANGUAGE = {
-    "sr": [
-        ("Kako je dano slabedan?", "Kako je danas lep dan?"),
-        ("Kako je dano lepdan?", "Kako je danas lep dan?"),
-        ("Ja sam danas isao use prodavnicu.", "Ja sam danas isao u prodavnicu."),
-    ],
+DEFAULT_CLEANUP_MODEL = "gpt-5.6-terra"
+DEFAULT_CLEANUP_REASONING_EFFORT = "medium"
+DEFAULT_CLEANUP_TIMEOUT = 180
+DEFAULT_WHISPER_DOWNLOAD_ROOT = str(Path(__file__).resolve().parents[1] / "models" / "whisper")
+ALLOWED_LANGUAGES = {"sr", "en", "auto"}
+LANGUAGE_OUTPUTS = {"sr": "Serbian Latin", "en": "English"}
+WHISPER_INITIAL_PROMPTS = {
+    "sr": "Ovo je srpski govor na srpskoj latinici. Transkribuj samo srpski jezik latinicom.",
+    "en": "This is natural English speech. Transcribe it in English without translating it.",
 }
 
 _whisper_model: WhisperModel | None = None
 _whisper_model_key: tuple[str, str, str, str] | None = None
+_onnx_stt_model: Any = None
+_onnx_stt_model_name: str | None = None
 _recent_context_sentences: list[str] = []
 
 CYRILLIC_TO_SERBIAN_LATIN = str.maketrans(
@@ -133,6 +134,22 @@ def to_serbian_latin(text: str) -> str:
     return text.translate(CYRILLIC_TO_SERBIAN_LATIN)
 
 
+def configured_language() -> str:
+    language = env("LOCALFLOW_WHISPER_LANGUAGE", DEFAULT_LANGUAGE).lower()
+    return language if language in ALLOWED_LANGUAGES else DEFAULT_LANGUAGE
+
+
+def output_language_for(configured: str, detected: str | None = None) -> str:
+    if configured == "auto" and not detected:
+        return "Original language"
+    language = detected if configured == "auto" else configured
+    return LANGUAGE_OUTPUTS.get(language or "", f"the detected original language ({language or 'auto'})")
+
+
+def normalize_transcript_text(text: str, configured: str, detected: str | None = None) -> str:
+    return to_serbian_latin(text) if configured == "sr" or (configured == "auto" and detected == "sr") else text
+
+
 def resolve_device() -> str:
     configured = env("LOCALFLOW_WHISPER_DEVICE", "cuda")
     if configured == "auto":
@@ -149,6 +166,11 @@ def resolve_compute_type() -> str:
 
 def resolve_whisper_download_root() -> str:
     return env("LOCALFLOW_WHISPER_DOWNLOAD_ROOT", DEFAULT_WHISPER_DOWNLOAD_ROOT)
+
+
+def resolve_whisper_model_source(model_name: str, download_root: str) -> str:
+    bundled_model = Path(download_root) / model_name
+    return str(bundled_model) if (bundled_model / "model.bin").is_file() else model_name
 
 
 def load_whisper_model(request_id: str) -> WhisperModel:
@@ -172,7 +194,10 @@ def load_whisper_model(request_id: str) -> WhisperModel:
         }
     )
     started = perf_counter()
-    _whisper_model = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=download_root)
+    from faster_whisper import WhisperModel
+
+    model_source = resolve_whisper_model_source(model_name, download_root)
+    _whisper_model = WhisperModel(model_source, device=device, compute_type=compute_type, download_root=download_root)
     _whisper_model_key = key
     emit(
         {
@@ -185,8 +210,40 @@ def load_whisper_model(request_id: str) -> WhisperModel:
     return _whisper_model
 
 
+def load_onnx_model(request_id: str, model_name: str):
+    global _onnx_stt_model, _onnx_stt_model_name
+
+    if _onnx_stt_model is not None and _onnx_stt_model_name == model_name:
+        return _onnx_stt_model
+
+    emit(
+        {
+            "id": request_id,
+            "type": "progress",
+            "stage": "loading-stt",
+            "message": f"Loading local {model_label(model_name)} model (first use downloads its int8 weights)",
+        }
+    )
+    started = perf_counter()
+    _onnx_stt_model = load_onnx_stt_model(model_name)
+    _onnx_stt_model_name = model_name
+    emit(
+        {
+            "id": request_id,
+            "type": "progress",
+            "stage": "stt-ready",
+            "message": f"{model_label(model_name)} ready in {perf_counter() - started:.1f}s",
+        }
+    )
+    return _onnx_stt_model
+
+
 def warmup_model(request_id: str) -> None:
-    load_whisper_model(request_id)
+    model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
+    if is_onnx_stt_model(model_name):
+        load_onnx_model(request_id, model_name)
+    else:
+        load_whisper_model(request_id)
     emit({"id": request_id, "type": "result", "ok": True, "data": {"ready": True}})
 
 
@@ -195,7 +252,43 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
 
-    language = env("LOCALFLOW_WHISPER_LANGUAGE", DEFAULT_LANGUAGE)
+    language = configured_language()
+    model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
+    if is_onnx_stt_model(model_name):
+        emit(
+            {
+                "id": request_id,
+                "type": "progress",
+                "stage": "transcribing",
+                "message": f"Transcribing locally with {model_label(model_name)}",
+            }
+        )
+        started = perf_counter()
+        result = transcribe_onnx(
+            load_onnx_model(request_id, model_name),
+            model_name,
+            path,
+            language,
+            env_int("LOCALFLOW_WHISPER_VAD_SPEECH_PAD_MS", 400),
+        )
+        result["segments"] = [
+            {
+                **segment,
+                "text": normalize_transcript_text(segment["text"], language, result["language"]),
+            }
+            for segment in result["segments"]
+        ]
+        result["text"] = normalize_transcript_text(result["text"], language, result["language"])
+        emit(
+            {
+                "id": request_id,
+                "type": "progress",
+                "stage": "transcribed",
+                "message": f"{model_label(model_name)} finished in {perf_counter() - started:.1f}s",
+            }
+        )
+        return result
+
     try:
         model = load_whisper_model(request_id)
         segments, info, started = run_whisper_transcription(request_id, model, path, language)
@@ -220,18 +313,19 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
         model = load_whisper_model(request_id)
         segments, info, started = run_whisper_transcription(request_id, model, path, language)
 
+    detected_language = getattr(info, "language", language)
     raw_segments = []
     for segment in segments:
         raw_segments.append(
             {
                 "start": segment.start,
                 "end": segment.end,
-                "text": to_serbian_latin(segment.text.strip()),
+                "text": normalize_transcript_text(segment.text.strip(), language, detected_language),
             }
         )
 
     transcript = " ".join(item["text"] for item in raw_segments).strip()
-    transcript = to_serbian_latin(transcript)
+    transcript = normalize_transcript_text(transcript, language, detected_language)
     emit(
         {
             "id": request_id,
@@ -242,7 +336,7 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
     )
     return {
         "text": transcript,
-        "language": getattr(info, "language", language),
+        "language": detected_language,
         "duration": getattr(info, "duration", None),
         "segments": raw_segments,
     }
@@ -264,12 +358,9 @@ def run_whisper_transcription(request_id: str, model: WhisperModel, path: Path, 
     vad_parameters = {"speech_pad_ms": vad_speech_pad_ms} if vad_filter else None
     segments, info = model.transcribe(
         str(path),
-        language=language,
+        language=None if language == "auto" else language,
         task="transcribe",
-        initial_prompt=env(
-            "LOCALFLOW_WHISPER_INITIAL_PROMPT",
-            "Ovo je srpski govor na srpskoj latinici. Transkribuj samo srpski jezik latinicom.",
-        ),
+        initial_prompt=WHISPER_INITIAL_PROMPTS.get(language),
         vad_filter=vad_filter,
         vad_parameters=vad_parameters,
         beam_size=beam_size,
@@ -289,10 +380,6 @@ def reset_whisper_model() -> None:
 def is_cuda_runtime_missing(exc: RuntimeError) -> bool:
     message = str(exc).lower()
     return any(part in message for part in ("cublas", "cudnn", "cuda", "cufft", "cannot be loaded"))
-
-
-def language_family(language: str) -> str:
-    return language.strip().lower().replace("_", "-").split("-")[0]
 
 
 def cleanup_level(options: dict[str, Any]) -> str:
@@ -316,167 +403,75 @@ def remember_context(text: str) -> None:
     _recent_context_sentences = (_recent_context_sentences + parts)[-2:]
 
 
-def build_polish_prompt(transcript: str, options: dict[str, Any], language: str, output_language: str) -> str:
+def build_polish_prompt(transcript: str, options: dict[str, Any], language: str, output_language: str, realtime: bool = False) -> str:
     level = cleanup_level(options)
     context = recent_context_text()
     level_rules = {
-        "light": [
-            "Apply only light cleanup: punctuation, capitalization, spacing, obvious filler removal, and obvious ASR near-miss correction.",
-            "Do not rewrite style. Do not shorten meaning. Keep the user's wording unless it is clearly a transcription or filler issue.",
-        ],
-        "medium": [
-            "Apply medium cleanup: make sentences logical, natural, and slightly tighter while preserving the user's feeling, tone, and way of speaking.",
-            "You may lightly reorder words, remove repeated fragments, and fix unclear phrasing, but do not make it sound like a different person.",
-        ],
-        "high": [
-            "Apply high cleanup: infer the user's final intended meaning from the whole utterance, remove false starts and self-corrections, and make the result compact and concrete.",
-            "When the user changes their mind mid-sentence, keep the final decision only.",
-            "Example: 'danas bi trebalo, možda ipak, sutra, ne, danas, ne, ne, ajde ovako, sutra ću da odem na bazen' -> 'Sutra idem na bazen.'",
-        ],
+        "light": "Fix punctuation, capitalization, spacing, hesitation, and obvious speech-recognition errors. Preserve the user's wording and every fact.",
+        "medium": "Make the dictation natural and clear. Remove false starts, repeated fragments, hesitation, and self-corrections while preserving the user's tone.",
+        "high": "Rewrite as clean, natural, compact dictation. Remove false starts, repetition, hesitation, and self-corrections. When the speaker corrects a fact, keep only the final fact.",
     }
     rules = [
-        "You are a local dictation post-processing engine.",
-        f"The output language is {output_language}.",
-        "First decide whether the transcript is ordinary dictated text or a spoken instruction to translate text.",
-        "If it is a translation instruction, translate the dictated content and omit the instruction itself.",
-        "Translation instructions override the normal output language.",
-        "If the user asks to translate without naming a target language, use English as the target language.",
-        "If the user names a target language, use that target language.",
-        "If it is not a translation instruction, do not translate.",
-        f"For ordinary dictated text, action must be dictate and text must stay in {output_language}.",
-        "For Serbian output, use Serbian Latin only. Never output Serbian Cyrillic unless the target language is explicitly Serbian Cyrillic.",
-        "Treat hesitation sounds and filler tokens as removable noise; never expand them into real words.",
-        "Use recent context only when it clearly continues the same thought; ignore it when the current transcript starts a new topic.",
-        "Return only valid compact JSON with exactly these fields: action, target_language, text.",
+        "You edit automatic speech-recognition transcripts in whatever language they use.",
+        "Return a compact JSON metadata header with exactly action and target_language, followed by a newline and the cleaned text as plain text. Do not wrap the text in quotes or JSON." if realtime else "Return only compact JSON with exactly these fields: action, target_language, text.",
         "action must be either dictate or translate. target_language is null for dictate.",
-        "",
-        f"Cleanup level: {level}",
-        *level_rules.get(level, level_rules["light"]),
+        f"The transcript language hint is {language}. The normal output language is {output_language}.",
+        "Use action translate only when the speaker explicitly dictates a request to translate content; otherwise use dictate.",
+        "For translate, omit the spoken instruction and translate its content to the requested target language, or English when no target is specified.",
+        f"For dictate, keep the text in {output_language}. Do not translate it.",
+        f"Cleanup level {level}: {level_rules.get(level, level_rules['light'])}",
+        "This is error correction, not creative rewriting.",
+        "Silently reconstruct words that ASR split, merged, or heard phonetically.",
+        "Prefer the smallest sound-level and word-boundary changes that produce a common, grammatical, and semantically coherent phrase in context.",
+        "Do not rationalize an impossible phrase or replace it with an unrelated idea.",
+        "Use the entire transcript as evidence: when a later clause reveals the activity, use it to disambiguate an earlier phonetically corrupted phrase.",
+        "Preserve the speaker's final meaning and tone. Do not add facts.",
     ]
 
     if context:
-        rules.append("")
-        rules.append(f"Recent context: {context}")
+        rules.append(f"Recent context, only if this transcript clearly continues it: {context}")
 
-    examples = ASR_EXAMPLES_BY_LANGUAGE.get(language_family(language), [])
-    if examples:
-        rules.append("")
-        rules.append("ASR correction examples:")
-        for raw, corrected in examples:
-            rules.append(f"Whisper: {raw}")
-            rules.append(f"JSON: {json.dumps({'action': 'dictate', 'target_language': None, 'text': corrected}, ensure_ascii=False)}")
-
-    behavior_examples = [
-        (
-            "pa znači ja sam ovaj danas pričao sa Markom um i mislim da treba da krenemo sledeće nedelje",
-            {"action": "dictate", "target_language": None, "text": "Danas sam pričao sa Markom i mislim da treba da krenemo sledeće nedelje."},
-        ),
-        (
-            "translate ovo je dobar dan i želim da idem kući",
-            {"action": "translate", "target_language": "English", "text": "This is a good day and I want to go home."},
-        ),
-        (
-            "prevedi na kineski danas je lep dan",
-            {"action": "translate", "target_language": "Chinese", "text": "今天天气很好。"},
-        ),
-        (
-            "prevedi na engleski danas je lep dan",
-            {"action": "translate", "target_language": "English", "text": "Today is a beautiful day."},
-        ),
-        (
-            "danas bi trebalo možda ipak sutra ne danas ne ne ajde ovako sutra ću da odem na bazen",
-            {"action": "dictate", "target_language": None, "text": "Sutra idem na bazen."},
-        ),
-    ]
-    rules.append("")
-    rules.append("Behavior examples:")
-    for raw, parsed in behavior_examples:
-        rules.append(f"Whisper: {raw}")
-        rules.append(f"JSON: {json.dumps(parsed, ensure_ascii=False)}")
-
-    return "\n".join(rules) + f"\n\nWhisper transcript: {transcript}\nJSON:"
+    return "\n".join(rules) + f"\n\nTranscript:\n{transcript}\n\n" + ("Metadata header and cleaned text:" if realtime else "JSON:")
 
 
-def extract_json_object(text: str) -> dict[str, Any] | None:
-    stripped = text.strip()
-    candidates = [stripped]
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start >= 0 and end > start:
-        candidates.append(stripped[start : end + 1])
-    for candidate in candidates:
-        try:
-            parsed = json.loads(candidate)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    return None
+def clean_polished_text(text: str, translate: bool = False, serbian_latin: bool = False) -> str:
+    return to_serbian_latin(text).strip() if serbian_latin and not translate else text.strip()
 
 
-def clean_polished_text(text: str, translate: bool = False) -> str:
-    cleaned = text.strip() if translate else to_serbian_latin(text).strip()
-    for prefix in ("Corrected:", "Polished:", "Output:"):
-        if cleaned.lower().startswith(prefix.lower()):
-            cleaned = cleaned[len(prefix) :].strip()
-    return cleaned
-
-
-def polish_with_ollama(request_id: str, transcript: str, options: dict[str, Any]) -> str:
+def polish_transcript(request_id: str, transcript: str, options: dict[str, Any], detected_language: str) -> str:
     if not transcript.strip():
         return ""
 
     level = cleanup_level(options)
     if level == "none":
-        cleaned_transcript = to_serbian_latin(transcript)
-        remember_context(cleaned_transcript)
-        return cleaned_transcript
+        remember_context(transcript)
+        return ""
 
-    ollama_url = env("LOCALFLOW_OLLAMA_URL", DEFAULT_OLLAMA_URL).rstrip("/")
-    ollama_model = env("LOCALFLOW_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
-    ollama_keep_alive = env("LOCALFLOW_OLLAMA_KEEP_ALIVE", DEFAULT_OLLAMA_KEEP_ALIVE)
-    language = env("LOCALFLOW_WHISPER_LANGUAGE", DEFAULT_LANGUAGE)
-    output_language = env("LOCALFLOW_OUTPUT_LANGUAGE", DEFAULT_OUTPUT_LANGUAGE)
+    model = env("LOCALFLOW_CLEANUP_MODEL", DEFAULT_CLEANUP_MODEL)
+    reasoning_effort = env("LOCALFLOW_CLEANUP_REASONING_EFFORT", DEFAULT_CLEANUP_REASONING_EFFORT)
+    timeout = env_int("LOCALFLOW_CLEANUP_TIMEOUT", DEFAULT_CLEANUP_TIMEOUT)
+    language = configured_language()
+    output_language = output_language_for(language, detected_language)
 
-    prompt = build_polish_prompt(transcript, options, language, output_language)
+    prompt = build_polish_prompt(transcript, options, language, output_language, realtime=model == "gpt-live-1-codex")
 
     emit(
         {
             "id": request_id,
             "type": "progress",
             "stage": "polishing",
-            "message": f"Polishing locally with Ollama model: {ollama_model}, level={level}",
+            "message": f"Polishing with Codex {model}, level={level}",
         }
     )
-    response = requests.post(
-        f"{ollama_url}/api/generate",
-        json={
-            "model": ollama_model,
-            "prompt": prompt,
-            "stream": False,
-            "think": False,
-            "keep_alive": ollama_keep_alive,
-            "options": {
-                "temperature": 0,
-                "top_p": 0.8,
-                "repeat_penalty": 1.05,
-                "num_predict": max(512, min(2048, len(transcript) // 2 + 256)),
-                "stop": ["\nWhisper:"],
-            },
-        },
-        timeout=600,
+    parsed = clean_with_host(prompt, timeout) if model == "gpt-live-1-codex" else clean_transcript(prompt, model, reasoning_effort, timeout)
+    is_translation = parsed.get("action") == "translate"
+    polished = clean_polished_text(
+        parsed["text"],
+        translate=is_translation,
+        serbian_latin=language == "sr" or (language == "auto" and detected_language == "sr"),
     )
-    response.raise_for_status()
-    data = response.json()
-    response_text = str(data.get("response", ""))
-    parsed = extract_json_object(response_text)
-    is_translation = False
-    if parsed and isinstance(parsed.get("text"), str):
-        is_translation = parsed.get("action") == "translate"
-        polished = clean_polished_text(parsed["text"], translate=is_translation)
-    else:
-        polished = clean_polished_text(response_text)
-    polished = polished or to_serbian_latin(transcript)
+    if not polished:
+        raise RuntimeError("Codex cleanup returned empty text")
     if not is_translation:
         remember_context(polished)
     return polished
@@ -502,7 +497,7 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
             },
         }
     )
-    polished = polish_with_ollama(request_id, result["text"], options)
+    polished = polish_transcript(request_id, result["text"], options, result["language"])
     emit(
         {
             "id": request_id,
@@ -519,6 +514,29 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
     )
 
 
+def configure_model(request_id: str, params: dict[str, Any]) -> None:
+    global _onnx_stt_model, _onnx_stt_model_name
+    language = params.get("language")
+    model = params.get("model")
+    if params.get("cleanupModel"):
+        os.environ["LOCALFLOW_CLEANUP_MODEL"] = params["cleanupModel"]
+    if language is not None:
+        if language not in ALLOWED_LANGUAGES:
+            raise ValueError("Unsupported transcription language")
+        os.environ["LOCALFLOW_WHISPER_LANGUAGE"] = language
+    if model is not None:
+        if model not in {"large-v3", "large-v3-turbo"} and not is_onnx_stt_model(model):
+            raise ValueError("Unsupported transcription model")
+        if model != env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL):
+            reset_whisper_model()
+            _onnx_stt_model = None
+            _onnx_stt_model_name = None
+            os.environ["LOCALFLOW_WHISPER_MODEL"] = model
+        warmup_model(request_id)
+        return
+    emit({"id": request_id, "type": "result", "ok": True, "data": {"language": configured_language()}})
+
+
 def handle_line(line: str) -> None:
     payload = json.loads(line)
     request_id = str(payload.get("id") or "")
@@ -526,6 +544,9 @@ def handle_line(line: str) -> None:
     try:
         if action == "transcribe":
             handle_transcribe(payload)
+            return
+        if action == "configure":
+            configure_model(request_id, payload.get("params") or {})
             return
         if action == "warmup":
             warmup_model(request_id)
@@ -544,20 +565,24 @@ def handle_line(line: str) -> None:
 
 
 def main() -> None:
+    model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
     emit(
         {
             "type": "ready",
             "config": {
-                "whisperModel": env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL),
-                "whisperDownloadRoot": resolve_whisper_download_root(),
-                "language": env("LOCALFLOW_WHISPER_LANGUAGE", DEFAULT_LANGUAGE),
-                "outputLanguage": env("LOCALFLOW_OUTPUT_LANGUAGE", DEFAULT_OUTPUT_LANGUAGE),
-                "ollamaModel": env("LOCALFLOW_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL),
-                "ollamaUrl": env("LOCALFLOW_OLLAMA_URL", DEFAULT_OLLAMA_URL),
+                "whisperModel": model_name,
+                "whisperDownloadRoot": model_cache_root() if is_onnx_stt_model(model_name) else resolve_whisper_download_root(),
+                "language": configured_language(),
+                "outputLanguage": output_language_for(configured_language()),
+                "cleanupEngine": "Codex OAuth",
+                "cleanupModel": env("LOCALFLOW_CLEANUP_MODEL", DEFAULT_CLEANUP_MODEL),
             },
         }
     )
-    for line in sys.stdin:
+    while True:
+        line = next_command()
+        if not line:
+            break
         line = line.strip()
         if line:
             handle_line(line)

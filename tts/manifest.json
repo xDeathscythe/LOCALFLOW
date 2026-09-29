@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "pythonVersion": "3.11.15",
+  "uv": {
+    "version": "0.12.1",
+    "url": "https://releases.astral.sh/github/uv/releases/download/0.12.1/uv-x86_64-pc-windows-msvc.zip",
+    "sha256": "8fcb0cb46e1229065e344758980924e569bef5882ef45f46fada8fb24e06b74a"
+  },
+  "engines": {
+    "piper": {
+      "requirements": "tts/requirements/piper.txt",
+      "voice": "en_US-kristin-medium",
+      "files": [
+        {
+          "path": "piper/voices/en_US-kristin-medium.onnx",
+          "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx",
+          "sha256": "5849957f929cbf720c258f8458692d6103fff2f0e3d3b19c8259474bb06a18d4"
+        },
+        {
+          "path": "piper/voices/en_US-kristin-medium.onnx.json",
+          "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx.json",
+          "sha256": "5681426d4aead22195de70531eeeeddb46493cfaffc5764b2ea3db73428b651c"
+        }
+      ]
+    },
+    "xtts": {
+      "requirements": "tts/requirements/xtts.txt",
+      "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+      "files": [
+        {
+          "path": "xtts/models/tts/tts_models--multilingual--multi-dataset--xtts_v2/model.pth",
+          "url": "https://huggingface.co/coqui/XTTS-v2/resolve/main/model.pth",
+          "sha256": "c7ea20001c6a0a841c77e252d8409f6a74fb423e79b3206a0771ba5989776187"
+        },
+        {
+          "path": "xtts/models/tts/tts_models--multilingual--multi-dataset--xtts_v2/config.json",
+          "url": "https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json",
+          "sha256": "ef262b1454dd2a77e1461b0b2cd53e19b8a7624cc131b837d36df67356bc75e8"
+        },
+        {
+          "path": "xtts/models/tts/tts_models--multilingual--multi-dataset--xtts_v2/vocab.json",
+          "url": "https://huggingface.co/coqui/XTTS-v2/resolve/main/vocab.json",
+          "sha256": "928260878a59da8a72a2a5b7687fea29d5106137669d90945430fe17e415304a"
+        },
+        {
+          "path": "xtts/models/tts/tts_models--multilingual--multi-dataset--xtts_v2/speakers_xtts.pth",
+          "url": "https://huggingface.co/coqui/XTTS-v2/resolve/main/speakers_xtts.pth",
+          "sha256": "f0f6137c19a4eab0cbbe4c99b5babacf68b1746e50da90807708c10e645b943b"
+        },
+        {
+          "path": "xtts/models/tts/tts_models--multilingual--multi-dataset--xtts_v2/hash.md5",
+          "url": "https://huggingface.co/coqui/XTTS-v2/resolve/main/hash.md5",
+          "sha256": "ef2e25fc4639bb81c6c5048740c1ee8268606a160548abaa2e2fe03b12278c54"
+        }
+      ]
+    },
+    "omnivoice": {
+      "requirements": "tts/requirements/omnivoice.txt",
+      "snapshots": [
+        {
+          "repo": "k2-fsa/OmniVoice",
+          "revision": "c5fdb5ccb189668d56333f77ba2629f4cd7535f4",
+          "configSha256": "5e359117e13b420c5e0c925d4aba650d624767131f1d1746928f8b850d5dc372"
+        },
+        {
+          "repo": "openai/whisper-large-v3-turbo",
+          "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+          "configSha256": "c5b526b3e3cd64cd8940dabb45e8ba726629e22d8ed389c29b552f9140daf04a"
+        }
+      ]
+    }
+  },
+  "references": [
+    {
+      "file": "hermes-reference.wav",
+      "sha256": "ca9d2edeaea9512bd296947b4aba73292fad39de1b784261d0a4b4b3b559bd05"
+    },
+    {
+      "file": "telegram_audio_5212538fe527_mono24k.wav",
+      "sha256": "41425f3cc6500f7d9b9c50dd3626440611457a3e2d694e953ace68bf4c592206"
+    }
+  ]
+}

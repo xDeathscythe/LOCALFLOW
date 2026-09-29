@@ -1,0 +1,35 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { app, BrowserWindow, ipcMain } = require('electron');
+const pause = () => new Promise(resolve => setTimeout(resolve, 100));
+app.whenReady().then(async () => {
+  try {
+    const sent = [];
+    ipcMain.on('niwa-test-send', (_event, text) => sent.push(text));
+    const window = new BrowserWindow({ show: false, webPreferences: { preload: path.join(__dirname, 'settings-ui-preload.cjs') } });
+    await window.loadFile(path.resolve('dist/index.html'));
+    await pause();
+    await window.webContents.executeJavaScript(`document.querySelector('[data-section=niwa]').click()`);
+    await pause();
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Message Niwa"]').focus()`);
+    await window.webContents.insertText('日本語');
+    const enter = async (modifiers = []) => {
+      window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return', modifiers });
+      window.webContents.sendInputEvent({ type: 'char', keyCode: '\r', modifiers });
+      window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return', modifiers });
+      await pause();
+    };
+    await enter(['shift']);
+    await window.webContents.insertText('Drugi red');
+    const value = () => window.webContents.executeJavaScript(`document.querySelector('[aria-label="Message Niwa"]').value`);
+    assert.equal(await value(), '日本語\nDrugi red');
+    assert.equal(sent.length, 0, 'Shift+Enter only inserts a newline');
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Message Niwa"]').dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', isComposing:true, bubbles:true}))`);
+    assert.equal(sent.length, 0, 'IME confirmation does not send');
+    await enter();
+    assert.deepEqual(sent, ['日本語\nDrugi red']);
+    assert.equal(await value(), '');
+    console.log('NIWA_ENTER_SHIFT_ENTER_IME_OK');
+    app.exit(0);
+  } catch (error) { console.error(error); app.exit(1); }
+});

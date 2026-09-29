@@ -9,3 +9,20 @@ __pycache__/
 *.log
 *.tmp
 runtime/
+.npm-cache/
+
+# Local credentials, recordings, test captures and model payloads.
+.env.*
+!.env.example
+.playwright-cli/
+output/
+assets/tts/refs/
+models/**
+!models/whisper/
+!models/whisper/README.md
+*.sqlite*
+*.db
+*.pem
+*.key
+auth.json
+prototypes/niwa-localflow/localflow-niwa.html
