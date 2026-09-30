@@ -1,5 +1,16 @@
 export const NOTES_STORAGE_KEY = "localflow.notes.tree.v1";
 export const LEGACY_NOTES_STORAGE_KEY = "localflow.notes";
+const PAGE_SESSION_KEY = 'localflow.notes.pages.v1';
+type PageSession = { tabs: string[]; active: string; appearances: Record<string, { font?: 'default' | 'serif' | 'mono'; small?: boolean; wide?: boolean }> };
+export function loadPageSession(storage: Pick<Storage, 'getItem'>): PageSession {
+  try {
+    const value = JSON.parse(storage.getItem(PAGE_SESSION_KEY) || '{}');
+    return { tabs: Array.isArray(value.tabs) ? [...new Set<string>(value.tabs.filter((id: unknown) => typeof id === 'string'))] : [], active: typeof value.active === 'string' ? value.active : '', appearances: value.appearances && typeof value.appearances === 'object' && !Array.isArray(value.appearances) ? value.appearances : {} };
+  } catch { return { tabs: [], active: '', appearances: {} }; }
+}
+export function savePageSession(storage: Pick<Storage, 'setItem'>, value: PageSession) {
+  try { storage.setItem(PAGE_SESSION_KEY, JSON.stringify(value)); } catch { /* Page content is saved separately on disk; a full local UI cache must not block editing. */ }
+}
 
 export type NoteItem = {
   id: string;
@@ -52,79 +63,4 @@ export function loadNotes(storage: Pick<Storage, "getItem">): NotesItem[] {
     }
   }
   return createInitialNotes(storage.getItem(LEGACY_NOTES_STORAGE_KEY) || "");
-}
-
-export function findNotesItem(items: NotesItem[], id: string): NotesItem | undefined {
-  for (const item of items) {
-    if (item.id === id) return item;
-    if (item.kind === "folder") {
-      const nested = findNotesItem(item.children, id);
-      if (nested) return nested;
-    }
-  }
-}
-
-export function findFirstNoteId(items: NotesItem[]): string | undefined {
-  for (const item of items) {
-    if (item.kind === "note") return item.id;
-    const nested = findFirstNoteId(item.children);
-    if (nested) return nested;
-  }
-}
-
-export function findParentFolderId(
-  items: NotesItem[],
-  id: string,
-  parentId?: string,
-): string | undefined {
-  for (const item of items) {
-    if (item.id === id) return parentId;
-    if (item.kind === "folder") {
-      const nested = findParentFolderId(item.children, id, item.id);
-      if (nested !== undefined) return nested;
-    }
-  }
-}
-
-export function folderIds(items: NotesItem[]): string[] {
-  return items.flatMap((item) => item.kind === "folder"
-    ? [item.id, ...folderIds(item.children)]
-    : []);
-}
-
-export function insertNotesItem(
-  items: NotesItem[],
-  parentId: string | undefined,
-  newItem: NotesItem,
-): NotesItem[] {
-  if (!parentId) return [...items, newItem];
-  return items.map((item) => item.kind === "folder"
-    ? {
-        ...item,
-        children: item.id === parentId
-          ? [...item.children, newItem]
-          : insertNotesItem(item.children, parentId, newItem),
-      }
-    : item);
-}
-
-export function updateNotesItem(
-  items: NotesItem[],
-  id: string,
-  update: (item: NotesItem) => NotesItem,
-): NotesItem[] {
-  return items.map((item) => {
-    if (item.id === id) return update(item);
-    return item.kind === "folder"
-      ? { ...item, children: updateNotesItem(item.children, id, update) }
-      : item;
-  });
-}
-
-export function removeNotesItem(items: NotesItem[], id: string): NotesItem[] {
-  return items
-    .filter((item) => item.id !== id)
-    .map((item) => item.kind === "folder"
-      ? { ...item, children: removeNotesItem(item.children, id) }
-      : item);
 }

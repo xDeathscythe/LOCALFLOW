@@ -2,9 +2,11 @@ const controls = document.querySelector('.controls');
 const buttons = [...controls.querySelectorAll('button')];
 let selected = 'microphone';
 let hovered = null;
+let activeTarget = null;
 const highlight = () => {
-  controls.dataset.target = hovered || selected;
-  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.action === selected));
+  // ponytail: capture state owns the existing selector; navigation resumes when capture ends.
+  controls.dataset.target = activeTarget || hovered || selected;
+  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.action === (activeTarget || selected)));
 };
 const trackHover = event => window.edge.hover(event.clientX);
 document.body.addEventListener('mouseenter', trackHover);
@@ -22,8 +24,10 @@ for (const button of buttons) {
 window.edge.onState(state => {
   document.body.dataset.theme = state.theme;
   document.body.classList.toggle('collapsed', !state.expanded);
-  document.body.classList.toggle('recording', state.recording || state.starting);
-  document.body.classList.toggle('voice', state.voice);
+  const capturing = state.recording || state.starting;
+  activeTarget = state.agentListening ? 'agent' : capturing ? state.recordingTarget : null;
+  document.body.classList.toggle('recording', capturing && state.recordingTarget === 'microphone');
+  document.body.classList.toggle('listening', state.agentListening);
   document.body.classList.toggle('busy', state.busy);
   selected = state.selected;
   highlight();

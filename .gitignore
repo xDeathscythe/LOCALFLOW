@@ -16,6 +16,7 @@ runtime/
 !.env.example
 .playwright-cli/
 output/
+local-data/
 assets/tts/refs/
 models/**
 !models/whisper/

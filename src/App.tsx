@@ -1,7 +1,4 @@
 import {
-  LockKeyhole,
-  ShieldCheck,
-  ChevronDown,
   FileAudio,
   FolderOpen,
   History,
@@ -17,7 +14,10 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { version as APP_VERSION } from '../package.json';
+import { ProfileMenu } from "./components/ProfileMenu";
+import { PanelResize } from "./components/PanelResize";
 import { NotesPage } from "./components/NotesPage";
 import { AppearanceSettings } from "./components/AppearanceSettings";
 import { TranscribePage, type RecentSession } from "./components/TranscribePage";
@@ -60,7 +60,7 @@ function polishOptions(level: CleanupLevel): PolishOptions {
 
 function savedCleanupLevel(): CleanupLevel {
   const saved = window.localStorage.getItem(CLEANUP_LEVEL_STORAGE_KEY);
-  return cleanupLevels.has(saved as CleanupLevel) ? saved as CleanupLevel : "high";
+  return cleanupLevels.has(saved as CleanupLevel) ? saved as CleanupLevel : "none";
 }
 
 function savedHotkeyMode(): HotkeyMode {
@@ -68,17 +68,17 @@ function savedHotkeyMode(): HotkeyMode {
 }
 
 const defaultConfig = {
-  whisperModel: "large-v3",
-  whisperDownloadRoot: "X:\\stt-models",
-  language: "sr",
-  outputLanguage: "Serbian Latin",
+  whisperModel: "large-v3-turbo",
+  whisperDownloadRoot: "",
+  language: "auto",
+  outputLanguage: "Original language",
   cleanupEngine: "Codex OAuth",
   cleanupModel: "gpt-5.6-terra",
 };
 
 const defaultVoiceOutputConfig: VoiceOutputConfig = {
   model: "piper",
-  voiceRoot: "X:\\ai",
+  voiceRoot: "",
   options: [
     {
       id: "piper",
@@ -168,7 +168,6 @@ const hotkeyModeOptions: Array<{
 ];
 
 const HOTKEY_RELEASE_BUFFER_MS = 450;
-const APP_VERSION = "0.1.73";
 
 const cleanupLevelOptions: Array<{
   id: CleanupLevel;
@@ -200,7 +199,7 @@ const cleanupLevelOptions: Array<{
 const navItems = [
   { id: "transcribe", label: "Transcribe", icon: Mic },
   { id: "notes", label: "Notes", icon: NotebookPen },
-  { id: "niwa", label: "Niwa Agent", icon: MessageCircle },
+  { id: "niwa", label: "Agents", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
   { id: "history", label: "History", icon: History },
   { id: "settings", label: "Settings", icon: Settings },
@@ -227,6 +226,7 @@ function audioExtensionFromMime(mimeType: string) {
 }
 
 export function App() {
+  const [notesSidebar, setNotesSidebar] = useState<HTMLDivElement | null>(null);
   const [state, setState] = useState<RunState>("idle");
   const [audioPath, setAudioPath] = useState("");
   const [audioName, setAudioName] = useState("New transcription");
@@ -235,7 +235,7 @@ export function App() {
   const [result, setResult] = useState<TranscriptResult | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const [config, setConfig] = useState(defaultConfig);
-  const [activeSection, setActiveSection] = useState<NavSection>("transcribe");
+  const [activeSection, setActiveSection] = useState<NavSection>("niwa");
   const edgeSectionRef = useRef<NavSection | null>(null);
   const [exportedPath, setExportedPath] = useState("");
   const [error, setError] = useState("");
@@ -253,6 +253,7 @@ export function App() {
   const [windowVisible, setWindowVisible] = useState(true);
   const [niwaVoice, setNiwaVoice] = useState(false);
   const [niwaMicrophone, setNiwaMicrophone] = useState(false);
+  const [niwaListening, setNiwaListening] = useState(false);
   const microphoneOwner = useRef<'niwa' | 'dictation' | null>(null);
   const niwaModeRef = useRef('realtime');
   const [notesCapture, setNotesCapture] = useState<{ id: number; text: string } | null>(null);
@@ -623,10 +624,12 @@ export function App() {
     window.localflow.setRecordingOverlayState({
       recording: state === "recording",
       starting: state === "starting",
+      agentListening: niwaListening || (state === 'recording' && recordingModeRef.current === 'niwa'),
+      recordingTarget: recordingModeRef.current === 'niwa' ? 'agent' : 'microphone',
       elapsedSeconds: recordingOverlaySeconds,
       selected: !sectionChanged ? undefined : activeSection === 'niwa' ? 'agent' : activeSection === 'notes' ? 'notes' : activeSection === 'transcribe' ? 'microphone' : undefined,
     });
-  }, [state, recordingOverlaySeconds, activeSection]);
+  }, [state, recordingOverlaySeconds, activeSection, niwaListening]);
 
   useEffect(() => {
     return window.localflow.onRecordingOverlayStop(() => {
@@ -697,7 +700,6 @@ export function App() {
     setError(""); setActiveSection("transcribe");
   };
 
-  const wordCount = (text?: string) => (text?.trim() ? text.trim().split(/\s+/).length : 0);
   const isBusy = niwaMicrophone || state === "starting" || state === "processing" || state === "saving" || switchingModel || switchingLanguage || switchingVoiceOutput;
   const activeNavItem = navItems.find((item) => item.id === activeSection) || navItems[0];
   const pageTitle = activeNavItem.label;
@@ -793,16 +795,6 @@ export function App() {
       ? cleanupAuthStatus.mode === "api-key" ? "OpenAI API key" : "Codex account"
       : "Not connected";
 
-  const stateLabel = useMemo(() => {
-    if (state === "starting") return "Opening microphone";
-    if (state === "recording") return "Recording";
-    if (state === "saving") return "Saving";
-    if (state === "processing") return "Processing";
-    if (state === "done") return "Ready";
-    if (state === "error") return "Needs attention";
-    return "Ready";
-  }, [state]);
-
   const renderUtilityView = () => {
     if (activeSection === 'niwa') return null;
 
@@ -870,7 +862,6 @@ export function App() {
             <Settings size={24} />
             <div>
               <h2>Settings</h2>
-              <p>Cleanup access, transcription model, formatting i Niwa voice podešavanja.</p>
             </div>
           </header>
           <div className="settingsList">
@@ -879,7 +870,6 @@ export function App() {
             <div className="settingsGroup cleanupAuthGroup">
               <div className="settingsGroupHeading">
                 <strong>Cleanup access</strong>
-                <span>Poveži ChatGPT/Codex nalog ili koristi svoj OpenAI API ključ.</span>
               </div>
               <div className="cleanupAuthStatusRow">
                 <span className={`cleanupAuthDot ${cleanupAuthStatus.connected ? "connected" : ""}`} />
@@ -960,7 +950,6 @@ export function App() {
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
                 <strong>Transcription language</strong>
-                <span>Fiksiraj jezik ili koristi automatsku detekciju kada je izabrani model podržava.</span>
               </div>
               <div className="modelSwitch">
                 {transcriptionLanguageOptions.map((option) => (
@@ -980,7 +969,6 @@ export function App() {
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
                 <strong>Shortcut recording mode</strong>
-                <span>Važi za diktiranje i Niwa lokalni glas.</span>
               </div>
               <div className="modelSwitch">
                 {hotkeyModeOptions.map((option) => (
@@ -1000,7 +988,6 @@ export function App() {
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
                 <strong>Transcription model</strong>
-                <span>Lokalni STT model za recording i import audio fajlova.</span>
               </div>
               <div className="modelSwitch">
                 {whisperModelOptions.map((model) => (
@@ -1040,7 +1027,6 @@ export function App() {
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
                 <strong>Cleanup & formatting</strong>
-                <span>Primenjuje se na sledeću transkripciju.</span>
               </div>
               <div className="cleanupLevelGrid settingsCleanupGrid">
                 {cleanupLevelOptions.map((level) => (
@@ -1072,7 +1058,6 @@ export function App() {
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
                 <strong>Niwa voice output</strong>
-                <span>Aktivni engine se koristi za odgovore svih Niwa profila.</span>
               </div>
               <div className="modelSwitch voiceOutputSwitch">
                 {voiceOutputConfig.options.map((option) => (
@@ -1134,7 +1119,7 @@ export function App() {
     const Icon = item.icon;
     const active = item.id === activeSection;
     return <button className={`navItem ${active ? "active" : ""}`} key={item.id} data-section={item.id}
-      onClick={() => setActiveSection(item.id)} aria-current={active ? "page" : undefined} aria-label={item.label} title={item.label}>
+      onClick={(event) => { setActiveSection(item.id); event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover(); }} aria-current={active ? "page" : undefined} aria-label={item.label} title={item.label}>
       <Icon size={17} /><span>{item.label}</span>
     </button>;
   };
@@ -1142,21 +1127,20 @@ export function App() {
   return <main className="appShell">
       <div className="windowDragRegion" aria-hidden="true" />
       <aside className="sidebar">
+        <PanelResize label="Resize folders" property="--sidebar-width" edge="right" min={180} max={480} fraction={0.35} />
         <div className="brand">
           <img className="brandLogo" src="./localflow-logo.png" width="28" height="28" alt="" aria-hidden="true" />
           <strong>LocalFlow</strong>
         </div>
-        <p className="workspaceLabel">Your workspace</p>
-        <nav className="navList" aria-label="Workspace">{navItems.filter(item => !["settings", "shortcuts", "about"].includes(item.id)).map(renderNavItem)}</nav>
+        <nav className="navList" aria-label="Workspace">{["niwa", "notes"].map(id => renderNavItem(navItems.find(item => item.id === id)!))}</nav>
+        <div className="sidebarNotes" ref={setNotesSidebar} />
         <div className="sidebarBottom">
-          <div className="engineStatus" title={status}><span className="statusDot" /><div><strong>{niwaVoice ? 'Codex voice' : 'On your device'}</strong><small>{niwaVoice ? 'Voice conversation active' : stateLabel === "Ready" ? "Private by default" : stateLabel}</small></div><ShieldCheck size={16} /></div>
-          <nav className="secondaryNav" aria-label="Preferences">{navItems.filter(item => ["settings", "shortcuts", "about"].includes(item.id)).map(renderNavItem)}</nav>
-          <div className="workspaceIdentity"><span>LF</span><div>Local workspace<small>Version {APP_VERSION}</small></div></div>
+          <ProfileMenu version={APP_VERSION}>{navItems.filter(item => !["niwa", "notes"].includes(item.id)).map(renderNavItem)}</ProfileMenu>
         </div>
       </aside>
       <section className="workspace">
-        <header className="workspaceHeader"><div><span>Workspace</span><i>/</i><strong>{pageTitle}</strong></div><span><LockKeyhole size={12} />Local workspace</span></header>
-        <NiwaAgent visible={activeSection === 'niwa'} shortcutLabel={shortcutConfig?.['niwa-agent']?.label || 'Ctrl + Caps Lock'}
+        <header className="workspaceHeader"><strong>{pageTitle}</strong></header>
+        <NiwaAgent sidebar={notesSidebar} visible={activeSection === 'niwa'} shortcutLabel={shortcutConfig?.['niwa-agent']?.label || 'Ctrl + Caps Lock'}
           recording={state === 'recording' && recordingModeRef.current === 'niwa'}
           microphoneBusy={state === 'recording' || state === 'starting'}
           claimMicrophone={() => {
@@ -1167,8 +1151,15 @@ export function App() {
             if (microphoneOwner.current === 'niwa') { microphoneOwner.current = null; setNiwaMicrophone(false); }
           }}
           onVoiceActive={setNiwaVoice}
+          onListening={setNiwaListening}
           onMode={mode => { niwaModeRef.current = mode; }}
           onLocalRecord={() => state === 'recording' && recordingModeRef.current === 'niwa' ? stopRecording() : void startRecording('niwa')} />
+        <NotesPage sidebar={notesSidebar} visible={activeSection === "notes"} onOpen={() => setActiveSection("notes")}
+          capture={notesCapture} onCaptureHandled={() => setNotesCapture(null)} onStatus={setStatus}
+          recording={state === "recording" && recordingModeRef.current === "notes"}
+          recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
+          onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
+        />
         {activeSection === "transcribe" ? <TranscribePage
           result={result} name={audioName} state={state} status={status} error={error}
           seconds={recordingSeconds} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
@@ -1179,12 +1170,7 @@ export function App() {
           onCopy={text => void copyText(text)} onExport={(text, name) => void exportText(text, name)}
           onSaveNote={() => { const text = (options.cleanupLevel !== "none" && result?.polishedText) || result?.rawText; if (text) { setNotesCapture({ id: Date.now(), text }); setActiveSection("notes"); } }}
           onHistory={() => setActiveSection("history")} onOpenSession={openSession} onDrop={onDrop}
-        /> : activeSection === "notes" ? <NotesPage
-          capture={notesCapture} onCaptureHandled={() => setNotesCapture(null)} onStatus={setStatus}
-          recording={state === "recording" && recordingModeRef.current === "notes"}
-          recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
-          onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
-        /> : renderUtilityView()}
+        /> : activeSection === "notes" ? null : renderUtilityView()}
       </section>
     </main>;
 }

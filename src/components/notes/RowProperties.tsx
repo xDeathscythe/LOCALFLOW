@@ -1,0 +1,11 @@
+import { useEffect, useState } from 'react';
+import type { NotesDatabase } from '../../lib/database';
+import { computedRows } from '../../../electron/notes/database-engine.mjs';
+import { DatabaseCell } from './DatabaseCell';
+export function RowProperties({databaseId,pageId}:{databaseId:string;pageId:string}){
+  const [database,setDatabase]=useState<NotesDatabase|null>(null),[related,setRelated]=useState<NotesDatabase[]>([]),[error,setError]=useState(''),[pending,setPending]=useState(false);
+  useEffect(()=>{let live=true;const load=async()=>{const db=await window.localflow.notesDatabaseRead(databaseId),seen=new Map<string,NotesDatabase>();const visit=async(value:NotesDatabase):Promise<void>=>{if(seen.has(value.id))return;seen.set(value.id,value);await Promise.all(value.properties.filter(p=>p.target).map(async p=>{try{await visit(await window.localflow.notesDatabaseRead(p.target!));}catch{}}));};await visit(db);if(live){setDatabase(db);setRelated([...seen.values()]);}};void load().catch(e=>setError(String(e)));const off=window.localflow.onNiwaEvent(event=>{if(event.type==='notes-changed')void load().catch(e=>setError(String(e)));});return()=>{live=false;off();};},[databaseId,pageId]);
+  if(!database)return error?<p role="alert">{error}</p>:null;
+  const row=computedRows(database,related).find(r=>r.pageId===pageId);if(!row)return null;
+  return <details className="noteRowProperties" open><summary>Properties</summary>{error&&<p role="alert">{error}</p>}{database.properties.filter(p=>p.type!=='title').map(property=><div key={property.id}><label>{property.name}</label><div className="databaseCell"><DatabaseCell property={property} value={row.values[property.id]} databases={related} disabled={pending} run={()=>{setPending(true);void window.localflow.notesDatabaseRunButton({id:databaseId,rowId:row.id,propertyId:property.id,revision:database.revision}).then(setDatabase).catch(e=>setError(String(e))).finally(()=>setPending(false));}} save={async value=>{setPending(true);setError('');try{setDatabase(await window.localflow.notesDatabaseSave({...database,rows:database.rows.map(r=>r.id===row.id?{...r,values:{...r.values,[property.id]:value}}:r)}));}catch(e){setError(String(e));}finally{setPending(false);}}}/>{row.errors?.[property.id]&&<span className="databaseFormulaError" title={row.errors[property.id]}>⚠</span>}</div></div>)}</details>;
+}

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { parseDiff, splitRows } from '../src/lib/diff.ts';
+const [file] = parseDiff('diff --git a/日本語.ts b/日本語.ts\n--- a/日本語.ts\n+++ b/日本語.ts\n@@ -10,3 +20,4 @@\n---removed\n+++added\n+العربية\n context\n final\n');
+assert.equal(file.path, '日本語.ts');
+assert.equal(file.added, 2); assert.equal(file.removed, 1);
+assert.equal(file.rows[1].old, 10); assert.equal(file.rows[2].next, 20); assert.equal(file.rows[3].next, 21);
+assert.equal(file.rows[1].text, '--removed'); assert.equal(file.rows[2].text, '++added');
+const rows = splitRows(file.rows); assert.equal(rows[1].left?.old,10); assert.equal(rows[1].right?.next,20); assert.equal(rows[2].left,undefined); assert.equal(rows[2].right?.text,'العربية');
+assert.equal(parseDiff('')[0],undefined);
+assert.equal(parseDiff('diff --git a/icon.png b/icon.png\nBinary files differ')[0].rows.length,0);
+console.log('DIFF_PARSER_OK: hunk offsets, Unicode, content starting with +++/---, unequal split rows, binary patch');

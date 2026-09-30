@@ -1,0 +1,55 @@
+.contextualNoteEditor { position: relative; min-width: 0; }
+.noteQuickTools { display: flex; justify-content: flex-end; flex-shrink: 0; align-items: center; gap: 3px; padding: 0 24px; height: 28px; }
+.noteQuickTools button { display: flex; align-items: center; justify-content: center; background: transparent; color: var(--color-text-soft); border: 0; border-radius: 5px; padding: 5px; opacity: .65; }
+.noteQuickTools button:hover,.noteQuickTools button:focus-visible { opacity: 1; background: var(--niwa-control-hover); }
+.noteQuickTools span { font-size: 11px; color: var(--color-text-soft); margin-left: 6px; }
+.noteQuickTools .noteSourceToggle { padding-inline: 9px; font-size: 12px; }
+.noteBlockHandle { position: absolute; display: flex; z-index: 3; border-radius: 4px; opacity: 0; transition: opacity .12s; }
+.contextualNoteEditor:hover .noteBlockHandle,.noteBlockHandle:focus-within { opacity: 1; }
+.noteBlockHandle button { display: flex; align-items: center; justify-content: center; width: 20px; height: 26px; padding: 0; background: transparent; color: var(--color-text-soft); border-radius: 4px; }
+.noteBlockHandle button:last-child { cursor: grab; }.noteBlockHandle button:hover { background: var(--niwa-control-hover); }
+.noteContextMenu { width: 264px; max-height: min(460px,calc(100vh - 16px)); color: var(--color-text); }
+.noteContextMenu details { border-top: 1px solid var(--color-border); padding-block: 3px; }.noteContextMenu summary { padding: 7px; cursor: pointer; list-style-position: inside; }
+.noteContextMenu details button,.noteInsertCatalog > button { display: block; width: 100%; text-align: left; }
+.noteContextMenu details .noteColorOptions { display: flex; }.noteContextMenu details .noteColorOptions button { width: auto; }
+.noteContextMenu input:not([type=color]) { width: 100%; color: var(--color-text); background: var(--workspace-bg); border: 1px solid var(--color-border); padding: 8px; border-radius: 5px; margin-bottom: 5px; font: inherit; }
+.noteContextMenu .noteInlineActions button { flex: 1; display: flex; align-items: center; justify-content: center; }
+.noteContextMenu button:disabled { opacity: .4; }.noteContextMenu .noteInsertCatalog { max-height: 350px; overflow-y: auto; }
+.noteModalShade { position: fixed; z-index: 180; inset: 0; display: grid; place-items: center; padding: 20px; background: #0005; }
+.noteInsertDialog,.noteModalShade .noteTablePicker { width: min(440px,calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--niwa-color-surface-base); color: var(--color-text); box-shadow: 0 20px 70px #0006; }
+.noteInsertDialog { display: flex; flex-wrap: wrap; gap: 10px; }.noteInsertDialog header { display: flex; width: 100%; align-items: center; justify-content: space-between; }.noteInsertDialog label { display: grid; width: 100%; gap: 8px; font-size: 13px; }
+.noteInsertDialog input { width: 100%; background: var(--workspace-bg); color: inherit; border: 1px solid var(--color-border); padding: 10px; border-radius: 5px; }
+.noteInsertDialog button { background: var(--niwa-control-hover); color: inherit; border-radius: 5px; padding: 8px 11px; font-size: 12px; }.noteInsertDialog button:disabled { opacity: .4; }.noteInsertDialog p { color: #dd9696; font-size: 12px; }
+.noteDatabaseChoices { width: 100%; max-height: 260px; overflow: auto; border-top: 1px solid var(--color-border); padding-top: 8px; }.noteDatabaseChoices button { display: block; text-align: left; width: 100%; background: transparent; }.noteDatabaseChoices button:hover { background: var(--niwa-control-hover); }
+.noteEditorError { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; color: #dd9696; font-size: 12px; }.noteEditorError button { color: inherit; background: transparent; }
+.contextualNoteEditor .noteProse { padding-top: 14px; }
+.contextualNoteEditor .noteProse .tableWrapper { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--color-text-soft) transparent; }
+.contextualNoteEditor .noteProse table { table-layout: fixed; min-width: 100%; }
+.contextualNoteEditor .noteProse td,.contextualNoteEditor .noteProse th { min-width: 90px; position: relative; }
+.contextualNoteEditor .noteProse .ProseMirror-selectednode { outline: 1px solid #8095b7; outline-offset: 3px; }
+.contextualNoteEditor .noteProse [data-resize-handle] { width: 10px; height: 10px; border-radius: 3px; background: #9aaccc; border: 1px solid var(--workspace-bg); opacity: 0; }
+.contextualNoteEditor .noteProse [data-resize-container]:hover [data-resize-handle],.contextualNoteEditor .noteProse .ProseMirror-selectednode [data-resize-handle] { opacity: 1; }
+@media(max-width:760px) { .contextualNoteEditor .noteProse { padding-inline: 34px 20px; }.noteQuickTools { padding-inline: 10px; } }
+
+.noteInsertCatalog section > small { display:block; padding:12px 8px 5px; color:var(--color-text-soft); font-size:11px; }
+.noteInsertCatalog section:first-child > small { padding-top:5px; }
+.noteContextMenu .noteInsertCatalog button { display:flex; align-items:center; width:100%; gap:11px; padding:8px; text-align:left; min-height:34px; }
+.noteInsertCatalog button svg { flex-shrink:0; color:var(--color-text-soft); }
+.noteInsertCatalog button[data-active=true] { background:var(--niwa-control-hover); }
+.noteNoBlocks { padding:12px 8px; color:var(--color-text-soft); }
+.noteDatabaseEmbed { margin:24px 0; min-width:0; font-family:var(--font-family, sans-serif); }
+.databaseEmbedPlaceholder { min-height:180px; padding:16px; color:var(--color-text-soft); }
+.noteProse .embeddedDatabase { height:auto; max-height:none; border:0; border-radius:0; font-size:13px; background:transparent; }
+.noteProse .embeddedDatabase > header { padding:0 0 10px; gap:8px; }
+.noteProse .embeddedDatabase > header > svg { width:17px; height:17px; }
+.noteProse .embeddedDatabase h1 { margin:0; font-size:17px; line-height:26px; }
+.noteProse .embeddedDatabase .databaseToolbar { padding:0 0 7px; gap:3px; flex-wrap:nowrap; }
+.noteProse .embeddedDatabase .databaseContent { padding:0 0 12px; flex:none; max-height:360px; }
+.noteProse .embeddedDatabase .notesDatabaseTable { margin:0; border:0; min-width:0; }
+.noteProse .embeddedDatabase .notesDatabaseTable :is(th,td) { padding:0; min-width:0; background:transparent; }
+.noteProse .embeddedDatabase .notesDatabaseTable th { top:0; background:var(--workspace-bg); }
+.noteProse .embeddedDatabase :is(input,textarea,select) { font-size:13px; line-height:20px; }
+.noteProse .embeddedDatabase .databasePropertyEditor { position:fixed; top:110px; left:auto; right:30px; max-height:calc(100vh - 140px); }
+.noteProse .embeddedDatabase .databaseViewSettings { position:fixed; top:110px; right:30px; bottom:auto; max-height:calc(100vh - 140px); }
+
+.noteProse .embeddedDatabase .notesDatabaseTable :is(th,td) { border-color:var(--color-border); }

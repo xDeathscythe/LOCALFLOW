@@ -1,3 +1,4 @@
+import type { NotesIndex, NoteNode, MarkdownNote, Projects, ProjectFolder } from './lib/workspace';
 import type { NiwaSettings, NiwaSnapshot, NiwaEvent, NiwaMemory, NiwaModel } from './lib/niwa';
 export type CleanupLevel = "none" | "light" | "medium" | "high";
 export type TranscriptionLanguage = "sr" | "en" | "auto";
@@ -41,6 +42,8 @@ export type WorkerProgress = {
 
 export type RecordingOverlayState = {
   selected?: 'agent' | 'microphone' | 'notes';
+  recordingTarget?: 'agent' | 'microphone';
+  agentListening?: boolean;
   recording: boolean;
   starting?: boolean;
   elapsedSeconds: number;
@@ -117,6 +120,35 @@ declare global {
       getEdgeSettings: () => Promise<{ enabled: boolean; autoHide: boolean }>;
       setEdgeSettings: (value: { enabled: boolean; autoHide: boolean }) => Promise<{ enabled: boolean; autoHide: boolean }>;
       onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'notes') => void) => () => void;
+      notesList: () => Promise<NotesIndex>;
+      notesSkill: (value: { skill: string; text: string; prompt?: string }) => Promise<string>;
+      notesImportNotion: () => Promise<(NotesIndex & { alreadyImported?: boolean; report: { pages: number; databases: number; rows: number; warnings: unknown[] } }) | null>;
+      notesOpenAsset: (url: string) => Promise<void>;
+      notesPickAssets: () => Promise<{name:string;url:string;mime:string;size:number}[]>;
+      notesUploadAssets: (files:{name:string;data:Uint8Array}[]) => Promise<{name:string;url:string;mime:string;size:number}[]>;
+      notesExportPdf: (value:{title:string;html:string;landscape?:boolean}) => Promise<string|null>;
+      notesDuplicate: (value:{id:string;parentId?:string}) => Promise<NoteNode>;
+      notesDatabaseMoveRow: (value:{id:string;rowId:string;targetId:string;revision:string}) => Promise<import('./lib/database').NotesDatabase>;
+      notesRead: (id: string) => Promise<MarkdownNote>;
+      notesImport: (items: unknown[]) => Promise<NotesIndex>;
+      notesCreate: (value: { kind?: 'folder' | 'note' | 'database'; label: string; parentId?: string; content?: string; document?: import('@tiptap/core').JSONContent; html?: string }) => Promise<MarkdownNote | NoteNode>;
+      notesSave: (value: Pick<MarkdownNote,'id'|'label'|'content'|'revision'|'document'|'html'>) => Promise<MarkdownNote>;
+      notesRemove: (id: string) => Promise<NotesIndex>;
+      notesRename: (value: { id: string; label: string }) => Promise<NotesIndex>;
+      notesMove: (value: { id: string; parentId?: string; beforeId?:string }) => Promise<NotesIndex>;
+      notesDatabaseRead: (id: string) => Promise<import('./lib/database').NotesDatabase>;
+      notesDatabaseSave: (value: import('./lib/database').NotesDatabase) => Promise<import('./lib/database').NotesDatabase>;
+      notesDatabaseRunButton: (value: {id:string;rowId:string;propertyId:string;revision:string}) => Promise<import('./lib/database').NotesDatabase>;
+      notesDatabaseAddRow: (value: { id: string; label?: string; values?: Record<string, unknown>; templateId?:string }) => Promise<import('./lib/database').NotesDatabase>;
+      niwaProjects: () => Promise<Projects>;
+      niwaAddProject: () => Promise<ProjectFolder | null>;
+      niwaManageProject: (value: { kind: 'project' | 'chat'; id: string; action: 'archive' | 'restore' | 'delete' }) => Promise<Projects>;
+      niwaOpenFolder: (id: string) => Promise<Projects>;
+      niwaNewChat: (folderId: string) => Promise<Projects>;
+      niwaSelectChat: (id: string) => Promise<Projects>;
+      niwaRenameChat: (value: { id: string; label: string }) => Promise<Projects>;
+      niwaSelectFiles: () => Promise<string[]>;
+      niwaUndoChanges: (diff: string) => Promise<void>;
       niwaSnapshot: () => Promise<NiwaSnapshot>;
       niwaConnect: () => Promise<{ models: NiwaModel[]; settings: NiwaSettings }>;
       niwaConnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;

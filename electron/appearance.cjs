@@ -29,9 +29,11 @@ function saveAppearance(directory, theme) {
 function windowAppearance(theme) {
   const { light, glass } = themes[validateTheme(theme)];
   return {
+    hasShadow: false,
+    transparent: process.platform === 'win32',
     backgroundColor: glass ? "#00000000" : light ? "#ffffff" : "#000000",
-    // ponytail: Windows owns backdrop blur and the outer window corners.
-    backgroundMaterial: glass ? "acrylic" : "none",
+    // The transparent compositor plus native accent blur stays glass when inactive.
+    backgroundMaterial: process.platform === 'win32' ? "none" : glass ? "acrylic" : "none",
     titleBarOverlay: { color: "#00000000", symbolColor: light ? "#202622" : "#ffffff", height: 42 },
   };
 }
@@ -42,6 +44,7 @@ function applyAppearance(window, nativeTheme, theme) {
   window.setBackgroundColor(appearance.backgroundColor);
   window.setTitleBarOverlay(appearance.titleBarOverlay);
   window.setBackgroundMaterial(appearance.backgroundMaterial);
+  require('./windows-glass.cjs').applyWindowGlass(window, themes[theme].glass);
 }
 
 module.exports = { themes, validateTheme, readAppearance, saveAppearance, windowAppearance, applyAppearance };

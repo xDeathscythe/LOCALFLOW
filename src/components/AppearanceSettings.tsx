@@ -29,7 +29,6 @@ export function AppearanceSettings() {
   return <section className="settingsGroup appearanceGroup" aria-labelledby="appearance-heading">
     <div className="settingsGroupHeading">
       <strong id="appearance-heading">Appearance</strong>
-      <span>Choose how LocalFlow looks. Your theme is remembered on this device.</span>
     </div>
     <div className="appearanceGrid" role="group" aria-label="Theme">
       {themes.map(option => <button key={option.id} className="appearanceCard" data-theme-option={option.id}

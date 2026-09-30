@@ -1,0 +1,39 @@
+.noteDocumentScroll { container-type: inline-size; }
+.notePageDesign { position:relative; width:100%; max-width:850px; margin:18px auto 0; padding-inline:48px; color:var(--color-text-soft); font-size:12px; }
+.noteWorkspace[data-page-wide=true] .notePageDesign { max-width:none; padding-inline:clamp(36px,5.5vw,104px); }
+.notePageDesign button { display:inline-flex; align-items:center; gap:6px; padding:5px 7px; border-radius:5px; color:inherit; background:transparent; }
+.notePageDesign button:hover { background:var(--niwa-control-hover); color:var(--color-text); }
+.notePageDesignPanel { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:10px 0 0; }
+.notePageDesignPanel > div,.notePageDesignPanel label { display:flex; align-items:center; gap:6px; }
+.notePageDesignPanel input:not([type=range]) { width:70px; border:1px solid var(--color-border); border-radius:5px; padding:5px; color:var(--color-text); background:transparent; }
+.notePageDesignPanel input[type=range] { width:100px; }
+.notePageDesignPanel [role=alert] { color:var(--color-danger-text); }
+.notePageIcon > span { display:block; font-size:78px; line-height:104px; }
+.noteWorkspace:has(.notePageIcon) .noteEditorHeader { padding-top:18px; }
+.noteWorkspace .noteTitleInput { font-size:36px; letter-spacing:-.025em; }
+.noteProse [data-type=column] > :first-child { margin-top:0; }
+.noteProse [data-type=column] > :last-child { margin-bottom:0; }
+.noteColumnLayout label { display:flex; gap:8px; }
+.noteColumnLayout input[type=range] { flex:1; min-width:0; margin:0; padding:0; accent-color:var(--color-text-soft); }
+.noteColumnLayout output { width:34px; font-variant-numeric:tabular-nums; text-align:right; }
+.noteColumnPresets { display:flex; gap:4px; }
+.noteColumnPresets button { flex:1; text-align:center; }
+.noteBlockTones { display:flex; flex-wrap:wrap; gap:6px; padding:8px; }
+.noteContextMenu .noteBlockTones button { width:32px; height:30px; padding:4px; text-align:center; border:1px solid var(--color-border); }
+[data-block-tone=gray] { --note-block-fill:#96969626; }
+[data-block-tone=brown] { --note-block-fill:#b2876526; }
+[data-block-tone=orange] { --note-block-fill:#db94532e; }
+[data-block-tone=yellow] { --note-block-fill:#d8bd6526; }
+[data-block-tone=green] { --note-block-fill:#70af8b26; }
+[data-block-tone=blue] { --note-block-fill:#76aadd26; }
+[data-block-tone=purple] { --note-block-fill:#ad89d326; }
+[data-block-tone=pink] { --note-block-fill:#d988b126; }
+[data-block-tone=red] { --note-block-fill:#dd787826; }
+.noteProse [data-block-tone],.noteDocumentScroll .noteProse [data-type=callout][data-block-tone],.noteBlockTones [data-block-tone] { background:var(--note-block-fill,transparent); border-radius:5px; }
+.noteProse :is(p,h1,h2,h3,h4,h5,h6)[data-block-tone],.noteProse [data-type=column][data-block-tone] { padding:10px 14px; }
+@container (max-width:680px) {
+  .noteDocumentScroll .noteProse [data-type=columns] { flex-direction:column; gap:24px; }
+  .noteDocumentScroll .noteProse [data-type=column] { width:100%; flex:auto!important; }
+  .noteWorkspace .noteTitleInput { font-size:28px; }
+  .notePageDesign { padding-inline:24px; }
+}

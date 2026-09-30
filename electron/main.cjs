@@ -10,6 +10,7 @@ const { createCleanupAuthManager } = require("./cleanup-auth.cjs");
 const { bundledConnectors } = require('./bundled-connectors.cjs');
 const { connectChrome } = require('./chrome-connection.cjs');
 const { createEdgePanel } = require('./edge-panel.cjs');
+const registerNoteAssets = require('./notes/assets.cjs');
 const { ensureShortcuts, readShortcuts, saveShortcut } = require("./shortcuts.cjs");
 const { ensureTtsRuntime, resolveTtsRoot } = require("./tts-runtime.cjs");
 const { createTranscriptionWorker } = require("./transcription-worker.cjs");
@@ -50,7 +51,7 @@ const ALLOWED_WHISPER_LANGUAGES = new Set(["sr", "en", "auto"]);
 const WHISPER_OUTPUT_LANGUAGES = Object.freeze({ sr: "Serbian Latin", en: "English", auto: "Original language" });
 const RECORDING_OVERLAY_SIZE = Object.freeze({ width: 144, height: 42 });
 const RECORDING_OVERLAY_BOTTOM_GAP = 18;
-let recordingOverlayState = { recording: false, starting: false, elapsedSeconds: 0 };
+let recordingOverlayState = { recording: false, starting: false, agentListening: false, recordingTarget: 'microphone', elapsedSeconds: 0 };
 
 function localFlowAssetPath(filename) {
   return path.join(resourcesRoot(), "assets", filename);
@@ -223,6 +224,12 @@ function createWindow() {
     },
   });
 
+  require('./windows-glass.cjs').applyWindowGlass(mainWindow, themes[appearanceTheme].glass);
+  const openDocumentLink = url => {
+    try { if (['https:', 'http:', 'mailto:'].includes(new URL(url).protocol)) void shell.openExternal(url); } catch {}
+  };
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => { openDocumentLink(url); return { action: 'deny' }; });
+  mainWindow.webContents.on('will-navigate', (event, url) => { event.preventDefault(); openDocumentLink(url); });
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
@@ -364,12 +371,12 @@ app.on("second-instance", () => showMainWindow());
 app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
   app.setAppUserModelId("local.localflow.desktop");
+  const openNoteAsset = await registerNoteAssets(path.join(app.getPath('userData'), 'notes'));
   loadDotEnv();
   ensureRuntimeEnv();
   process.env.CODEX_HOME = path.join(app.getPath('userData'), 'niwa', 'codex');
   process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(resourcesRoot(), 'runtime', 'browsers');
   process.env.LOCALFLOW_VOICE_OUTPUT_DIR = path.join(app.getPath('userData'), 'voice-output');
-  if (app.isPackaged) { process.env.HF_HUB_OFFLINE = '1'; process.env.TRANSFORMERS_OFFLINE = '1'; }
   const ttsRoot = resolveTtsRoot(appRoot(), app.isPackaged, process.env.LOCALAPPDATA || app.getPath("userData"));
   process.env.LOCALFLOW_VOICE_ROOT = ttsRoot;
   voiceOutputManager = createVoiceOutputManager(resourcesRoot());
@@ -566,14 +573,48 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('get-shortcuts', () => readShortcuts(app.getPath('userData')));
   const fromMain = event => { if (event.sender !== mainWindow?.webContents) throw new Error('This operation belongs to the main window.'); };
+  let writingBusy = false;
+  ipcMain.handle('notes-skill', async (event, value) => {
+    fromMain(event);
+    if (writingBusy) throw new Error('A writing skill is already running.');
+    writingBusy = true;
+    try { return await require('./notes/skills.cjs').runNoteSkill({ directory: app.getPath('userData'), binary: resolveNiwaCodexBinary, settings: (await niwaReady).snapshot().settings }, value); }
+    finally { writingBusy = false; }
+  });
+  ipcMain.handle('notes-open-asset', (event, url) => { fromMain(event); return openNoteAsset(url); });
+  ipcMain.handle('notes-upload-assets', async(event,files)=>{fromMain(event);return (await import('./notes/uploads.mjs')).storeUploads(path.join(app.getPath('userData'),'notes'),files);});
+  ipcMain.handle('notes-pick-assets', async event=>{fromMain(event);const choice=await dialog.showOpenDialog(mainWindow,{title:'Add images or files',properties:['openFile','multiSelections']});if(choice.canceled)return [];return (await import('./notes/uploads.mjs')).importUploadPaths(path.join(app.getPath('userData'),'notes'),choice.filePaths);});
+  ipcMain.handle('notes-export-pdf', async(event,value)=>{fromMain(event);if(typeof value?.title!=='string'||typeof value?.html!=='string')throw new Error('Invalid page export.');const choice=await dialog.showSaveDialog(mainWindow,{title:'Export PDF',defaultPath:value.title.replace(/[<>:"/\\|?*]/g,'-')+'.pdf',filters:[{name:'PDF document',extensions:['pdf']}]});if(choice.canceled||!choice.filePath)return null;return require('./notes/pdf.cjs').exportPdf(path.join(app.getPath('userData'),'notes'),value,choice.filePath);});
+  ipcMain.handle('notes-import-notion', async event => {
+    fromMain(event);
+    const choice = await dialog.showOpenDialog(mainWindow, { title: 'Import Notion export', properties: ['openFile'], filters: [{ name: 'Notion export', extensions: ['zip'] }] });
+    if (choice.canceled) return null;
+    const { prepareNotionImport } = await import('./notes/notion-import.mjs');
+    const location = await dialog.showOpenDialog(mainWindow, { title: 'Choose where to keep the imported Notion attachments', defaultPath: path.dirname(choice.filePaths[0]), properties: ['openDirectory','createDirectory'] });
+    if (location.canceled) return null;
+    const bundle = await prepareNotionImport(choice.filePaths[0], path.join(app.getPath('userData'),'notes'), { python: resolvePython(), storageRoot: path.join(location.filePaths[0],'LocalFlow Notes') });
+    const result = (await niwaReady).notes.importBundle(bundle);
+    return { ...result, report: bundle.report };
+  });
   ipcMain.handle('get-edge-settings', event => { fromMain(event); return edgePanel.get(); });
   ipcMain.handle('set-edge-settings', (event, value) => { fromMain(event); return edgePanel.set(value); });
   for (const [channel, method] of Object.entries({
-    'niwa-snapshot': 'snapshot', 'niwa-connect': 'connect', 'niwa-send': 'send', 'niwa-start-voice': 'startVoice',
+    'niwa-projects': 'projects', 'niwa-open-folder': 'openFolder', 'niwa-new-chat': 'newChat', 'niwa-select-chat': 'selectChat', 'niwa-rename-chat': 'renameChat', 'niwa-manage-project': 'manageProject',
+    'niwa-undo-changes': 'undoChanges', 'niwa-snapshot': 'snapshot', 'niwa-connect': 'connect', 'niwa-send': 'send', 'niwa-start-voice': 'startVoice',
     'niwa-disconnect-browser': 'disconnectBrowser',
     'niwa-stop-voice': 'stopVoice', 'niwa-interrupt': 'interrupt', 'niwa-configure': 'configure',
     'niwa-save-connector': 'saveConnector', 'niwa-forget': 'forget',
   })) ipcMain.handle(channel, async (event, value) => { fromMain(event); const agent = await niwaReady; return agent[method](value); });
+  for (const method of ['list', 'read', 'create', 'save', 'remove', 'duplicate', 'importLegacy', 'rename', 'move', 'databaseRead', 'databaseSave', 'databaseAddRow', 'databaseMoveRow', 'databaseRunButton', 'databaseQuery']) {
+    ipcMain.handle(`notes-${method}`, async (event, value) => { fromMain(event); return (await niwaReady).notes[method](value); });
+  }
+  ipcMain.handle('niwa-select-files', async event => { fromMain(event); const choice = await dialog.showOpenDialog(mainWindow, { title: 'Add files to chat', properties: ['openFile', 'multiSelections'] }); return choice.canceled ? [] : choice.filePaths; });
+  ipcMain.handle('niwa-add-project', async event => {
+    fromMain(event); const agent = await niwaReady;
+    const choice = await dialog.showOpenDialog(mainWindow, { title: 'Choose a project', properties: ['openDirectory', 'createDirectory'] });
+    if (choice.canceled) return null;
+    return agent.addProject({ path: choice.filePaths[0] });
+  });
   ipcMain.handle('niwa-respond', async (event, id, answer) => { fromMain(event); return (await niwaReady).respond(id, answer); });
   ipcMain.handle('niwa-connect-browser', async event => { fromMain(event); return connectChrome(await niwaReady); });
 
@@ -614,6 +655,8 @@ app.whenReady().then(async () => {
     recordingOverlayState = {
       recording: payload?.recording === true,
       starting,
+      agentListening: payload?.agentListening === true,
+      recordingTarget: payload?.recordingTarget === 'agent' ? 'agent' : 'microphone',
       elapsedSeconds: Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0,
     };
     syncRecordingOverlayWindow();

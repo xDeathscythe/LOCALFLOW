@@ -1,16 +1,20 @@
+import type { ChatWork } from '../components/ChatWork';
+import type { Projects, AgentActivity } from './workspace';
 export type NiwaSettings = { model: string; effort: string; voiceMode: 'realtime' | 'local'; voice: string; access: 'read' | 'workspace' | 'full'; cwd: string };
-export type NiwaMessage = { id: string; role: string; content: string; timestamp: number };
+export type NiwaMessage = { turnId?: string; work?: ChatWork; id: string; role: string; content: string; timestamp: number };
 export type NiwaModel = { model: string; displayName: string; defaultReasoningEffort: string; supportedReasoningEfforts: { reasoningEffort: string }[] };
 export type NiwaApproval = { id: string; title: string; detail?: string; questions?: { id: string; header: string; question: string; options?: { label: string; description: string }[] }[] };
 export type NiwaMemory = { active_facts: number; documents: Record<string, { id: string; fact: string }[]> };
-export type NiwaSnapshot = { settings: NiwaSettings; voices: string[]; browser: { mode: 'chrome' | 'bundled'; connected: boolean }; messages: NiwaMessage[]; models: NiwaModel[]; memory: NiwaMemory; connectors: { id: string; enabled: boolean; transport: string }[]; busy: boolean; voice: boolean; approvals: NiwaApproval[] };
-export type NiwaEvent = { type: string; settings?: NiwaSettings; id?: string; role?: string; content?: string; timestamp?: number; text?: string; message?: string; sdp?: string; busy?: boolean; active?: boolean; title?: string; detail?: string; questions?: NiwaApproval['questions'] };
+export type NiwaSnapshot = { work?: ChatWork; projects?: Projects; activities?: AgentActivity[]; diff?: string; settings: NiwaSettings; voices: string[]; browser: { mode: 'chrome' | 'bundled'; connected: boolean }; messages: NiwaMessage[]; models: NiwaModel[]; memory: NiwaMemory; connectors: { id: string; enabled: boolean; transport: string }[]; busy: boolean; voice: boolean; approvals: NiwaApproval[] };
+export type NiwaEvent = { turnId?: string; work?: ChatWork; activity?: AgentActivity; diff?: string; type: string; settings?: NiwaSettings; id?: string; role?: string; content?: string; timestamp?: number; text?: string; message?: string; sdp?: string; busy?: boolean; active?: boolean; title?: string; detail?: string; questions?: NiwaApproval['questions'] };
 
 // Capture is independent of the receive-capable WebRTC conversation.
 export class NiwaVoice {
   private peer: RTCPeerConnection | null = null;
   private sender: RTCRtpSender | null = null;
   private stream: MediaStream | null = null;
+  private silenceContext: AudioContext | null = null;
+  private silentTrack: MediaStreamTrack | null = null;
   private audio = new Audio();
   private generation = 0;
   private microphoneGeneration = 0;
@@ -48,6 +52,18 @@ export class NiwaVoice {
       }
     };
     peer.createDataChannel('oai-events');
+    // Keep the realtime audio clock running between holds without capturing the mic.
+    const context = this.silenceContext = new AudioContext();
+    const destination = context.createMediaStreamDestination();
+    const silence = context.createConstantSource();
+    silence.offset.value = 0;
+    silence.connect(destination);
+    silence.start();
+    this.silentTrack = destination.stream.getAudioTracks()[0];
+    await context.resume();
+    if (!current()) return;
+    await this.replaceInput(this.sender, this.silentTrack, () => current() && !this.stream);
+    if (!current()) return;
     // A permission prompt must not block incoming audio negotiation.
     if (this.microphoneEnabled) void this.setMicrophoneEnabled(true);
     const offer = await peer.createOffer();
@@ -92,13 +108,13 @@ export class NiwaVoice {
     if (!sender) return Promise.resolve();
     const operation = enabled
       ? this.acquireMicrophone(sender, currentHold)
-      : this.replaceInput(sender, null, currentPeer);
+      : this.replaceInput(sender, this.silentTrack, currentPeer);
     const task = operation.catch(error => {
       if (!currentPeer() || microphoneGeneration !== this.microphoneGeneration) return;
       this.microphoneEnabled = false;
       this.microphoneGeneration++;
       this.stopCapture();
-      if (enabled) void this.replaceInput(sender, null, currentPeer).catch(error => { if (currentPeer()) this.report(error); });
+      if (enabled) void this.replaceInput(sender, this.silentTrack, currentPeer).catch(error => { if (currentPeer()) this.report(error); });
       this.report(error);
       throw error;
     });
@@ -195,6 +211,10 @@ export class NiwaVoice {
     this.microphoneEnabled = false;
     this.microphoneTask = null;
     this.stopCapture();
+    this.silentTrack?.stop();
+    this.silentTrack = null;
+    if (this.silenceContext) void this.silenceContext.close().catch(() => {});
+    this.silenceContext = null;
     this.sender = null;
     this.replacement = null;
     if (this.peer) {

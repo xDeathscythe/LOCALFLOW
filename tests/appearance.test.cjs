@@ -69,7 +69,7 @@ app.whenReady().then(async () => {
       assert.equal(current, theme);
       assert.equal(readAppearance(directory), theme);
       assert.equal(nativeTheme.themeSource, themes[theme].light ? "light" : "dark");
-      assert.equal(windowAppearance(theme).backgroundMaterial, themes[theme].glass ? "acrylic" : "none");
+      assert.equal(windowAppearance(theme).backgroundMaterial, process.platform === 'win32' ? 'none' : themes[theme].glass ? "acrylic" : "none");
       assert.equal(windowAppearance(theme).backgroundColor, themes[theme].glass ? "#00000000" : themes[theme].light ? "#ffffff" : "#000000");
       await screenshot(`${theme}-settings`);
       await navigate("transcribe");

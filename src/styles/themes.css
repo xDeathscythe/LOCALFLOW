@@ -1,30 +1,3 @@
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("../assets/fonts/manrope-cyrillic.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("../assets/fonts/manrope-latin-ext.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-@font-face {
-  font-family: "Manrope";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("../assets/fonts/manrope-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 :root {
   --niwa-color-error: #dc2626;
 
@@ -36,7 +9,7 @@
   --niwa-space-2xl: 32px;
   --niwa-space-3xl: 48px;
 
-  --niwa-font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --niwa-font-family: Arial, "Segoe UI", system-ui, sans-serif;
   --niwa-font-size-xs: 11px;
   --niwa-font-size-sm: 13px;
   --niwa-font-size-md: 14px;
@@ -52,9 +25,9 @@
   --niwa-line-height-relaxed: 1.7;
 
   --niwa-radius-sm: 6px;
-  --niwa-radius-md: 14px;
-  --niwa-radius-lg: 21px;
-  --niwa-radius-xl: 21px;
+  --niwa-radius-md: 8px;
+  --niwa-radius-lg: 10px;
+  --niwa-radius-xl: 14px;
   --niwa-radius-full: 9999px;
 
   --niwa-transition-fast: 150ms ease-out;
@@ -74,13 +47,13 @@
   --niwa-color-primary: #ffffff;
   --niwa-color-primary-active: #e8e6e1;
   --niwa-color-primary-subtle: rgba(255,255,255,.12);
-  --niwa-color-surface-base: #10151d;
-  --niwa-color-surface-raised: rgba(255,255,255,.08);
-  --niwa-color-surface-overlay: rgba(255,255,255,.11);
+  --niwa-color-surface-base: #191919;
+  --niwa-color-surface-raised: #191919;
+  --niwa-color-surface-overlay: #252525;
   --niwa-color-surface-sunken: rgba(0,0,0,.08);
   --niwa-color-text-primary: #f1f1f1;
-  --niwa-color-text-secondary: #b6bbc5;
-  --niwa-color-text-tertiary: #a5abb5;
+  --niwa-color-text-secondary: #a0a0a0;
+  --niwa-color-text-tertiary: #8c8c8c;
   --niwa-color-text-inverse: #30332f;
   --niwa-color-text-link: var(--niwa-color-text-primary);
   --niwa-color-border-default: rgba(255,255,255,.06);
@@ -93,13 +66,16 @@
   --niwa-color-message-time: var(--niwa-color-text-secondary);
   --niwa-color-success: #a4b9ab;
   --niwa-control-bg: var(--niwa-color-surface-overlay);
-  --niwa-control-hover: rgba(255,255,255,.16);
+  --niwa-control-hover: #303030;
   --niwa-control-text: var(--niwa-color-text-primary);
   --niwa-icon-bg: var(--niwa-control-bg);
   --niwa-icon-color: var(--niwa-color-text-primary);
   --niwa-shadow-sm: none;
   --niwa-shadow-md: none;
-  --niwa-glass-bg: rgba(5,10,20,.12);
+  --sidebar-tint: rgba(0, 0, 0, .24);
+  --workspace-bg: #0b0b0b;
+  --diff-card-bg: #191919;
+  --niwa-glass-bg: rgba(0,0,0,.01);
   --niwa-glass-shadow: none;
   --niwa-window-bg: var(--niwa-glass-bg);
   --niwa-window-border: 1px solid var(--niwa-color-border-subtle);
@@ -123,10 +99,15 @@
   --niwa-color-border-focus: #384c3e;
   --niwa-color-success: #456951;
   --niwa-control-hover: rgba(255,255,255,.6);
-  --niwa-glass-bg: rgba(240,242,240,.12);
+  --sidebar-tint: rgba(235, 240, 249, .48);
+  --workspace-bg: #fafafa;
+  --diff-card-bg: #f0f0f0;
+  --niwa-glass-bg: rgba(240,242,240,.04);
 }
 
 :root[data-theme="static-black"] {
+  --sidebar-tint: #151515;
+  --workspace-bg: #080808;
   --app-background-color: #000000;
   --niwa-window-bg: #000000;
   --niwa-color-surface-base: #000000;
@@ -138,6 +119,8 @@
 }
 
 :root[data-theme="static-white"] {
+  --sidebar-tint: #f2f2f2;
+  --workspace-bg: #fff;
   --app-background-color: #ffffff;
   --niwa-window-bg: #ffffff;
   --niwa-color-surface-base: #ffffff;

@@ -1,0 +1,25 @@
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { ArrowUp, Plus, ShieldCheck, Square, X, FileText } from 'lucide-react';
+import type { NiwaSettings, NiwaSnapshot } from '../lib/niwa';
+
+export function AgentComposer({ input, setInput, attachments, setAttachments, snapshot, disabled, busy, voiceControls, configure, connect, send, interrupt, attach }: {
+  input: string; setInput: (text: string) => void; attachments: string[]; setAttachments: (paths: string[]) => void;
+  snapshot: NiwaSnapshot | null; disabled: boolean; busy: boolean; voiceControls: ReactNode;
+  configure: (patch: Partial<NiwaSettings>) => Promise<void>; connect: () => void; send: () => void; interrupt: () => void; attach: () => void;
+}) {
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => { const element = textarea.current; if (element) { element.style.height = '0px'; element.style.height = `${Math.min(180, Math.max(44, element.scrollHeight))}px`; } }, [input]);
+  return <div className="niwaComposer" data-has-input={Boolean(input.trim() || attachments.length)}>
+    {!!attachments.length && <div className="chatAttachments">{attachments.map(path => <span key={path} title={path}><FileText size={13} /><span>{path.split(/[\\/]/).at(-1)}</span><button aria-label={`Remove ${path}`} onClick={() => setAttachments(attachments.filter(item => item !== path))}><X size={12} /></button></span>)}</div>}
+    <textarea ref={textarea} aria-label="Message Niwa" value={input} onChange={event => setInput(event.target.value)} placeholder="Do anything" onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !event.repeat) send(); } }} />
+    <div className="composerFooter">
+      <button className="composerAdd" title="Add files" aria-label="Add files" disabled={busy} onClick={attach}><Plus size={18} /></button>
+      {snapshot && <label className="composerPermissions" title="Agent permissions"><ShieldCheck size={14} /><select aria-label="Agent permissions" value={snapshot.settings.access} disabled={disabled} onChange={event => void configure({ access: event.target.value as NiwaSettings['access'] })}><option value="read">Read only</option><option value="workspace">Ask for approval</option><option value="full">Full access</option></select></label>}
+      <div className="codingControls" aria-label="Coding agent settings">
+        {snapshot && <><select aria-label="Coding model" title={snapshot.settings.cwd} value={snapshot.settings.model} disabled={disabled} onChange={event => void configure({ model: event.target.value })}>{!snapshot.models.length && <option value={snapshot.settings.model}>{snapshot.settings.model || 'Choose model'}</option>}{snapshot.models.map(model => <option key={model.model} value={model.model}>{model.displayName}</option>)}</select><select className="reasoningSelect" aria-label="Reasoning effort" title="Reasoning effort" value={snapshot.settings.effort} disabled={disabled} onChange={event => void configure({ effort: event.target.value })}>{(snapshot.models.find(model => model.model === snapshot.settings.model)?.supportedReasoningEfforts || [{ reasoningEffort: snapshot.settings.effort }]).map(item => <option key={item.reasoningEffort}>{item.reasoningEffort}</option>)}</select>{!snapshot.models.length && <button className="connectModel" disabled={disabled} onClick={connect}>Connect</button>}</>}
+      </div>
+      {voiceControls}
+      {busy ? <button className="composerSend" title="Stop task" aria-label="Stop task" onClick={interrupt}><Square size={14} fill="currentColor" /></button> : (input.trim() || attachments.length > 0) && <button className="composerSend" title="Send message" aria-label="Send message" onClick={send}><ArrowUp size={18} /></button>}
+    </div>
+  </div>;
+}

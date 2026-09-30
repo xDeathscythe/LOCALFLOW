@@ -1,5 +1,5 @@
 .appearanceGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.appearanceCard { position: relative; min-width: 0; padding: 10px 10px 16px; border: 1px solid transparent; border-radius: 18px; background: var(--color-surface); color: var(--color-text); text-align: left; }
+.appearanceCard { position: relative; min-width: 0; padding: 10px 10px 16px; border: 1px solid transparent; border-radius: 10px; background: var(--color-surface); color: var(--color-text); text-align: left; }
 .appearanceCard[aria-pressed="true"] { border-color: var(--color-border-strong); }
 .appearanceCard:hover { background: var(--niwa-control-hover); }
 .appearanceCard strong { display: block; margin: 12px 3px 6px; font-size: 12px; font-weight: 500; }

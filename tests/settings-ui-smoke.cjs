@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { app, BrowserWindow } = require("electron");
+app.setPath("userData", fs.mkdtempSync(path.join(require("node:os").tmpdir(), "localflow-settings-")));
 
 app.whenReady().then(async () => {
   const window = new BrowserWindow({

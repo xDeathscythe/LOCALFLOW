@@ -9,6 +9,8 @@ app.whenReady().then(async () => {
   let window;
   try {
     let starts = 0, stops = 0;
+    let edgeState;
+    ipcMain.on('test-recording-state', (_event, state) => { edgeState = state; });
     let saves = 0, transcriptions = 0, pasted = [];
     ipcMain.handle('test-save-audio', () => { saves++; return 'dictation.webm'; });
     ipcMain.handle('test-transcribe', () => { transcriptions++; return { rawText: 'Dictation while Niwa works.', polishedText: '', duration: 1 }; });
@@ -73,11 +75,13 @@ app.whenReady().then(async () => {
     assert.equal(await run('window.micRequests'), 0, 'Opening the agent page cannot open the microphone');
     hotkey('pressed');
     await until(listening, 'Hold opens capture');
+    await until(() => edgeState?.agentListening === true, 'Actual Niwa capture reaches the edge panel');
     hotkey('pressed');
     await pause(30);
     assert.equal(await run('window.micRequests'), 1, 'Repeated press cannot toggle or reacquire');
     hotkey('released');
     await until(micClosed, 'Release stops all microphone tracks');
+    await until(() => edgeState?.agentListening === false, 'Release clears listening while voice remains connected');
     assert.equal(starts, 1);
     assert.equal(stops, 0, 'Release keeps conversation running');
     assert.equal(await run('window.testPeers[0].connectionState'), 'new', 'Release leaves peer open');
@@ -124,6 +128,9 @@ app.whenReady().then(async () => {
     const requests = await run('window.micRequests');
     hotkey('pressed', 'dictation');
     await until(() => run('window.micRequests') .then(count => count === requests + 1), 'Dictation acquires mic while Niwa is online and busy');
+    await until(() => edgeState?.recording === true, 'Dictation recording reaches the edge panel');
+    assert.equal(edgeState.recordingTarget, 'microphone');
+    assert.equal(edgeState.agentListening, false);
     hotkey('pressed');
     hotkey('released');
     await pause(50);

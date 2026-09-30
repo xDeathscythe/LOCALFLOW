@@ -25,7 +25,7 @@ export function TranscribePage(p: Props) {
   const clean = p.result?.polishedText;
   return <section className="transcribeView" onDrop={p.onDrop} onDragOver={event => event.preventDefault()} aria-label="Transcription workspace">
     <header className="flowHeading">
-      <div><h1>A little less typing.</h1><p>Your voice, with room to think.</p></div>
+      <div><h1>Transcribe</h1></div>
       <button className="flowPill" data-action="new-session" onClick={p.onReset} disabled={locked}><Plus size={16} />New session</button>
     </header>
     <div className="flowSessionToolbar">
@@ -77,7 +77,7 @@ export function TranscribePage(p: Props) {
       <button className="flowTextButton" data-action="save-note" onClick={p.onSaveNote} disabled={!raw && !clean}><NotebookPen size={12} />Save to notes</button>
     </div></div>
     {p.error && <div className="errorBox" role="alert">{p.error}</div>}
-    <section className="recentSessions"><header><h2>Pick up a thought</h2><button className="flowTextButton" onClick={p.onHistory}>View history<ArrowRight size={13} /></button></header>
+    <section className="recentSessions"><header><h2>Recent recordings</h2><button className="flowTextButton" onClick={p.onHistory}>View history<ArrowRight size={13} /></button></header>
       <div className="recentGrid">{p.sessions.slice(0, 2).map(session => <button className="recentCard" key={session.id} onClick={() => p.onOpenSession(session)} disabled={locked}>
         <span className="sessionSymbol"><AudioLines size={16} /></span><span><strong>{session.name}</strong><small>{new Date(session.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}<span>{duration(session.result.duration || 0)}</span></small></span><ArrowUpRight size={14} />
       </button>)}</div>

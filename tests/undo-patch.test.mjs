@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { undoPatch } from '../electron/undo-patch.mjs';
+const cwd = mkdtempSync(join(tmpdir(), 'localflow-undo-'));
+const git = (...args) => execFileSync('git', args, { cwd, windowsHide: true, encoding: 'utf8' });
+git('init','--quiet');git('config','core.autocrlf','false');
+const file=join(cwd,'report.txt');writeFileSync(file,'original\n');git('add','report.txt');writeFileSync(file,'updated\n');
+const diff=git('diff');await undoPatch(cwd,diff);assert.equal(readFileSync(file,'utf8'),'original\n');
+writeFileSync(file,'later user edit\n');await assert.rejects(undoPatch(cwd,diff),/newer changes/);assert.equal(readFileSync(file,'utf8'),'later user edit\n');
+await assert.rejects(undoPatch(cwd,''),/no changes/);
+const nested=join(cwd,'nested');mkdirSync(nested);
+await assert.rejects(undoPatch(nested,diff),/repository root/);
+await assert.rejects(undoPatch(cwd,'diff --git a/../outside.txt b/../outside.txt\n--- a/../outside.txt\n+++ b/../outside.txt\n@@ -1 +1 @@\n-old\n+new\n'));
+console.log('UNDO_PATCH_OK: reverse only the supplied patch; preserve later edits; reject empty and escaping paths');

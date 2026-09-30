@@ -37,3 +37,21 @@ this source release. Download and redistribution terms belong to their publisher
 in particular, do not treat the XTTS-v2 model as MIT-licensed. `tts/manifest.json`
 records model sources and checksums, not a grant to redistribute them. Supply your
 own authorized voice references when preparing a full offline distribution.
+
+## Windows installer components
+
+The standard Windows installer includes Whisper large-v3-turbo in CTranslate2
+format from [Mobius Labs](https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo),
+based on [OpenAI Whisper](https://github.com/openai/whisper), under MIT.
+
+Piper 1.4.2 runs as a separate Python process under GPL-3.0-or-later. Its license
+is included in the packaged `piper_tts-1.4.2.dist-info/licenses/COPYING`.
+The corresponding source and build instructions are available at
+[Piper v1.4.2](https://github.com/OHF-voice/piper1-gpl/tree/v1.4.2), including its
+eSpeak NG build dependency. Source archive:
+https://github.com/OHF-voice/piper1-gpl/archive/refs/tags/v1.4.2.tar.gz.
+
+The bundled en_US-kristin-medium voice was trained by Bryce Beattie using
+LibriVox recordings. The publisher's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/kristin/medium/MODEL_CARD)
+identifies the training dataset as public domain. Personal voice references and
+XTTS/OmniVoice weights are excluded from the standard installer.

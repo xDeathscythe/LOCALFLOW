@@ -1,6 +1,6 @@
 # LocalFlow
 
-**Version 0.1.77 · Windows desktop · MIT licensed**
+**Version 0.1.105 · Windows desktop · MIT licensed**
 
 Local dictation, notes and a realtime Niwa voice agent in an Electron desktop app.
 Speak into another application, keep transcripts in notes, or talk to an agent
@@ -18,6 +18,23 @@ that can use browser, computer and MCP tools while working in the background.
 - Screen inspection, native computer tools, Playwright browser use and MCP connectors.
 - Edge panel with Niwa, microphone and Notes; optional auto-hide and four themes.
 - Local voice output through Piper, XTTS or OmniVoice; optional external xVASynth.
+
+## Install on Windows
+
+Download **LocalFlow-Setup-0.1.105.exe** from [GitHub Releases](https://github.com/xDeathscythe/LOCALFLOW/releases/latest), run it and leave **Run LocalFlow** selected at the end.
+
+The installer includes Whisper large-v3-turbo, Python, Piper, the Codex runtime,
+Chromium and Windows computer tools. Hold **Ctrl + Shift**, speak, then release
+to paste the transcript into the active application. Dictation starts with
+automatic language detection, CPU/int8 and cleanup disabled. It needs no account,
+NVIDIA GPU, Python installation or first-run model download. Initial model loading
+can take a little longer; the model stays loaded for the next recording.
+
+Open **Settings → Connect with Codex** to sign in and use the agent. Cloud agent
+and realtime voice features require internet and an account with access. No
+separate Codex desktop installation is needed. Extra speech models download when
+selected and are stored in your writable user-data directory. Optional voice
+cloning engines require their own models and your authorized reference audio.
 
 ## Run from source
 
@@ -90,8 +107,13 @@ A complete offline Windows installer also needs these build-machine payloads:
 3. Prepared TTS environments and references: `npm run setup:tts`.
 4. NVIDIA runtime DLLs in `runtime/cuda/bin` when distributing GPU support.
 
-Then run `npm run package:offline` for `release/win-unpacked/LocalFlow.exe`, or
-`npm run dist:win` for the installer and its `.7z` payload in `release/nsis-web`.
+Run `npm run dist:win` to build the public single-file installer in
+`release/windows`. Its configuration in `build/windows-release.cjs` includes only
+Whisper Turbo, Piper and the agent tools. It excludes personal voice recordings,
+CUDA DLLs and the optional large voice-cloning engines.
+
+Run `npm run package:offline` for `release/win-unpacked/LocalFlow.exe`, or
+`npm run dist:offline` for the full installer and its `.7z` payload in `release/nsis-web`.
 Distribute both installer files together. Staging verifies local payloads;
 the end-user installer does not download missing models. xVASynth remains external.
 Review upstream model and runtime redistribution terms before distributing binaries.
@@ -144,3 +166,14 @@ personal recordings, conversation history or model weights.
 Original LocalFlow source is [MIT licensed](LICENSE). Fonts and adapted components
 retain their [third-party notices](THIRD_PARTY_NOTICES.md). Cloud service access,
 model weights and voice recordings are separate from this source-code license.
+
+
+### Projects, chats and Markdown notes
+
+Agents keeps Niwa's main conversation separate from project chats. Add a project with the folder picker, add nested workspace folders, and use each folder's + button for a new chat. Selecting a folder opens its most recent chat. Each chat retains its Codex thread, transcript, diff, model, reasoning and permissions; switching is disabled during a task or voice session.
+
+Notes supports a visual block editor and Markdown source, headings 1–6, paragraphs, bold/italic/strikethrough, nested lists, checklists, quotes, code, links, dividers and editable tables. Autosave writes UTF-8 `.md` files to `%APPDATA%/localflow/notes/pages`; `index.json` stores folder hierarchy and titles. Existing browser notes import once with a retained `legacy-backup.json`. Deleted pages remain on disk with an archived index. Conflicting edits preserve the unsaved draft and offer reload or save-as-copy.
+
+Niwa uses the same `notes_list`, `notes_read`, `notes_create` and `notes_update` tools to turn typed or spoken requests into structured notes. Read-only sessions cannot write notes. Agent responses support Markdown/code rendering, copy and Save to Notes; changes show line numbers, file filtering, copyable patches and unified/split views.
+
+Validate with `npm run test:workspace` after `npm run build`.

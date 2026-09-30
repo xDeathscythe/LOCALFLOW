@@ -76,7 +76,7 @@ try {
 
     $TargetRefs = Join-Path $TtsRoot 'shared\refs'
     New-Item -ItemType Directory -Force -Path $TargetRefs | Out-Null
-    foreach ($Reference in $Manifest.references) {
+    foreach ($Reference in $(if ($OnlyEngine -ne 'piper') { $Manifest.references })) {
         $Source = Join-Path $AssetRefs $Reference.file
         $Target = Join-Path $TargetRefs $Reference.file
         if (-not $VerifyOnly) {

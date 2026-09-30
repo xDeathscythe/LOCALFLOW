@@ -3,7 +3,7 @@ import { createNiwaConnectors } from '../electron/niwa/host/niwa-connectors.mjs'
 import { mkdtempSync } from 'node:fs';
 import { resolve } from 'node:path';
 const directory = mkdtempSync(resolve('runtime/connector-check-'));
-const direct = createNiwaConnectors(directory, { 'windows-mcp': { command: resolve('runtime/distribution/windows-mcp/python.exe'), args: ['-m','windows_mcp','serve'], enabled: true, protocolVersion:'2026-07-28', env: { PYTHONPATH:'',PYTHONHOME:'',PYTHONNOUSERSITE:'1',ANONYMIZED_TELEMETRY:'false' } } });
+const direct = createNiwaConnectors(directory, { 'windows-mcp': { command: resolve(process.argv[2] || 'runtime/distribution/windows-mcp/python.exe'), args: ['-m','windows_mcp','serve'], enabled: true, protocolVersion:'2026-07-28', env: { PYTHONPATH:'',PYTHONHOME:'',PYTHONNOUSERSITE:'1',ANONYMIZED_TELEMETRY:'false' } } });
 try {
   const tool = direct.tools().find(t => t.name === 'connector_tools');
   const result = await tool.execute('test', {connector:'windows-mcp'}, new AbortController().signal);

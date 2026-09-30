@@ -26,7 +26,7 @@ function ttsRuntimeReady(root, engine) {
     "shared/refs/hermes-reference.wav",
     "shared/refs/telegram_audio_5212538fe527_mono24k.wav",
   ];
-  return required.filter((file) => !engine || file.startsWith(`${engine}/`) || file.startsWith("shared/"))
+  return required.filter((file) => !engine || file.startsWith(`${engine}/`) || (engine !== 'piper' && file.startsWith("shared/")))
     .every((relativePath) => fs.existsSync(path.join(root, relativePath)));
 }
 

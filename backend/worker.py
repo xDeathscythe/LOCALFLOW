@@ -19,7 +19,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 DEFAULT_WHISPER_MODEL = "large-v3-turbo"
-DEFAULT_LANGUAGE = "sr"
+DEFAULT_LANGUAGE = "auto"
 DEFAULT_CLEANUP_MODEL = "gpt-5.6-terra"
 DEFAULT_CLEANUP_REASONING_EFFORT = "medium"
 DEFAULT_CLEANUP_TIMEOUT = 180
@@ -151,14 +151,14 @@ def normalize_transcript_text(text: str, configured: str, detected: str | None =
 
 
 def resolve_device() -> str:
-    configured = env("LOCALFLOW_WHISPER_DEVICE", "cuda")
+    configured = env("LOCALFLOW_WHISPER_DEVICE", "cpu")
     if configured == "auto":
         return "auto"
     return configured
 
 
 def resolve_compute_type() -> str:
-    configured = env("LOCALFLOW_WHISPER_COMPUTE_TYPE", "float16")
+    configured = env("LOCALFLOW_WHISPER_COMPUTE_TYPE", "int8")
     if configured == "auto":
         return "auto"
     return configured
@@ -170,6 +170,8 @@ def resolve_whisper_download_root() -> str:
 
 def resolve_whisper_model_source(model_name: str, download_root: str) -> str:
     bundled_model = Path(download_root) / model_name
+    if not (bundled_model / "model.bin").is_file():
+        bundled_model = Path(DEFAULT_WHISPER_DOWNLOAD_ROOT) / model_name
     return str(bundled_model) if (bundled_model / "model.bin").is_file() else model_name
 
 
@@ -195,9 +197,13 @@ def load_whisper_model(request_id: str) -> WhisperModel:
     )
     started = perf_counter()
     from faster_whisper import WhisperModel
+    import numpy as np
 
     model_source = resolve_whisper_model_source(model_name, download_root)
-    _whisper_model = WhisperModel(model_source, device=device, compute_type=compute_type, download_root=download_root)
+    model = WhisperModel(model_source, device=device, compute_type=compute_type, download_root=download_root)
+    # ponytail: initialize lazy GPU kernels now, before the first real dictation.
+    model.encode(np.zeros((model.model.n_mels, model.feature_extractor.nb_max_frames), dtype=np.float32))
+    _whisper_model = model
     _whisper_model_key = key
     emit(
         {

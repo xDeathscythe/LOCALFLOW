@@ -35,6 +35,13 @@ function harness() {
     pause() { this.pauses++; }
     play() { this.plays++; return Promise.resolve(); }
   }
+  class AudioContext {
+    constructor() { this.track = new Track(); this.track.silent = true; }
+    createMediaStreamDestination() { return { stream: new Stream([this.track]) }; }
+    createConstantSource() { return { offset: { value: 1 }, connect() {}, start() {} }; }
+    resume() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  }
   class Peer {
     connectionState = 'new'; signalingState = 'stable'; localDescription = null; closed = false;
     localCalls = []; remoteCalls = []; replacements = []; transceivers = [];
@@ -61,7 +68,7 @@ function harness() {
     }
     close() { this.closed = true; this.connectionState = 'closed'; }
   }
-  const context = vm.createContext({ exports: {}, Error, Audio, MediaStream: Stream, RTCPeerConnection: Peer,
+  const context = vm.createContext({ exports: {}, Error, Audio, AudioContext, MediaStream: Stream, RTCPeerConnection: Peer,
     navigator: { mediaDevices: { getUserMedia: constraints => {
       const request = deferred(); request.constraints = constraints; h.requests.push(request); return request.promise;
     } } },
@@ -99,14 +106,14 @@ test('default start receives audio without requesting a microphone; release pres
   const first = await h.capture(new Stream([new Track(), new Track()]));
   const released = h.voice.setMicrophoneEnabled(false);
   stopped(first); // Deliberately before awaiting detach.
-  assert.equal(peer.replacements.at(-1), null);
+  assert.equal(peer.replacements.at(-1).silent, true);
   assert.deepEqual(h.activity, [true, false]);
   assert.equal(audio.srcObject, output);
   assert.equal(audio.pauses, pauses);
   assert.equal(peer.closed, false);
   assert.equal(h.stops.length, 0);
   await released;
-  assert.equal(peer.sender.track, null);
+  assert.equal(peer.sender.track.silent, true);
   const second = await h.capture();
   assert.notEqual(second, first);
   assert.equal(h.requests.length, 2);
@@ -149,7 +156,7 @@ test('late getUserMedia after release is stopped without attachment or active no
   const stale = new Stream([new Track(), new Track()]); h.requests[0].resolve(stale);
   await opening;
   stopped(stale); assert.deepEqual(h.activity, []);
-  assert.equal(h.peers[0].sender.track, null);
+  assert.equal(h.peers[0].sender.track.silent, true);
   h.voice.close();
 });
 
@@ -184,7 +191,7 @@ test('close/restart invalidates an acquisition and old peer callbacks', async ()
 test('queued replacements cannot reopen released tracks or overwrite the latest hold', async () => {
   const h = harness(), blocked = deferred();
   let firstReplace = true;
-  h.peerPlans.push({ replace: () => { if (firstReplace) { firstReplace = false; return blocked.promise; } } });
+  h.peerPlans.push({ replace: track => { if (!track.silent && firstReplace) { firstReplace = false; return blocked.promise; } } });
   await h.voice.start();
   const first = h.voice.setMicrophoneEnabled(true), a = new Stream(); h.requests[0].resolve(a); await tick();
   assert.deepEqual(h.activity, [true]); // Actual capture, even while attachment is pending.
@@ -192,7 +199,7 @@ test('queued replacements cannot reopen released tracks or overwrite the latest 
   const second = h.voice.setMicrophoneEnabled(true), b = new Stream(); h.requests[1].resolve(b); await tick();
   const releaseB = h.voice.setMicrophoneEnabled(false); stopped(b);
   const third = h.voice.setMicrophoneEnabled(true), c = new Stream(); h.requests[2].resolve(c); await tick();
-  assert.equal(h.peers[0].replacements.length, 1);
+  assert.equal(h.peers[0].replacements.filter(track => !track.silent).length, 1);
   blocked.resolve(); await Promise.all([first, releaseA, second, releaseB, third]);
   assert.equal(h.peers[0].sender.track, c.getTracks()[0]);
   assert.equal(h.peers[0].replacements.includes(b.getTracks()[0]), false);
@@ -250,11 +257,11 @@ test('capture denial and attachment failures are observed, reported, and recover
   void h.voice.setMicrophoneEnabled(true);
   h.requests[0].reject(new Error('permission denied')); await tick();
   assert.deepEqual(h.activity, []); assert.match(h.errors[0], /permission denied/);
-  h.peers[0].plan.replace = track => { if (track) throw new Error('attachment failed'); };
+  h.peers[0].plan.replace = track => { if (!track.silent) throw new Error('attachment failed'); };
   const stream = new Stream(), failed = h.voice.setMicrophoneEnabled(true);
   h.requests[1].resolve(stream); await assert.rejects(failed, /attachment failed/); await tick();
   stopped(stream); assert.deepEqual(h.activity, [true, false]);
-  assert.equal(h.peers[0].sender.track, null); assert.equal(h.peers[0].closed, false);
+  assert.equal(h.peers[0].sender.track.silent, true); assert.equal(h.peers[0].closed, false);
   delete h.peers[0].plan.replace; await h.capture(); h.voice.close();
 });
 
@@ -271,7 +278,7 @@ test('hardware mute and end report actual capture and a new hold reacquires', as
   const h = harness(); await h.voice.start(); const stream = await h.capture(), track = stream.getTracks()[0];
   track.muted = true; track.onmute(); track.muted = false; track.onunmute(); track.end();
   stopped(stream); assert.deepEqual(h.activity, [true, false, true, false]);
-  await tick(); assert.equal(h.peers[0].sender.track, null);
+  await tick(); assert.equal(h.peers[0].sender.track.silent, true);
   await h.capture(); assert.equal(h.requests.length, 2); h.voice.close();
 });
 

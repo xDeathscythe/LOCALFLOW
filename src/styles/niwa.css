@@ -1,1 +1,71 @@
-.niwaPage[hidden]{display:none}.niwaPage{display:flex;flex-direction:column;gap:18px;min-height:0}.niwaPage>header{display:flex;gap:14px;align-items:center}.niwaPresence{margin-left:auto;font-size:12px;color:var(--niwa-color-text-secondary)}.niwaPresence.live{color:#d9854b}.niwaVoiceBar{display:flex;gap:15px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--niwa-color-border-default);padding-bottom:18px}.niwaVoiceBar>span{font-size:12px;color:var(--niwa-color-text-secondary)}.niwaTalk{display:flex;align-items:center;gap:10px;border-radius:30px!important;padding:13px 20px!important;background:#a84e22!important;color:#fff3e9!important;border:1px solid #d5894b55!important}.niwaTalk.live{background:#743b25!important}.niwaConfiguration{border-bottom:1px solid var(--niwa-color-border-default);padding-bottom:14px;font-size:13px}.niwaConfiguration summary{display:flex;align-items:center;gap:8px;cursor:pointer;margin:8px 0}.niwaConfiguration p{color:var(--niwa-color-text-secondary);font-size:12px;line-height:1.6}.niwaSettingsGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.niwaSettingsGrid label,.niwaApproval label{display:flex;flex-direction:column;gap:7px;font-size:12px}.niwaSettingsGrid select,.niwaSettingsGrid input,.niwaConfiguration textarea,.niwaApproval input{width:100%;background:var(--color-canvas);color:var(--color-text);border:1px solid var(--niwa-color-border-default);border-radius:8px;padding:10px}.niwaWorkspace{grid-column:1/-1}.niwaConfiguration textarea{min-height:90px;font-family:monospace}.niwaTranscript{min-height:200px;overflow:auto;flex:1}.niwaEmpty{display:flex;min-height:230px;align-items:center;justify-content:center;flex-direction:column;text-align:center;gap:8px;color:var(--niwa-color-text-secondary)}.niwaEmpty h3{font-size:26px;font-weight:400;color:var(--color-text)}.niwaEmpty p{font-size:13px}.niwaBubble{padding:14px 0;max-width:90%}.niwaBubble.user{margin-left:auto;width:fit-content;background:var(--niwa-control-hover);border-radius:16px;padding:14px 18px}.niwaBubble small{font-size:11px;color:var(--niwa-color-text-secondary)}.niwaBubble p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:14px;margin:5px 0}.niwaComposer{display:flex;gap:10px;padding:12px;border:1px solid var(--niwa-color-border-default);border-radius:18px;background:var(--niwa-control-hover)}.niwaComposer textarea{flex:1;resize:vertical;min-height:48px;max-height:180px;border:0;outline:0;background:transparent;color:var(--color-text);font:inherit}.niwaComposer button{align-self:flex-end}.niwaApproval{padding:15px;border:1px solid #bd6c30;border-radius:12px;display:grid;gap:10px}.niwaApproval pre{max-height:160px;overflow:auto;white-space:pre-wrap;font-size:12px}.niwaApproval button{margin-right:8px}.niwaFact{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}.niwaActivity{font-size:12px;color:var(--niwa-color-text-secondary)}.edgeSettings{display:grid;gap:12px;padding:20px 0;border-bottom:1px solid var(--niwa-color-border-default)}.edgeSettings p{font-size:12px;color:var(--niwa-color-text-secondary);margin:6px 0}.edgeSettings label{display:flex;gap:10px;align-items:center;font-size:13px}.edgeSettings input{accent-color:#ba622c}@media(max-width:700px){.niwaSettingsGrid{grid-template-columns:1fr}}
+.niwaPage[hidden] { display: none; }
+.niwaPage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.niwaPage.withDiff { grid-template-columns: minmax(0, 1fr) clamp(260px, var(--diff-width, 42%), min(960px, 60%)); }
+.niwaConversation { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.niwaToolbar, .agentDiff > header { display: flex; align-items: center; gap: 9px; flex-shrink: 0; height: 49px; min-height: 49px; padding: 0 12px; border-bottom: 1px solid var(--color-border); font-size: 12px; }
+.niwaToolbar { padding-right: 56px; }
+.niwaPresence { margin-left: auto; font-size: 11px; color: var(--color-text-soft); }
+.niwaPresence.live { color: var(--niwa-color-success); }
+.niwaPage button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px; border-radius: 7px; background: var(--niwa-control-bg); color: var(--color-text); }
+.niwaPage button:hover { background: var(--niwa-control-hover); }
+.niwaConfiguration { position: absolute; z-index: 2; right: 12px; top: 4px; font-size: 12px; }
+.niwaConfiguration > summary { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; cursor: pointer; list-style: none; }
+.niwaConfiguration > summary:hover { background: var(--niwa-control-hover); }
+.niwaConfigurationContent { position: absolute; right: 0; top: 38px; width: min(480px, calc(100vw - 100px)); max-height: calc(100vh - 180px); padding: 18px; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--niwa-color-surface-base); box-shadow: 0 12px 32px #0003; }
+.niwaConfigurationContent summary { cursor: pointer; padding: 12px 0; }
+.niwaConfiguration p { color: var(--color-text-soft); line-height: 1.6; }
+.niwaSettingsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 15px 0; }
+.niwaSettingsGrid label, .niwaApproval label { display: flex; flex-direction: column; gap: 7px; font-size: 12px; }
+.niwaSettingsGrid select, .niwaSettingsGrid input, .niwaConfiguration textarea, .niwaApproval input { width: 100%; background: var(--niwa-color-surface-base); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 7px; padding: 10px; }
+.niwaWorkspace { grid-column: 1 / -1; }
+.niwaConfiguration textarea { min-height: 90px; font-family: monospace; }
+.niwaTranscript { min-height: 0; overflow: auto; flex: 1; padding: 20px max(24px, calc((100% - 760px) / 2)); }
+.niwaEmpty { display: flex; height: 100%; min-height: 180px; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 18px; color: var(--color-text-soft); }
+.niwaEmpty h3 { font-size: 20px; font-weight: 500; color: var(--color-text); }
+.niwaBubble { padding: 14px 0; max-width: 100%; }
+.niwaBubble.user { margin-left: auto; width: fit-content; max-width: 88%; background: var(--niwa-control-hover); border-radius: 16px; padding: 10px 16px; }
+.niwaBubble p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: 13px; }
+.niwaApproval { margin: 8px 18px; padding: 15px; max-height: 32vh; overflow: auto; flex-shrink: 0; border: 1px solid var(--color-border-strong); border-radius: 12px; display: grid; gap: 10px; }
+.niwaApproval pre { max-height: 160px; overflow: auto; white-space: pre-wrap; font-size: 12px; }
+.niwaApproval button { margin-right: 8px; }
+.niwaFact { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.niwaChatFooter > .errorBox { margin: 8px 18px; max-height: 100px; overflow: auto; flex-shrink: 0; }
+.agentDiff { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--color-border); background: var(--workspace-bg); }
+.agentDiff > header button { margin-left: auto; }
+ .agentDiffFiles { overflow: auto; min-height: 0; padding: 10px; }
+.diffFile { margin-bottom: 10px; background: var(--diff-card-bg); border-radius: 10px; overflow: hidden; }
+.diffFile summary { cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 12px; list-style: none; }
+.diffFile summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diffFile summary::after { content: '⌄'; margin-left: auto; color: var(--color-text-soft); }
+.diffAdded { color: #48b889; font-size: 11px; }
+.diffRemoved { color: #db6576; font-size: 11px; }
+.agentDiff pre { margin: 0; padding: 4px 12px 14px; overflow: auto; font: 12px/1.55 Consolas, monospace; tab-size: 2; }
+.agentDiff pre span { display: block; min-width: 100%; width: max-content; padding: 0 10px; }
+.agentDiff [data-prefix="+"] { background: #34865b25; color: #7edaa4; }
+.agentDiff [data-prefix="-"] { background: #be4b5525; color: #f499a2; }
+.agentDiff [data-prefix="@"] { color: var(--color-text-soft); }
+:root:is([data-theme="light"], [data-theme="static-white"]) .agentDiff [data-prefix="+"] { color: #17603a; }
+:root:is([data-theme="light"], [data-theme="static-white"]) .agentDiff [data-prefix="-"] { color: #9c2634; }
+.agentDiffEmpty { display: flex; flex: 1; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: var(--color-text-soft); font-size: 12px; }
+.edgeSettings { display: grid; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--color-border); }
+.edgeSettings p { font-size: 12px; color: var(--color-text-soft); margin: 6px 0; }
+.edgeSettings label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.edgeSettings input { accent-color: var(--niwa-color-primary); }
+@media (max-width: 760px) {
+  .niwaSettingsGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .niwaPage.withDiff { position: relative; grid-template-columns: minmax(0, 1fr); }
+  .agentDiff { position: absolute; inset: 0; z-index: 3; }
+  .agentDiff > .panelResize { display: none; }
+}
+
+@container (max-width: 680px) {
+  .niwaPage.withDiff { position: relative; grid-template-columns: minmax(0, 1fr); }
+  .agentDiff { position: absolute; inset: 0; z-index: 3; }
+  .agentDiff > .panelResize { display: none; }
+}
+.niwaChatFooter > :is(.niwaComposer, .niwaVoiceBar, .codingControls, .niwaApproval, .niwaActivity, .errorBox) { width: calc(100% - 48px); max-width: 760px; margin-inline: auto; }
+
+.niwaToolbar button, .agentDiff > header button, .niwaTalk { background: transparent; }

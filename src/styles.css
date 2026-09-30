@@ -17,3 +17,6 @@
   --color-primary: var(--niwa-color-primary);
   --color-muted-foreground: var(--niwa-color-text-secondary);
 }
+@import "./styles/documents.css";
+@import "./styles/chat.css";
+@import "./styles/notes.css";

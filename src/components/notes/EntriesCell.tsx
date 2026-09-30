@@ -1,0 +1,18 @@
+import { useEffect, useRef, useState } from 'react';
+import type { Property } from '../../lib/database';
+type Entry = { name: string; url?: string; id?: string; [key: string]: unknown };
+export function EntriesCell({property,value,disabled,save}:{property:Property;value:unknown;disabled:boolean;save:(value:unknown)=>void}){
+  const entries=()=>Array.isArray(value)?value.map(v=>typeof v==='object'&&v?{...v} as Entry:{name:String(v)}):[];
+  const [draft,setDraft]=useState<Entry[]>(entries),[busy,setBusy]=useState(false),[error,setError]=useState(''),[link,setLink]=useState(false),[linkName,setLinkName]=useState(''),[linkUrl,setLinkUrl]=useState('');
+  const container=useRef<HTMLDetailsElement>(null), files=property.type==='files';
+  useEffect(()=>setDraft(entries()),[value]);
+  const add=async(pick:()=>Promise<Entry[]>)=>{if(disabled||busy)return;setBusy(true);setError('');try{const result=await pick();setDraft(current=>[...current,...result]);if(container.current)container.current.open=true;}catch(e){setError(String(e));}finally{setBusy(false);}};
+  const upload=(items:File[])=>void add(async()=>{if(items.length>20||items.some(file=>file.size>50*1024*1024))throw new Error('Choose up to 20 files, no larger than 50 MB each.');return window.localflow.notesUploadAssets(await Promise.all(items.map(async file=>({name:file.name,data:new Uint8Array(await file.arrayBuffer())}))));});
+  return <details ref={container} className="databaseMulti" onDragOver={e=>{if(files&&e.dataTransfer.types.includes('Files'))e.preventDefault();}} onDrop={e=>{if(files&&e.dataTransfer.files.length){e.preventDefault();e.stopPropagation();upload(Array.from(e.dataTransfer.files));}}} onPaste={e=>{if(files&&e.clipboardData.files.length){e.preventDefault();upload(Array.from(e.clipboardData.files));}}}>
+    <summary>{draft.map(v=>v.name||v.url||v.id).join(', ')||'—'}</summary>
+    <div className="databaseEntries">{error&&<p role="alert">{error}</p>}{draft.map((entry,i)=><div key={i}><input aria-label={`${property.name} name ${i+1}`} value={entry.name||''} disabled={disabled||busy} onChange={e=>setDraft(draft.map((v,n)=>n===i?{...v,name:e.target.value}:v))}/>{files&&entry.url?.startsWith('localflow-asset:')&&<button type="button" onClick={()=>void window.localflow.notesOpenAsset(entry.url!).catch(e=>setError(String(e)))}>Show file</button>}<button type="button" aria-label={`Remove entry ${i+1}`} disabled={disabled||busy} onClick={()=>setDraft(draft.filter((_,n)=>n!==i))}>×</button></div>)}
+      {files?<><button type="button" disabled={disabled||busy} onClick={()=>void add(()=>window.localflow.notesPickAssets())}>{busy?'Adding files...':'Choose files'}</button><span className="databaseMoveHint">or drop / paste files here</span><button type="button" disabled={disabled||busy} onClick={()=>setLink(!link)}>Add external link</button>{link&&<div className="databaseFileLink"><input aria-label="File link name" placeholder="Name" value={linkName} onChange={e=>setLinkName(e.target.value)}/><input aria-label="File link URL" type="url" placeholder="https://" value={linkUrl} onChange={e=>setLinkUrl(e.target.value)}/><button type="button" disabled={!/^https?:\/\//.test(linkUrl)} onClick={()=>{setDraft([...draft,{name:linkName||linkUrl,url:linkUrl}]);setLink(false);setLinkUrl('');setLinkName('');}}>Add link</button></div>}</>:<button type="button" disabled={disabled} onClick={()=>setDraft([...draft,{name:''}])}>Add person</button>}
+      <button type="button" disabled={disabled||busy} onClick={()=>{save(draft);if(container.current)container.current.open=false;}}>Apply entries</button>
+    </div>
+  </details>;
+}

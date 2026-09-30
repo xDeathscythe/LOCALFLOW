@@ -11,19 +11,19 @@ function readEdgeSettings(directory) {
 
 function createEdgePanel({ directory, display, onAction, onChange }) {
   let settings = readEdgeSettings(directory);
-  let state = { recording: false, starting: false, busy: false, voice: false, elapsedSeconds: 0, theme: 'dark', selected: 'microphone' };
+  let state = { recording: false, starting: false, agentListening: false, recordingTarget: 'microphone', busy: false, voice: false, elapsedSeconds: 0, theme: 'dark', selected: 'microphone' };
   let hover = false;
+  let hoverTimer;
   let window;
   let expanded;
   const bounds = () => {
     const area = display().workArea;
-    const width = 37;
-    // Keep the raised center, with more room above and below the controls.
-    return { x: area.x + area.width - width, y: area.y + Math.max(0, Math.round(area.height * .28 - 62) - 155), width, height: 146 };
+    const width = area.width <= 1600 ? 31 : 37;
+    return { x: area.x + area.width - width, y: area.y + 79, width, height: 146 };
   };
   const sync = () => {
     if (!window || window.isDestroyed()) return;
-    const next = !settings.autoHide || hover || state.recording || state.starting || state.busy || state.voice;
+    const next = !settings.autoHide || hover || state.recording || state.starting || state.agentListening || state.busy;
     if (next !== expanded) {
       expanded = next;
       // Keep the transparent canvas stable; forward movement to the collapsed edge handle.
@@ -49,9 +49,18 @@ function createEdgePanel({ directory, display, onAction, onChange }) {
   const receiveHover = (event, x) => {
     if (event.sender !== window.webContents) return;
     // Decide against native state: forwarded movement can arrive before the CSS collapse.
-    const next = typeof x === 'number' && x >= 0 && x < 37 && (expanded || x >= 32);
+    const width = window.getBounds().width;
+    const next = typeof x === 'number' && x >= 0 && x < width && (expanded || x >= width - 5);
     if (hover === next) return;
-    hover = next; sync();
+    hover = next;
+    clearInterval(hoverTimer);
+    // Native transparent windows can lose mouseleave. Check only while hovered.
+    if (hover) hoverTimer = setInterval(() => {
+      const cursor = screen.getCursorScreenPoint(), area = window.getBounds();
+      if (cursor.x >= area.x && cursor.x < area.x + area.width && cursor.y >= area.y && cursor.y < area.y + area.height) return;
+      hover = false; clearInterval(hoverTimer); sync();
+    }, 200);
+    sync();
   };
   const receiveAction = (event, action) => {
     if (event.sender !== window.webContents || !['agent', 'microphone', 'notes'].includes(action)) return;
@@ -67,10 +76,11 @@ function createEdgePanel({ directory, display, onAction, onChange }) {
       const file = join(directory, 'edge-panel.json');
       settings = { enabled: value.enabled, autoHide: value.autoHide };
       writeFileSync(file + '.tmp', JSON.stringify(settings)); renameSync(file + '.tmp', file);
-      hover = false; sync(); onChange(); return { ...settings };
+      hover = false; clearInterval(hoverTimer); sync(); onChange(); return { ...settings };
     },
     update: value => { state = { ...state, ...value }; sync(); },
     close: () => {
+      clearInterval(hoverTimer);
       ipcMain.removeListener('edge-hover', receiveHover); ipcMain.removeListener('edge-action', receiveAction);
       for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) screen.removeListener(event, sync);
       window.destroy();

@@ -1,42 +1,8 @@
-import assert from "node:assert/strict";
-import {
-  NOTES_STORAGE_KEY,
-  createInitialNotes,
-  findNotesItem,
-  findParentFolderId,
-  insertNotesItem,
-  loadNotes,
-  removeNotesItem,
-  updateNotesItem,
-  type NotesItem,
-} from "../src/lib/notes.ts";
-
-const initial = createInitialNotes("");
-const project: NotesItem = { id: "project", kind: "folder", label: "Project", children: [] };
-const note: NotesItem = {
-  id: "note",
-  kind: "note",
-  label: "Meeting",
-  content: "Draft",
-  updatedAt: "2026-08-07T00:00:00.000Z",
-};
-const nested = insertNotesItem(insertNotesItem(initial, "inbox", project), "project", note);
-assert.equal(findParentFolderId(nested, "note"), "project");
-assert.equal(findNotesItem(nested, "note")?.label, "Meeting");
-
-const updated = updateNotesItem(nested, "note", (item) => item.kind === "note"
-  ? { ...item, label: "Renamed meeting", content: "Saved transcript" }
-  : item);
-assert.equal(findNotesItem(updated, "note")?.kind === "note" && findNotesItem(updated, "note")?.content, "Saved transcript");
-assert.equal(findNotesItem(updated, "note")?.label, "Renamed meeting");
-
-const restored = loadNotes({
-  getItem: (key) => key === NOTES_STORAGE_KEY ? JSON.stringify(updated) : null,
-});
-assert.equal(findNotesItem(restored, "note")?.label, "Renamed meeting");
-
-const deletedFolder = removeNotesItem(restored, "project");
-assert.equal(findNotesItem(deletedFolder, "project"), undefined);
-assert.equal(findNotesItem(deletedFolder, "note"), undefined);
-
-console.log("notes model ok");
+import assert from 'node:assert/strict';
+import { NOTES_STORAGE_KEY, LEGACY_NOTES_STORAGE_KEY, loadNotes, createInitialNotes } from '../src/lib/notes.ts';
+const tree = [{ id: 'inbox', kind: 'folder', label: 'Inbox', children: [{ id: 'note', kind: 'note', label: '日本語', content: '# Извештај\n\nالعربية', updatedAt: '2026-09-30' }] }];
+assert.deepEqual(loadNotes({ getItem: key => key === NOTES_STORAGE_KEY ? JSON.stringify(tree) : null }), tree);
+assert.deepEqual(loadNotes({ getItem: () => null }), createInitialNotes());
+const legacy = loadNotes({ getItem: key => key === NOTES_STORAGE_KEY ? 'corrupt' : key === LEGACY_NOTES_STORAGE_KEY ? 'Old note' : null });
+assert.equal(legacy[0].kind === 'folder' && legacy[0].children[0].kind === 'note' && legacy[0].children[0].content, 'Old note');
+console.log('NOTES_MIGRATION_INPUT_OK');

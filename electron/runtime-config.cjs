@@ -121,7 +121,7 @@ function ensureRuntimeEnv() {
   process.env.PYTHONIOENCODING = "utf-8";
   process.env.LOCALFLOW_CUDA_BIN = cudaBinDir;
   process.env.LOCALFLOW_CODEX_BIN = resolveCodexBinary();
-  process.env.LOCALFLOW_WHISPER_DOWNLOAD_ROOT = process.env.LOCALFLOW_WHISPER_DOWNLOAD_ROOT || bundledWhisperRoot() || path.join(runtimeDir, "models", "whisper");
+  process.env.LOCALFLOW_WHISPER_DOWNLOAD_ROOT = process.env.LOCALFLOW_WHISPER_DOWNLOAD_ROOT || (!app.isPackaged && bundledWhisperRoot()) || path.join(runtimeDir, "models", "whisper");
   if (fs.existsSync(bundledPythonPackages)) {
     process.env.PYTHONPATH = [bundledPythonPackages, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
   }

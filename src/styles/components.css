@@ -17,7 +17,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-5);
-  padding: 31px 33px 29px;
+  padding: 24px;
   overflow: auto;
 }
 
@@ -31,19 +31,19 @@
 
 .utilityPanel header > svg {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  padding: 10px;
-  border-radius: var(--radius-pill);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 7px;
   background: var(--niwa-icon-bg);
   color: var(--niwa-icon-color);
 }
 
 .utilityPanel h2 {
   color: var(--color-text);
-  font-size: 29px;
+  font-size: 20px;
   font-weight: 500;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .utilityPanel p {
@@ -78,7 +78,7 @@
   min-height: 42px;
   padding: 10px 14px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--niwa-control-text);
   font-size: 11.5px;
@@ -261,7 +261,7 @@
   height: 8px;
   flex: 0 0 auto;
   border: 1px solid var(--color-text-faint);
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: transparent;
 }
 
@@ -280,7 +280,7 @@
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--color-text);
   font-size: 11px;
@@ -362,9 +362,9 @@
 
 .cleanupDeviceCode small {
   color: var(--color-text-soft);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .cleanupDeviceCode strong {
@@ -461,9 +461,9 @@
   display: block;
   color: var(--color-text-faint);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.025em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .infoGrid strong,
@@ -503,7 +503,7 @@
   width: 42px;
   height: 42px;
   padding: 10px;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-icon-bg);
   color: var(--niwa-icon-color);
   box-shadow: none;
@@ -617,7 +617,7 @@
   justify-content: center;
   gap: 6px;
   padding: 0 12px;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--niwa-control-text);
   font-size: 10.5px;
@@ -670,17 +670,15 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--color-border);
 }
 
 .notesTreeToolbar {
   display: flex;
-  min-height: 76px;
+  min-height: 32px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  gap: 6px;
+  padding: 0 8px;
 }
 
 .notesTreeToolbar > div:first-child {
@@ -694,14 +692,14 @@
 
 .notesTreeToolbar strong {
   color: var(--color-text);
-  font-size: 13px;
-  font-weight: var(--niwa-font-weight-semibold);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .notesTreeToolbar span {
   margin-top: 4px;
   color: var(--color-text-faint);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -714,10 +712,10 @@
 
 .notesTreeToolbar button {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   place-items: center;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--niwa-control-text);
 }
@@ -758,10 +756,10 @@
 
 .notesCreateRow button {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   place-items: center;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--niwa-control-text);
 }
@@ -779,10 +777,10 @@
   background: transparent;
 }
 
+.noteWorkspace[hidden] { display: none; }
 .noteWorkspace {
-  margin: 18px;
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  margin: 0;
+  background: transparent;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -792,7 +790,7 @@
 
 .noteEditorHeader {
   display: flex;
-  min-height: 76px;
+  min-height: 60px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
@@ -828,7 +826,7 @@
   margin-top: 4px;
   color: var(--color-text-faint);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .noteEditorActions button {
@@ -838,7 +836,7 @@
   justify-content: center;
   gap: var(--space-2);
   padding: 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-control-bg);
   color: var(--niwa-control-text);
   font-size: 11.5px;
@@ -855,23 +853,9 @@
   color: #ffffff;
 }
 
-.noteDocument {
-  width: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
-  resize: none;
-  padding: var(--space-6);
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--color-text);
-  font-size: 15px;
-  line-height: 1.75;
-}
 
-.noteDocument::placeholder {
-  color: var(--color-text-faint);
-}
+
+
 
 .noteFolderState {
   display: grid;
@@ -934,9 +918,9 @@
   gap: 6px;
   color: var(--color-text-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .rangeRow input {
@@ -948,7 +932,7 @@
   display: grid;
   height: 32px;
   place-items: center;
-  border-radius: var(--radius-pill);
+  border-radius: 7px;
   background: var(--niwa-color-surface-overlay);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -1001,3 +985,14 @@
 }
 .appearanceGroup { background: transparent; padding: 0; }
 .historyList article { border: 0; border-radius: 21px; background: var(--color-surface); }
+
+.noteCreateButton { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; background: var(--niwa-control-bg); color: var(--color-text); }
+
+.sidebarNotes .notesTreePane { flex: 1; }
+.sidebarNotes .notesTreeToolbar button { background: transparent; }
+.sidebarNotes [role="treeitem"] { border-radius: 7px; font-size: 12px; padding-block: 7px; }
+.sidebarNotes .notesTreeView { padding: 4px 0; }
+
+.sidebarNotes [role="treeitem"] > span { font-size: 12px; }
+.sidebarNotes [role="treeitem"]:hover { background: rgba(180,190,220,.1); }
+.sidebarNotes [role="treeitem"][aria-selected="true"] { background: rgba(180,190,220,.18); }
