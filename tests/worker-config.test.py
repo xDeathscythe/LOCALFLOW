@@ -30,27 +30,36 @@ with contextlib.redirect_stdout(io.StringIO()):
         raise AssertionError("Invalid configuration accepted")
 print("Language changes preserve the loaded model")
 
-# Loading weights alone leaves the first dictation paying for lazy GPU startup.
+# Inference is lazy: consume the generator and initialize VAD before reporting ready.
 from types import SimpleNamespace
 from unittest.mock import patch
 import numpy as np
 
-encodes = []
-def encode(features):
-    assert features.shape == (128, 3000)
-    assert features.dtype == np.float32
-    encodes.append(features)
+inferences = []
+vads = []
+def transcribe(audio, **options):
+    assert audio.shape == (16000,)
+    assert audio.dtype == np.float32
+    assert options['language'] is None
+    assert options['vad_filter'] is False
+    assert options['max_new_tokens'] == 1
+    def segments():
+        inferences.append(audio)
+        yield object()
+    return segments(), None
 
-fake_model = SimpleNamespace(model=SimpleNamespace(n_mels=128),
-                             feature_extractor=SimpleNamespace(nb_max_frames=3000), encode=encode)
+fake_model = SimpleNamespace(transcribe=transcribe)
 worker.reset_whisper_model()
-with patch.dict(sys.modules, {"faster_whisper": SimpleNamespace(WhisperModel=lambda *args, **kwargs: fake_model)}), contextlib.redirect_stdout(io.StringIO()):
+with patch.dict(sys.modules, {
+    "faster_whisper": SimpleNamespace(WhisperModel=lambda *args, **kwargs: fake_model),
+    "faster_whisper.vad": SimpleNamespace(get_speech_timestamps=lambda audio: vads.append(audio)),
+}), contextlib.redirect_stdout(io.StringIO()):
     worker.warmup_model("startup")
     worker.warmup_model("recording")
     assert worker.load_whisper_model("transcribe") is fake_model
-    assert len(encodes) == 1, "Warm the encoder once per loaded model, never once per recording"
+    assert len(inferences) == len(vads) == 1, "Warm inference and VAD once per model"
     worker.reset_whisper_model()
-    with patch.object(fake_model, "encode", side_effect=RuntimeError("GPU unavailable")):
+    with patch.object(fake_model, "transcribe", side_effect=RuntimeError("GPU unavailable")):
         try:
             worker.warmup_model("failed")
         except RuntimeError:
@@ -59,5 +68,5 @@ with patch.dict(sys.modules, {"faster_whisper": SimpleNamespace(WhisperModel=lam
             raise AssertionError("Warmup failure was ignored")
     assert worker._whisper_model is None, "A failed warmup must not be cached as ready"
     worker.warmup_model("retry")
-    assert len(encodes) == 2
-print("Encoder warmed once, reused, and retried after failure")
+    assert len(inferences) == len(vads) == 2
+print("Full inference and VAD warmed once, reused, and retried after failure")

@@ -1,6 +1,6 @@
 # LocalFlow
 
-**Version 0.1.105 · Windows desktop · MIT licensed**
+**Version 0.1.106 · Windows desktop · MIT licensed**
 
 Local dictation, notes and a realtime Niwa voice agent in an Electron desktop app.
 Speak into another application, keep transcripts in notes, or talk to an agent
@@ -21,14 +21,23 @@ that can use browser, computer and MCP tools while working in the background.
 
 ## Install on Windows
 
-Download **LocalFlow-Setup-0.1.105.exe** from [GitHub Releases](https://github.com/xDeathscythe/LOCALFLOW/releases/latest), run it and leave **Run LocalFlow** selected at the end.
+Download **LocalFlow-Setup-0.1.106.exe** from [GitHub Releases](https://github.com/xDeathscythe/LOCALFLOW/releases/latest), run it and leave **Run LocalFlow** selected at the end.
 
 The installer includes Whisper large-v3-turbo, Python, Piper, the Codex runtime,
 Chromium and Windows computer tools. Hold **Ctrl + Shift**, speak, then release
 to paste the transcript into the active application. Dictation starts with
 automatic language detection, CPU/int8 and cleanup disabled. It needs no account,
-NVIDIA GPU, Python installation or first-run model download. Initial model loading
-can take a little longer; the model stays loaded for the next recording.
+NVIDIA GPU, Python installation or first-run model download. Setup validates and
+warms the complete speech engine offline before finishing. Each app launch starts
+warmup immediately and keeps the model loaded until the app exits; wait for
+"Whisper model ready" before the first recording. Warmup cannot survive an app or
+computer restart, and transcription time still depends on the CPU and recording.
+
+Setup requests administrator access and installs for all users. The default dark
+and light themes include native transparency. When Windhawk's Translucent Windows
+mod is installed, setup adds the installed LocalFlow.exe path to its custom
+exclusions without replacing existing rules. No manual registry changes are needed.
+Preparation errors stop setup and are recorded in `setup.log` in the install folder.
 
 Open **Settings → Connect with Codex** to sign in and use the agent. Cloud agent
 and realtime voice features require internet and an account with access. No

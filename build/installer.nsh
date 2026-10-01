@@ -17,3 +17,14 @@
     ${endif}
   !endif
 !macroend
+
+!macro customInstall
+  DetailPrint "Preparing local speech recognition and window transparency..."
+  nsExec::ExecToLog '"$INSTDIR\resources\runtime\python\python.exe" -I -B "$INSTDIR\resources\scripts\setup-windows.py"'
+  Pop $0
+  ${if} $0 != 0
+    MessageBox MB_ICONSTOP "LocalFlow setup could not prepare local speech recognition or window compatibility. See $INSTDIR\setup.log, then run setup again." /SD IDOK
+    SetErrorLevel 1
+    Abort
+  ${endif}
+!macroend

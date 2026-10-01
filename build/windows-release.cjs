@@ -1,5 +1,5 @@
 const { build } = require('../package.json');
-const { existsSync, readdirSync } = require('node:fs');
+const { existsSync, readdirSync, mkdirSync } = require('node:fs');
 const { resolve } = require('node:path');
 
 // One install includes dictation and the agent's tools. Personal voice clones
@@ -7,7 +7,12 @@ const { resolve } = require('node:path');
 module.exports = {
   ...build,
   beforePack: async () => {
+    // Keep NSIS's multi-gigabyte temporary files beside the build, off the OS disk.
+    const temp = resolve('runtime/build-temp');
+    mkdirSync(temp, { recursive: true });
+    process.env.TEMP = process.env.TMP = temp;
     for (const file of [
+      'scripts/setup-windows.py', 'backend/window_glass.py',
       'runtime/python/python.exe', 'runtime/python-packages/faster_whisper/__init__.py',
       'runtime/distribution/windows-mcp/python.exe',
       'runtime/distribution/tts/piper/.venv/Scripts/python.exe',
@@ -25,7 +30,7 @@ module.exports = {
     .map(item => item.from === 'models/whisper'
       ? { ...item, filter: ['large-v3-turbo/**/*'] }
       : item.from === 'assets/tts' ? { ...item, filter: ['README.md'] }
-      : item.from === 'scripts' ? { ...item, filter: ['install-tts.ps1', 'prepare-tts-models.py'] }
+      : item.from === 'scripts' ? { ...item, filter: ['install-tts.ps1', 'prepare-tts-models.py', 'setup-windows.py'] }
       : item.from === 'runtime/browsers' ? { ...item, filter: ['chromium_headless_shell-*/**/*', 'ffmpeg-*/**/*', 'winldd-*/**/*'] }
       : ['runtime/python', 'runtime/python-packages'].includes(item.from)
         ? { ...item, filter: ['**/*', '!**/__pycache__/**', '!**/*.pyc'] } : item)
@@ -33,6 +38,8 @@ module.exports = {
       { from: 'runtime/distribution/windows-mcp', to: 'runtime/windows-mcp', filter: ['**/*', '!**/__pycache__/**', '!**/*.pyc'] },
       { from: 'runtime/distribution/tts/piper', to: 'runtime/tts/piper', filter: ['**/*', '!**/__pycache__/**', '!**/*.pyc'] },
     ]),
-  nsis: { oneClick: false, allowToChangeInstallationDirectory: true, runAfterFinish: true,
+  // No in-app updater uses differential archives; normal compression reduces
+  // the size of the bundled offline models.
+  nsis: { ...build.nsis, differentialPackage: false, runAfterFinish: true,
     artifactName: 'LocalFlow-Setup-${version}.${ext}' },
 };

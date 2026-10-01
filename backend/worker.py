@@ -201,8 +201,17 @@ def load_whisper_model(request_id: str) -> WhisperModel:
 
     model_source = resolve_whisper_model_source(model_name, download_root)
     model = WhisperModel(model_source, device=device, compute_type=compute_type, download_root=download_root)
-    # ponytail: initialize lazy GPU kernels now, before the first real dictation.
-    model.encode(np.zeros((model.model.n_mels, model.feature_extractor.nb_max_frames), dtype=np.float32))
+    # ponytail: use the real inference path to warm features, language detection,
+    # encoder and decoder once. Silence with VAD enabled would skip the decoder.
+    silence = np.zeros(16000, dtype=np.float32)
+    segments, _ = model.transcribe(silence, language=None, vad_filter=False,
+                                  beam_size=1, best_of=1, temperature=0,
+                                  max_new_tokens=1, no_speech_threshold=None,
+                                  condition_on_previous_text=False)
+    for _ in segments:
+        pass
+    from faster_whisper.vad import get_speech_timestamps
+    get_speech_timestamps(silence)
     _whisper_model = model
     _whisper_model_key = key
     emit(

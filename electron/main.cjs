@@ -425,16 +425,14 @@ app.whenReady().then(async () => {
     notify: (payload) => mainWindow?.webContents.send("worker-progress", payload),
     cleanup: (payload, signal) => duplexCleanup.clean(payload, signal),
   });
-  setTimeout(() => {
-    transcriptionWorker.send("warmup").catch((error) => {
-      if (error.code === "CANCELLED") return;
-      mainWindow?.webContents.send("worker-progress", {
-        type: "progress",
-        stage: "warmup-failed",
-        message: `STT warmup failed: ${error.message}`,
-      });
+  transcriptionWorker.send("warmup").catch((error) => {
+    if (error.code === "CANCELLED") return;
+    mainWindow?.webContents.send("worker-progress", {
+      type: "progress",
+      stage: "warmup-failed",
+      message: `STT warmup failed: ${error.message}`,
     });
-  }, 750);
+  });
 
   ipcMain.handle("get-appearance", () => appearanceTheme);
   ipcMain.handle("set-appearance", (event, theme) => {
