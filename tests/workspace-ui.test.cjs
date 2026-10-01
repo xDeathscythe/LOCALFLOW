@@ -35,6 +35,16 @@ app.whenReady().then(async () => {
     assert(await run("document.querySelector('.brand').getBoundingClientRect().top <= 14"), 'Dark glass branding sits in the top corner');
     assert(await run("(() => { const r=document.querySelector('.profileTrigger').getBoundingClientRect();return Math.abs(r.left-(innerHeight-r.bottom))<1; })()"), 'Profile has equal left and bottom spacing');
     assert.equal(await run("getComputedStyle(document.querySelector('.appShell')).borderRadius"), '0px');
+    const layout = () => run(`['.brand', '.navList', '.profileTrigger', '.workspaceHeader', '.niwaConfiguration', '.niwaComposer'].map(selector => {
+      const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+      return { selector, x, y, width, height };
+    })`);
+    const darkLayout = await layout();
+    await run("document.documentElement.dataset.theme='light'");
+    assert.deepEqual(await layout(), darkLayout, 'Light and dark glass share the same layout');
+    assert.equal(await run("getComputedStyle(document.querySelector('.workspace')).backgroundColor"), 'rgb(255, 255, 255)');
+    assert.equal(await run("getComputedStyle(document.querySelector('.niwaComposer')).backdropFilter"), 'blur(40px)');
+    await run("document.documentElement.dataset.theme='dark'");
     const panes = await run(`(() => {
       const chat = document.querySelector('.niwaToolbar'), diff = document.querySelector('.agentDiff > header');
       return { chatBottom: chat.getBoundingClientRect().bottom, diffBottom: diff.getBoundingClientRect().bottom,
@@ -64,7 +74,7 @@ app.whenReady().then(async () => {
     })()`);
     await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
     const through = await pixel();
-    assert(through[2]>plain[2]+40 && through[2]<220, 'Feed content shows through the tinted glass');
+    assert(through[2]>plain[2]+10 && through[2]<90, 'Feed content is strongly muted behind the frosted input');
     await run("document.querySelector('#glass-feed-check').style.top='0px'");
     await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
     assert.deepEqual(await pixel(), plain, 'Moving content away changes the backdrop while the composer stays fixed');

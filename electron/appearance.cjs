@@ -41,9 +41,10 @@ function windowAppearance(theme) {
 function applyAppearance(window, nativeTheme, theme) {
   const appearance = windowAppearance(theme);
   nativeTheme.themeSource = themes[theme].light ? "light" : "dark";
-  window.setBackgroundColor(appearance.backgroundColor);
   window.setTitleBarOverlay(appearance.titleBarOverlay);
   window.setBackgroundMaterial(appearance.backgroundMaterial);
+  // Changing the native material resets Electron's background; restore its alpha last.
+  window.setBackgroundColor(appearance.backgroundColor);
   require('./windows-glass.cjs').applyWindowGlass(window, themes[theme].glass);
 }
 

@@ -1,6 +1,6 @@
 # LocalFlow
 
-**Version 0.1.106 · Windows desktop · MIT licensed**
+**Version 0.1.108 · Windows desktop · MIT licensed**
 
 Local dictation, notes and a realtime Niwa voice agent in an Electron desktop app.
 Speak into another application, keep transcripts in notes, or talk to an agent
@@ -21,7 +21,7 @@ that can use browser, computer and MCP tools while working in the background.
 
 ## Install on Windows
 
-Download **LocalFlow-Setup-0.1.106.exe** from [GitHub Releases](https://github.com/xDeathscythe/LOCALFLOW/releases/latest), run it and leave **Run LocalFlow** selected at the end.
+Download **LocalFlow-Setup-0.1.108.exe** from [GitHub Releases](https://github.com/xDeathscythe/LOCALFLOW/releases/latest), run it and leave **Run LocalFlow** selected at the end.
 
 The installer includes Whisper large-v3-turbo, Python, Piper, the Codex runtime,
 Chromium and Windows computer tools. Hold **Ctrl + Shift**, speak, then release

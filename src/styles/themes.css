@@ -87,10 +87,10 @@
   --niwa-color-primary: #ffffff;
   --niwa-color-primary-active: #f0f1ef;
   --niwa-color-primary-subtle: rgba(30,40,32,.12);
-  --niwa-color-surface-base: #eef1ef;
-  --niwa-color-surface-raised: rgba(255,255,255,.42);
-  --niwa-color-surface-overlay: rgba(255,255,255,.3);
-  --niwa-color-surface-sunken: rgba(255,255,255,.2);
+  --niwa-color-surface-base: #ffffff;
+  --niwa-color-surface-raised: #f3f3f3;
+  --niwa-color-surface-overlay: #e9e9e9;
+  --niwa-color-surface-sunken: #fafafa;
   --niwa-color-text-primary: #202622;
   --niwa-color-text-secondary: #424943;
   --niwa-color-text-tertiary: #535b55;
@@ -98,11 +98,13 @@
   --niwa-color-border-subtle: rgba(35,45,38,.08);
   --niwa-color-border-focus: #384c3e;
   --niwa-color-success: #456951;
-  --niwa-control-hover: rgba(255,255,255,.6);
-  --sidebar-tint: rgba(235, 240, 249, .48);
-  --workspace-bg: #fafafa;
+  --niwa-control-hover: #dedede;
+  --sidebar-tint: rgba(235,240,249,.08);
+  --workspace-bg: #ffffff;
   --diff-card-bg: #f0f0f0;
-  --niwa-glass-bg: rgba(240,242,240,.04);
+  /* The opaque workspace confines native acrylic to the sidebar. */
+  --niwa-glass-bg: rgba(232,233,236,.16);
+  --niwa-window-border: 1px solid rgba(255,255,255,.52);
 }
 
 :root[data-theme="static-black"] {
@@ -121,8 +123,10 @@
 :root[data-theme="static-white"] {
   --sidebar-tint: #f2f2f2;
   --workspace-bg: #fff;
+  --diff-card-bg: #f0f0f0;
   --app-background-color: #ffffff;
   --niwa-window-bg: #ffffff;
+  --niwa-window-border: 1px solid var(--niwa-color-border-subtle);
   --niwa-color-surface-base: #ffffff;
   --niwa-color-surface-raised: #f3f3f3;
   --niwa-color-surface-overlay: #e9e9e9;

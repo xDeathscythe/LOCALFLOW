@@ -1,6 +1,6 @@
 {
   "name": "localflow",
-  "version": "0.1.106",
+  "version": "0.1.108",
   "private": true,
   "description": "Windows desktop dictation app using local Whisper and Codex cleanup.",
   "main": "electron/main.cjs",

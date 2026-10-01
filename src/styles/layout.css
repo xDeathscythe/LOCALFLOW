@@ -1,13 +1,13 @@
-/* Native acrylic shows through the sidebar; the working panes stay opaque. */
+/* Theme tokens control how much native acrylic shows through each pane. */
 .appShell { position: relative; display: grid; grid-template-columns: clamp(180px, var(--sidebar-width, 256px), min(480px, 35%)) minmax(0,1fr); width: 100%; height: 100vh; overflow: hidden; border: var(--niwa-window-border); border-radius: 0; background: var(--niwa-window-bg); }
 .windowDragRegion { position: fixed; z-index: 100; top: 0; left: 0; right: 138px; height: 30px; -webkit-app-region: drag; }
 .sidebar { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 34px 8px 12px; background: var(--sidebar-tint); border-right: 1px solid var(--color-border); }
 .brand { display: flex; align-items: center; gap: 7px; padding: 0 7px; margin-bottom: 22px; }
 .brandLogo { width: 28px; height: 28px; flex-shrink: 0; object-fit: contain; border-radius: 50%; }
 .brand strong { font-size: 15px; letter-spacing: -.6px; font-weight: 600; }
-:root[data-theme="dark"] .sidebar { padding: 12px 8px; }
-:root[data-theme="dark"] .brand { padding-inline: 4px; margin-bottom: 24px; }
-:root[data-theme="dark"] .sidebarBottom { padding-top: 12px; }
+:root:is([data-theme="dark"], [data-theme="light"]) .sidebar { padding: 12px 8px; }
+:root:is([data-theme="dark"], [data-theme="light"]) .brand { padding-inline: 4px; margin-bottom: 24px; }
+:root:is([data-theme="dark"], [data-theme="light"]) .sidebarBottom { padding-top: 12px; }
 .navList { display: flex; flex-direction: column; gap: 5px; min-height: 0; overflow: auto; }
 .navItem { display: flex; align-items: center; gap: 12px; min-height: 34px; width: 100%; padding: 8px 12px; border-radius: 7px; background: transparent; color: var(--color-text-soft); font-size: 12px; font-weight: 400; text-align: left; }
 .navItem svg { width: 17px; height: 17px; flex-shrink: 0; stroke-width: 1.5; }
