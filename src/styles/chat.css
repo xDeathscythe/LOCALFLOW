@@ -1,5 +1,6 @@
-.niwaConversation { --chat-background: var(--workspace-bg); --composer-background: rgba(24,24,24,.82); --chat-card: #1e1e1e; background: var(--chat-background); container-type: inline-size; }
-:root:is([data-theme="light"],[data-theme="static-white"]) .niwaConversation { --composer-background: rgba(245,245,245,.88); --chat-card: #f0f0f0; }
+.niwaConversation { --chat-background: var(--workspace-bg); --composer-background: rgba(24,24,24,.55); --chat-card: #1e1e1e; background: var(--chat-background); container-type: inline-size; }
+:root:is([data-theme="light"],[data-theme="static-white"]) .niwaConversation { --composer-background: rgba(245,245,245,.65); --chat-card: #f0f0f0; }
+:root[data-theme="light"] .niwaConversation { --composer-background: rgba(245,245,245,.35); }
 .niwaToolbar { padding-left: 14px; gap: 10px; background: var(--chat-background); }
 .agentChatTab { display: flex; align-items: center; gap: 7px; min-width: 0; max-width: 70%; padding: 7px 10px; border: 1px solid #ffffff29; border-radius: 8px; background: transparent; }
 .agentChatTab strong { font-weight: 500; }.niwaToolbar .newChatButton { background: transparent; color: var(--color-text-soft); padding: 5px; }

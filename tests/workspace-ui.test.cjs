@@ -74,7 +74,16 @@ app.whenReady().then(async () => {
     })()`);
     await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
     const through = await pixel();
-    assert(through[2]>plain[2]+10 && through[2]<90, 'Feed content is strongly muted behind the frosted input');
+    assert(through[2]>plain[2]+25 && through[2]<150, 'Dark glass keeps the feed visible through its strong blur');
+    await run("document.documentElement.dataset.theme='light'");
+    await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
+    const lightThrough = await pixel();
+    await run("document.querySelector('#glass-feed-check').style.visibility='hidden'");
+    await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
+    const lightPlain = await pixel();
+    assert(lightPlain.every(value=>value>240), 'Light workspace stays white behind an empty input');
+    assert(lightThrough[0]<lightPlain[0]-25 && lightThrough[0]>100, 'Light glass shows blurred feed content instead of an opaque white input');
+    await run("document.querySelector('#glass-feed-check').style.visibility='';document.documentElement.dataset.theme='dark'");
     await run("document.querySelector('#glass-feed-check').style.top='0px'");
     await run("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"); await pause(300);
     assert.deepEqual(await pixel(), plain, 'Moving content away changes the backdrop while the composer stays fixed');
