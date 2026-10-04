@@ -13,6 +13,7 @@ import { DatabaseEmbed } from './DatabaseEmbed';
 import { BlockAppearance } from './block-appearance';
 import { BlockMetadata } from './block-metadata';
 import { SyncedBlock } from './SyncedBlock';
+import { assetUrl } from '../../lib/asset-url';
 
 const block = (name: string, tag: string, selector: string, content = 'block+') => Node.create({
   name, group: 'block', content, defining: true,
@@ -36,14 +37,15 @@ const Attachment = Node.create({
 
 const PageIcon=Node.create({name:'pageIcon',group:'inline',inline:true,atom:true,priority:1100,
   addAttributes:()=>({src:{default:''},alt:{default:''}}),parseHTML:()=>[{tag:'img.icon'},{tag:'img[data-type="page-icon"]'}],
-  renderHTML:({HTMLAttributes})=>['img',mergeAttributes(HTMLAttributes,{'data-type':'page-icon',width:18,height:18})],
+  renderHTML:({HTMLAttributes})=>['img',mergeAttributes(HTMLAttributes,{src:assetUrl(HTMLAttributes.src),'data-type':'page-icon',width:18,height:18})],
   renderMarkdown:node=>node.attrs?.alt||'',
 });
+const NoteImage = Image.extend({ addAttributes() { return {...this.parent?.(),src:{default:null,parseHTML:element=>element.getAttribute('data-asset-src')||element.getAttribute('src'),renderHTML:attrs=>({src:assetUrl(attrs.src),'data-asset-src':attrs.src})}}; } });
 // Markdown remains readable; rich structure is also saved with a matching Markdown revision.
 export const noteExtensions = (openNote?: (id:string)=>void) => [
   StarterKit.configure({ link: { openOnClick: false, protocols: ['localflow-note', 'localflow-asset'] } }),
   Markdown, TableKit.configure({ table: { resizable: true } }), TaskList, TaskItem.configure({ nested: true }),
-  Details.configure({ persist: true }), DetailsSummary, DetailsContent, Image.configure({ allowBase64: false, resize: { enabled: true, directions: ['bottom-left', 'bottom-right'], minWidth: 48, minHeight: 32, alwaysPreserveAspectRatio: true } }),
+  Details.configure({ persist: true }), DetailsSummary, DetailsContent, NoteImage.configure({ allowBase64: false, resize: { enabled: true, directions: ['bottom-left', 'bottom-right'], minWidth: 48, minHeight: 32, alwaysPreserveAspectRatio: true } }),
   TextAlign.configure({ types: ['heading', 'paragraph'] }),
   TextStyleKit, Mathematics.configure({ katexOptions: { throwOnError: false, trust: false } }),
   Callout, Columns, Column, Attachment, PageIcon, BlockAppearance, BlockMetadata, SyncedBlock.configure({openNote}), DatabaseEmbed.configure({openNote}),

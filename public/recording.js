@@ -1,0 +1,2 @@
+void window.__TAURI__.event.listen('recording-state',({payload})=>{const seconds=Math.floor(payload.elapsedSeconds||0);document.querySelector('output').textContent=payload.starting?'•••':`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}).then(()=>window.__TAURI__.core.invoke('native_call',{method:'recording-ready',args:[]}));
+document.querySelector('button').addEventListener('click',()=>{void window.__TAURI__.core.invoke('native_call',{method:'recording-stop',args:[]});});

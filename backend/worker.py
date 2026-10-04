@@ -24,7 +24,8 @@ DEFAULT_CLEANUP_MODEL = "gpt-5.6-terra"
 DEFAULT_CLEANUP_REASONING_EFFORT = "medium"
 DEFAULT_CLEANUP_TIMEOUT = 180
 DEFAULT_WHISPER_DOWNLOAD_ROOT = str(Path(__file__).resolve().parents[1] / "models" / "whisper")
-ALLOWED_LANGUAGES = {"sr", "en", "auto"}
+# Exact provider codes from the pinned faster-whisper 1.2.1 tokenizer; no speech keyword routing.
+ALLOWED_LANGUAGES = {"auto", *json.loads(Path(__file__).with_name("whisper-languages.json").read_text(encoding="utf-8"))}
 LANGUAGE_OUTPUTS = {"sr": "Serbian Latin", "en": "English"}
 WHISPER_INITIAL_PROMPTS = {
     "sr": "Ovo je srpski govor na srpskoj latinici. Transkribuj samo srpski jezik latinicom.",

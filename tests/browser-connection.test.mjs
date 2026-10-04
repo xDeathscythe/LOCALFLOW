@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { createServer as tcpServer } from 'node:net';
-import { createNiwaWeb } from '../electron/niwa/host/niwa-web.mjs';
+import { createNiwaWeb } from '../host/niwa/host/niwa-web.mjs';
 
 const reserve = tcpServer();
 await new Promise(resolve => reserve.listen(0, '127.0.0.1', resolve));

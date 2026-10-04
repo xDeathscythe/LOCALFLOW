@@ -1,51 +1,51 @@
 {
   "name": "localflow",
-  "version": "0.1.118",
+  "version": "0.2.0",
   "private": true,
-  "description": "Windows desktop dictation app using local Whisper and Codex cleanup.",
-  "main": "electron/main.cjs",
+  "description": "Native Windows dictation, rich notes and Niwa agent with local PC inference.",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "desktop": "electron .",
+    "desktop:dev": "tauri dev",
+    "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File start-localflow-desktop.ps1",
+    "desktop": "npm run start",
     "build": "tsc && vite build",
-    "test:workspace": "node tests/project-notes.test.mjs && node tests/undo-patch.test.mjs && node --experimental-strip-types tests/diff-parser.test.ts && electron tests/workspace-ui.test.cjs",
+    "build:release": "tsc && vite build --mode release",
+    "runtime:native": "node scripts/stage-native-runtime.cjs",
+    "desktop:build": "npm run runtime:native && tauri build --no-bundle",
+    "dist:win": "npm run desktop:build && node scripts/package-windows.cjs",
+    "dist:offline": "npm run desktop:build && node scripts/package-windows.cjs --zip",
+    "test:native": "node tests/native-desktop.test.cjs src-tauri/target/release/localflow-desktop.exe",
+    "test:native:inference": "npm run test:native -- --inference",
+    "test:workspace": "node tests/project-notes.test.mjs && node tests/undo-patch.test.mjs && node --experimental-strip-types tests/diff-parser.test.ts",
     "test:notes": "node --experimental-strip-types tests/notes-model.test.ts",
-    "test:appearance": "electron tests/appearance.test.cjs",
+    "test:notes-editing": "node tests/notes-editing-store.test.mjs && node tests/page-tools.test.mjs && node tests/notes-pdf.test.cjs",
+    "test:notes-databases": "node tests/notes-databases.test.mjs && node tests/database-pagination.test.mjs",
+    "test:niwa": "node tests/niwa.test.mjs && node tests/conversation-recovery.test.mjs",
+    "test:niwa-screen": "node tests/niwa-screen.test.mjs",
+    "test:latency": "node tests/paste-text.test.cjs && node scripts/run-python.cjs tests/paste-input.test.py",
+    "test:runtime": "node tests/transcription-worker.test.cjs",
+    "test:performance": "node tests/performance-data.test.mjs",
+    "test:duplex": "node tests/duplex-cleanup.test.cjs && node tests/duplex-session.test.cjs",
     "test:shortcuts": "node tests/shortcut-config.test.cjs && node scripts/run-python.cjs backend/hotkey_watcher.py --self-check && node scripts/run-python.cjs tests/mouse-shortcut.test.py",
     "test:cleanup": "node scripts/run-python.cjs tests/codex-cleanup.test.py",
-    "test:cleanup-auth": "node tests\\cleanup-auth.test.cjs",
-    "test:settings-ui": "electron tests\\settings-ui-smoke.cjs",
+    "test:cleanup-auth": "node tests/cleanup-auth.test.cjs",
     "test:stt": "node scripts/run-python.cjs tests/stt-models.test.py && node scripts/run-python.cjs tests/worker-config.test.py && node scripts/run-python.cjs tests/whisper-runtime.test.py",
-    "test:tts": "node tests\\tts-runtime.test.cjs && node tests/voice-output.test.cjs && npm run verify:tts",
+    "test:tts": "node tests/tts-runtime.test.cjs && node tests/voice-output.test.cjs",
     "models:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-whisper-models.ps1",
     "runtime:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-transcription-runtime.ps1",
     "runtime:prerequisites": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-vc-runtime.ps1",
     "agent:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1",
     "agent:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1 -VerifyOnly",
-    "package:offline": "npm run models:stage && npm run runtime:prerequisites && npm run agent:stage -- -Profile full && npm run build:release && electron-builder --config build/offline-release.cjs --win --dir",
-    "start": "electron .",
     "setup:python": "uv venv --python 3.11 .venv && uv pip install --python .venv\\Scripts\\python.exe -r backend\\requirements.txt",
     "setup:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1",
-    "verify:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1 -VerifyOnly",
-    "dist:win": "npm run runtime:prerequisites && npm run build:release && electron-builder --config build/windows-release.cjs --win --dir --x64 --publish never && node scripts/build-offline-installer.cjs release/windows/win-unpacked release/windows",
-    "test:runtime": "node tests/transcription-worker.test.cjs",
-    "test:performance": "electron tests/recording-performance.test.cjs && node scripts/run-python.cjs tests/recording-overlay.test.py",
-    "test:latency": "node tests/paste-text.test.cjs && node scripts/run-python.cjs tests/paste-input.test.py && npm run test:cleanup && electron tests/latency-ui.test.cjs",
-    "test:niwa": "node tests/niwa.test.mjs && node tests/conversation-recovery.test.mjs",
-    "test:niwa-voice": "node tests/niwa-voice.test.cjs && electron tests/niwa-push-to-talk.test.cjs && electron tests/niwa-audio-transport.test.cjs",
-    "test:niwa-screen": "node tests/niwa-screen.test.mjs",
-    "test:notes-databases": "node tests/notes-databases.test.mjs && electron tests/notes-ui.test.cjs",
-    "test:notes-editing": "node tests/notes-editing-store.test.mjs && electron tests/notes-pdf.test.cjs && electron tests/notes-pages-ui.test.cjs && electron tests/editor-ui.test.cjs && electron tests/database-editing-ui.test.cjs",
-    "dist:offline": "npm run package:offline && node scripts/build-offline-installer.cjs",
-    "test:edge": "electron tests/edge-panel.test.cjs",
-    "build:release": "tsc && vite build --mode release",
-    "clean:builds": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/clean-build-artifacts.ps1"
+    "verify:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1 -VerifyOnly"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.2.0",
     "@mozilla/readability": "0.6.0",
     "@openai/codex": "0.159.0",
+    "@tauri-apps/api": "2.12.1",
     "@tiptap/extension-details": "^3.31.3",
     "@tiptap/extension-image": "^3.31.3",
     "@tiptap/extension-mathematics": "^3.31.3",
@@ -67,11 +67,10 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "2.12.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^39.2.6",
-    "electron-builder": "^26.15.3",
     "framer-motion": "^13.0.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.8",
@@ -82,126 +81,6 @@
   },
   "overrides": {
     "esbuild": "0.27.2"
-  },
-  "build": {
-    "appId": "local.localflow.desktop",
-    "productName": "LocalFlow",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json",
-      "LICENSE",
-      "THIRD_PARTY_NOTICES.md",
-      "licenses/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "backend",
-        "to": "backend",
-        "filter": [
-          "worker.py",
-          "whisper_runtime.py",
-          "codex_cleanup.py",
-          "onnx_stt.py",
-          "hotkey_watcher.py",
-          "window_glass.py",
-          "paste_input.py",
-          "recording_overlay.py",
-          "voice_output_worker.py",
-          "voice_output_session.py",
-          "*.json",
-          "requirements.txt",
-          "host_cleanup.py",
-          "model_downloads.py"
-        ]
-      },
-      {
-        "from": "scripts",
-        "to": "scripts"
-      },
-      {
-        "from": "tts",
-        "to": "tts"
-      },
-      {
-        "from": "assets/tts",
-        "to": "assets/tts"
-      },
-      {
-        "from": "assets",
-        "to": "assets",
-        "filter": [
-          "localflow-logo*",
-          "localflow-wordmark.svg",
-          "localflow.ico"
-        ]
-      },
-      {
-        "from": "models/whisper",
-        "to": "models/whisper",
-        "filter": [
-          "large-v3/**/*",
-          "!**/.cache/**"
-        ]
-      },
-      {
-        "from": "runtime/python",
-        "to": "runtime/python"
-      },
-      {
-        "from": "runtime/python-packages",
-        "to": "runtime/python-packages"
-      },
-      {
-        "from": "runtime/prerequisites",
-        "to": "runtime/prerequisites",
-        "filter": [
-          "vc_redist.x64.exe",
-          "vc-runtime.json"
-        ]
-      },
-      {
-        "from": "runtime/cuda",
-        "to": "runtime/cuda"
-      },
-      {
-        "from": "runtime/distribution",
-        "to": "runtime"
-      },
-      {
-        "from": "runtime/browsers",
-        "to": "runtime/browsers"
-      }
-    ],
-    "asarUnpack": [
-      "node_modules/@openai/codex-win32-x64/**/*",
-      "node_modules/playwright/**/*",
-      "node_modules/playwright-core/**/*",
-      "electron/niwa/host/*.ps1",
-      "electron/niwa/host/*.jxa"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
-    },
-    "nsis": {
-      "include": "build/installer.nsh",
-      "perMachine": true,
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "nsisWeb": {
-      "perMachine": true,
-      "differentialPackage": false,
-      "include": "build/installer.nsh",
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "LocalFlow Offline Setup ${version}.${ext}",
-      "appPackageUrl": "https://offline.invalid/localflow"
-    }
   },
   "license": "MIT",
   "repository": {

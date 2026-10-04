@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { createVoiceOutputManager } = require('../electron/voice-output.cjs');
+const { createVoiceOutputManager } = require('../host/voice-output.cjs');
 
 const resources = path.resolve(process.argv[2]);
 for (const file of ['voice_output_worker.py', 'voice_output_session.py']) {

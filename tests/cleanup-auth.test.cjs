@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createCleanupAuthManager } = require('../electron/cleanup-auth.cjs');
+const { createCleanupAuthManager } = require('../host/cleanup-auth.cjs');
 const directory = fs.mkdtempSync(path.resolve('runtime/oauth-test-'));
 let client, opened;
 class FakeClient extends EventEmitter {

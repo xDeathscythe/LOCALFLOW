@@ -19,7 +19,7 @@ worker._whisper_model = model
 worker._whisper_model_key = ("large-v3", "cuda", "float16", "test")
 os.environ["LOCALFLOW_WHISPER_MODEL"] = "large-v3"
 with contextlib.redirect_stdout(io.StringIO()):
-    for language in ("en", "auto", "sr"):
+    for language in ("en", "auto", "sr", "ja", "ar", "hi", "de", "zh"):
         worker.configure_model("test", {"language": language})
         assert worker._whisper_model is model
         assert worker.configured_language() == language

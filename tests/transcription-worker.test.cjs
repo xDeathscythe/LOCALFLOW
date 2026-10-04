@@ -3,7 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { mock } = require("node:test");
-const { createTranscriptionWorker } = require("../electron/transcription-worker.cjs");
+const { createTranscriptionWorker } = require("../host/transcription-worker.cjs");
 
 async function main() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "localflow-worker-"));

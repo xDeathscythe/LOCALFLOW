@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Database, Plus, ArrowUpRight, MoreHorizontal, Search } from 'lucide-react';
 import type { NotesDatabase, DatabaseView, DatabaseRow, Property, DatabasePatch, DatabasePageAction } from '../../lib/database';
 import type { NoteNode } from '../../lib/workspace';
-import { displayValue, matches } from '../../../electron/notes/database-engine.mjs';
+import { displayValue, matches } from '../../../host/notes/database-engine.mjs';
 import { DatabaseForm } from './DatabaseForm';
 import { TimelineView } from './TimelineView';
 import { Conditions } from './Conditions';

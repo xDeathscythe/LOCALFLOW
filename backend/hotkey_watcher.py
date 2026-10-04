@@ -140,7 +140,7 @@ def main() -> None:
     if os.environ.get("LOCALFLOW_SHORTCUT_CAPTURE") == "1":
         capture_mode.set()
 
-    # Never wait on Electron's stdout pipe inside a Windows input hook.
+    # Never wait on the host's stdout pipe inside a Windows input hook.
     def write_events() -> None:
         while True:
             print(json.dumps(output.get()), flush=True)

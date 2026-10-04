@@ -1,0 +1,1 @@
+*{box-sizing:border-box}body{margin:0;background:transparent;font:12px system-ui}button{display:flex;gap:12px;align-items:center;justify-content:center;width:144px;height:42px;border:1px solid #ffffff26;border-radius:21px;background:#101612;color:#cef1e0;cursor:pointer}output{font-variant-numeric:tabular-nums}.dot{width:7px;height:7px;border-radius:50%;background:#acf0d1}

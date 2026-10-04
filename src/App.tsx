@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { version as APP_VERSION } from '../package.json';
+import { WindowControls } from './components/WindowControls';
 import { ProfileMenu } from "./components/ProfileMenu";
 import { PanelResize } from "./components/PanelResize";
 import { RecordingOverlay } from './components/RecordingStatus';
@@ -278,6 +279,11 @@ export function App() {
   const hotkeyModeRef = useRef<HotkeyMode>(hotkeyMode);
 
   useEffect(() => window.localflow.onWindowVisibility(setWindowVisible), []);
+  useEffect(() => {
+    const failed = (event: Event) => setError(String((event as CustomEvent).detail));
+    window.addEventListener('localflow-host-error', failed);
+    return () => window.removeEventListener('localflow-host-error', failed);
+  }, []);
   useEffect(() => { if (activeSection === 'notes') setNotesOpened(true); }, [activeSection]);
   useEffect(() => window.localflow.onNiwaEvent(event => {
     if (event.type === 'approval') setActiveSection('niwa');
@@ -1119,7 +1125,7 @@ export function App() {
         recording={state === 'recording'} starting={state === 'starting'}
         agentListening={niwaListening || (state === 'recording' && recordingModeRef.current === 'niwa')}
         recordingTarget={recordingModeRef.current === 'niwa' ? 'agent' : 'microphone'} />
-      <div className="windowDragRegion" aria-hidden="true" />
+      <WindowControls />
       <aside className="sidebar">
         <PanelResize label="Resize folders" property="--sidebar-width" edge="right" min={180} max={480} fraction={0.35} />
         <div className="brand">

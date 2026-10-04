@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import auth from '../electron/cleanup-auth.cjs';
-import codex from '../electron/codex-client.cjs';
+import auth from '../host/cleanup-auth.cjs';
+import codex from '../host/codex-client.cjs';
 
 const directory = mkdtempSync(resolve('runtime/standalone-check-'));
 const binary = resolve(process.argv[2] || 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe');

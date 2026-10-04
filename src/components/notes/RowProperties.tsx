@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { NotesDatabase } from '../../lib/database';
-import { computedRows } from '../../../electron/notes/database-engine.mjs';
+import { computedRows } from '../../../host/notes/database-engine.mjs';
 import { DatabaseCell } from './DatabaseCell';
 export function RowProperties({databaseId,pageId}:{databaseId:string;pageId:string}){
   const [database,setDatabase]=useState<NotesDatabase|null>(null),[related,setRelated]=useState<NotesDatabase[]>([]),[error,setError]=useState(''),[pending,setPending]=useState(false);

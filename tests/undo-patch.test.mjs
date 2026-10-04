@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { undoPatch } from '../electron/undo-patch.mjs';
+import { undoPatch } from '../host/undo-patch.mjs';
 const cwd = mkdtempSync(join(tmpdir(), 'localflow-undo-'));
 const git = (...args) => execFileSync('git', args, { cwd, windowsHide: true, encoding: 'utf8' });
 git('init','--quiet');git('config','core.autocrlf','false');

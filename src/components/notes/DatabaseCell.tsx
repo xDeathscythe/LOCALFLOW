@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Property, NotesDatabase } from '../../lib/database';
-import { displayValue } from '../../../electron/notes/database-engine.mjs';
+import { displayValue } from '../../../host/notes/database-engine.mjs';
 import { EntriesCell } from './EntriesCell';
 import { RelationCell } from './RelationCell';
 export function DatabaseCell({ property, value, save, databases, disabled, run, wrap = false }: { property: Property; value: unknown; save: (value: unknown) => void; databases: NotesDatabase[]; disabled: boolean; run?: () => void; wrap?: boolean }) {

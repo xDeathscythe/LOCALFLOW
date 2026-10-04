@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
-const { createPasteHandler } = require("../electron/paste-text.cjs");
+const { createPasteHandler } = require("../host/paste-text.cjs");
 
 async function main() {
   const worker = new EventEmitter();

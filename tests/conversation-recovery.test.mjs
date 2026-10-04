@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { createConversationStore } from '../electron/conversation-store.mjs';
-import { createNiwaHistory } from '../electron/niwa/host/niwa-history.mjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
-import codex from '../electron/codex-client.cjs';
+import { createConversationStore } from '../host/conversation-store.mjs';
+import { createNiwaHistory } from '../host/niwa/host/niwa-history.mjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
+import codex from '../host/codex-client.cjs';
 import { TestClient } from './agent-client-fixture.mjs';
 
 mkdirSync('runtime/conversation-recovery', { recursive: true });

@@ -3,10 +3,10 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { queryRows } from '../electron/notes/database-engine.mjs';
-import { createNotesService } from '../electron/notes-service.mjs';
+import { queryRows } from '../host/notes/database-engine.mjs';
+import { createNotesService } from '../host/notes-service.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { createConversationStore } from '../electron/conversation-store.mjs';
+import { createConversationStore } from '../host/conversation-store.mjs';
 
 const root = await mkdtemp(join(tmpdir(), 'localflow-performance-'));
 const changes = [], notes = createNotesService(root, change => changes.push(change));
@@ -20,7 +20,7 @@ try {
   assert.match(writes[1].reason.message, /changed elsewhere/);
   assert.equal((await notes.read(original.id)).content, 'Winner');
   await notes.close();
-  assert.equal(await readFile(original.path, 'utf8'), 'Winner');
+  const reopened=createNotesService(root,()=>{});assert.equal((await reopened.read(original.id)).content,'Winner');await reopened.close();
   assert(changes.some(change => change.tree === false && change.ids.includes(original.id)));
   await assert.rejects(notes.list(), /closed/);
 } finally { await notes.close(); }

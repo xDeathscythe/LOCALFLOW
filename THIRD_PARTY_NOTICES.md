@@ -6,13 +6,13 @@ does not replace the licenses of dependencies, fonts, model weights or voices.
 ## Adapted Niwa modules and skills
 
 The local agent modules were adapted from the project owner's Niwa Code 0.3.1.
-See [provenance](electron/niwa/PROVENANCE.md). Its upstream notices credit
+See [provenance](host/niwa/PROVENANCE.md). Its upstream notices credit
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) and
 [T3 Code](https://github.com/pingdotgg/t3code) for bounded adapted functionality.
 Their MIT notices are preserved in [licenses](licenses/).
 
 The bundled systematic-debugging, simplify-code and grounded-research skills
-retain individual source URLs in `electron/niwa/profiles/niwa/skills.json`.
+retain individual source URLs in `host/niwa/profiles/niwa/skills.json`.
 They adapt Hermes Agent revision `68518c1f9bca11d9f5dbdf59ecf7e024cce057ba`.
 Systematic debugging also credits [obra/superpowers](https://github.com/obra/superpowers).
 The upstream MIT notices are included. The remaining bundled skills are Niwa originals.
@@ -26,11 +26,15 @@ Project Authors. They are not relicensed under MIT.
 
 ## Dependencies and optional model downloads
 
-JavaScript dependency versions are pinned in `package-lock.json`; their licenses
-remain in the installed packages. Python dependencies are listed in
-`backend/requirements.txt`, `tts/requirements` and `build/windows-mcp-requirements.txt`.
-Electron, Chromium, Codex, Windows MCP and local inference engines retain their
-respective upstream notices. Preserve these when distributing a compiled application.
+JavaScript dependency versions are pinned in `package-lock.json`; Rust versions
+are pinned in `src-tauri/Cargo.lock`. The portable package preserves collected
+dependency notices under `licenses/dependencies`, including compiled UI and Rust
+components. Installed Node/Python packages retain their own notices. Node 24.12.0's
+complete upstream notice is in `licenses/node-24.12.0-LICENSE.txt`.
+Python dependencies are listed in `backend/requirements.txt`, `tts/requirements`
+and `build/windows-mcp-requirements.txt`. Codex, Windows MCP and local inference
+engines retain their upstream terms. The system WebView2 runtime is provided by
+Microsoft; Electron is not included.
 
 Model weights, reference recordings and third-party executables are not part of
 this source release. Download and redistribution terms belong to their publishers;
@@ -38,7 +42,7 @@ in particular, do not treat the XTTS-v2 model as MIT-licensed. `tts/manifest.jso
 records model sources and checksums, not a grant to redistribute them. Supply your
 own authorized voice references when preparing a full offline distribution.
 
-## Windows installer components
+## Portable Windows components
 
 NVIDIA CUDA 12 and cuDNN 9 runtime libraries retain NVIDIA's proprietary terms;
 they are not covered by LocalFlow's MIT license. See the
@@ -46,11 +50,10 @@ they are not covered by LocalFlow's MIT license. See the
 [cuDNN license](https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html).
 The graphics driver is provided by NVIDIA and must already be installed on the target PC.
 
-The standard Windows installer includes Whisper large-v3 and large-v3-turbo in CTranslate2
-format from [Mobius Labs](https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo),
-based on [OpenAI Whisper](https://github.com/openai/whisper), under MIT.
-The multilingual Base and Small CTranslate2 models are provided by
-[SYSTRAN](https://huggingface.co/Systran), also under MIT.
+The standard Windows package includes Whisper large-v3 in CTranslate2 format from
+[SYSTRAN](https://huggingface.co/Systran/faster-whisper-large-v3), based on
+[OpenAI Whisper](https://github.com/openai/whisper), under MIT. Other models are
+optional downloads and retain their publishers' terms.
 
 The official Microsoft Visual C++ x64 Redistributable is included under Microsoft's
 terms. Its Microsoft signature is verified before packaging. Source, version and
@@ -64,7 +67,7 @@ The corresponding source and build instructions are available at
 eSpeak NG build dependency. Source archive:
 https://github.com/OHF-voice/piper1-gpl/archive/refs/tags/v1.4.2.tar.gz.
 
-The bundled en_US-kristin-medium voice was trained by Bryce Beattie using
+The optional en_US-kristin-medium voice was trained by Bryce Beattie using
 LibriVox recordings. The publisher's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/kristin/medium/MODEL_CARD)
 identifies the training dataset as public domain. Personal voice references and
-XTTS/OmniVoice weights are excluded from the standard installer.
+XTTS/OmniVoice weights are excluded from the standard package.

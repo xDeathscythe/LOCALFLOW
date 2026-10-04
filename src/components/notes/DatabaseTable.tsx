@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, GripVertical, MoreHorizontal, Plus } from 'lucide-react';
 import type { DatabaseRow, DatabaseView, NotesDatabase, Property } from '../../lib/database';
-import { displayValue } from '../../../electron/notes/database-engine.mjs';
+import { displayValue } from '../../../host/notes/database-engine.mjs';
 import { DatabaseCell } from './DatabaseCell';
 
 export function DatabaseTable({ rows, properties, database, databases, view, pending, color, open, change, changeView, rowMenu, propertyMenu, addProperty, reorder, run }: {

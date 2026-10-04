@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createNiwaConnectors } from '../electron/niwa/host/niwa-connectors.mjs';
+import { createNiwaConnectors } from '../host/niwa/host/niwa-connectors.mjs';
 import { mkdtempSync } from 'node:fs';
 import { resolve } from 'node:path';
 const directory = mkdtempSync(resolve('runtime/connector-check-'));

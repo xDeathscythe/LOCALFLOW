@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { ensureShortcuts, normalizeShortcutBinding, readShortcuts, saveShortcut } = require('../electron/shortcuts.cjs');
+const { ensureShortcuts, normalizeShortcutBinding, readShortcuts, saveShortcut } = require('../host/shortcuts.cjs');
 fs.mkdirSync('runtime/shortcut-check', { recursive: true });
 const directory = fs.mkdtempSync(path.resolve('runtime/shortcut-check/run-'));
 assert.deepEqual(readShortcuts(directory).dictation.keys, [0x11, 0x10]);

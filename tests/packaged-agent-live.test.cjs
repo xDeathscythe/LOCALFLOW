@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { CodexClient } = require('../electron/codex-client.cjs');
+const { CodexClient } = require('../host/codex-client.cjs');
 const [binary, home] = process.argv.slice(2);
 assert(binary && home, 'Pass the packaged codex.exe and an authorized Codex home');
 const cwd = fs.mkdtempSync(path.resolve('runtime/packaged-agent-'));

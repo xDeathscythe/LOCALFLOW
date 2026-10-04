@@ -1,6 +1,10 @@
 /* Theme tokens control how much native acrylic shows through each pane. */
 .appShell { position: relative; display: grid; grid-template-columns: clamp(180px, var(--sidebar-width, 256px), min(480px, 35%)) minmax(0,1fr); width: 100%; height: 100vh; overflow: hidden; border: var(--niwa-window-border); border-radius: 0; background: var(--niwa-window-bg); }
-.windowDragRegion { position: fixed; z-index: 100; top: 0; left: 0; right: 138px; height: 30px; -webkit-app-region: drag; }
+.nativeTitlebar { position: fixed; z-index: 100; top: 0; left: 0; right: 0; height: 30px; user-select: none; }
+.nativeWindowButtons { display: flex; margin-left: auto; width: 138px; height: 30px; }
+.nativeWindowButtons button { display: grid; place-items: center; width: 46px; border: 0; background: transparent; color: var(--color-text); }
+.nativeWindowButtons button:hover { background: #8883; }
+.nativeWindowButtons button:last-child:hover { background: #c42b1c; color: white; }
 .sidebar { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 34px 8px 12px; background: var(--sidebar-tint); border-right: 1px solid var(--color-border); }
 .brand { display: flex; align-items: center; gap: 7px; padding: 0 7px; margin-bottom: 22px; }
 .brandLogo { width: 28px; height: 28px; flex-shrink: 0; object-fit: contain; border-radius: 50%; }

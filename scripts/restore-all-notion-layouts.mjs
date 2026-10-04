@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseHTML } from 'linkedom';
-import { readNotionDirectory, exportedPage } from '../electron/notes/notion-import.mjs';
+import { readNotionDirectory, exportedPage } from '../host/notes/notion-import.mjs';
 
 const [notesRoot, ...flags] = process.argv.slice(2);
 if (!notesRoot) throw new Error('Expected notes directory and optional --apply.');

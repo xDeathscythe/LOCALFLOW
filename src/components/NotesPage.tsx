@@ -9,6 +9,7 @@ import { WikiContents } from './notes/WikiContents';
 import { PageTools, type PageTool } from './notes/PageTools';
 import { PageMenu, type PageAction, type PageAppearance } from './notes/PageMenu';
 import { loadNotes, loadPageSession, savePageSession } from '../lib/notes';
+import { assetUrl } from '../lib/asset-url';
 import type { NoteNode, MarkdownNote } from '../lib/workspace';
 import '../styles/note-pages.css';
 import '../styles/note-layout.css';
@@ -228,8 +229,8 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
       </div>
       {error && <div className="errorBox" role="alert">{error}{note && <div><button onClick={() => void run(async () => { choose(await window.localflow.notesRead(note.id)); })}>Reload saved note</button><button onClick={() => void run(async () => { const item = await window.localflow.notesCreate({ label: `${note.label} (copy)`, content: note.content, document: note.document, html: note.html, parentId }); const tree = await list(); choose(null); await open(item.id, true, tree); })}>Save draft as copy</button></div>}</div>}
       {selected?.kind === 'database' ? <Suspense fallback={<div className="noteFolderState">Loading database…</div>}><DatabasePage key={selected.id} id={selected.id} label={selected.label} open={id => select(id)} /></Suspense> : note ? <div className="noteDocumentScroll">
-        {note.presentation?.cover && <img className="notePageCover" src={note.presentation.cover} style={{objectPosition:`center ${note.presentation.coverPosition ?? 50}%`}} alt=""/>}
-        {(note.presentation?.icon || note.presentation?.iconText) && <div className="notePageIcon" data-cover={Boolean(note.presentation.cover)}>{note.presentation.iconText ? <span>{note.presentation.iconText}</span> : <img src={note.presentation.icon} alt=""/>}</div>}
+        {note.presentation?.cover && <img className="notePageCover" src={assetUrl(note.presentation.cover)} style={{objectPosition:`center ${note.presentation.coverPosition ?? 50}%`}} alt=""/>}
+        {(note.presentation?.icon || note.presentation?.iconText) && <div className="notePageIcon" data-cover={Boolean(note.presentation.cover)}>{note.presentation.iconText ? <span>{note.presentation.iconText}</span> : <img src={assetUrl(note.presentation.icon)} alt=""/>}</div>}
         {!note.presentation?.locked && <PageDesign key={note.id} value={note.presentation} change={presentation => change({ presentation })}/>}
         <header className="noteEditorHeader"><div><input className="noteTitleInput" readOnly={note.presentation?.locked || presenting} value={note.label} aria-label="Note title" onChange={event => change({ label: event.target.value })} /><span title={note.path}>{saved ? 'Saved' : 'Saving…'}</span></div><div className="noteEditorActions"><button className={recording ? 'recording' : ''} title={recording ? 'Stop transcription' : 'Transcribe to this page'} aria-label={recording ? 'Stop transcription' : 'Transcribe to this page'} disabled={recordDisabled || note.presentation?.locked} onClick={onToggleRecording}>{recording ? <Square size={15} /> : <Mic size={16} />}</button></div></header>
         {find(items, parentOf(items, note.id) || '')?.kind === 'database' && <RowProperties databaseId={parentOf(items, note.id)!} pageId={note.id} />}

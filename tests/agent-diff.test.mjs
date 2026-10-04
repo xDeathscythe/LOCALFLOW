@@ -3,8 +3,8 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import codex from '../electron/codex-client.cjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
+import codex from '../host/codex-client.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
 class Client extends EventEmitter {
   static current;
   constructor() { super(); Client.current = this; }
