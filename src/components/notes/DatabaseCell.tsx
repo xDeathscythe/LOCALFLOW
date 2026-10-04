@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Property, NotesDatabase } from '../../lib/database';
 import { displayValue } from '../../../electron/notes/database-engine.mjs';
 import { EntriesCell } from './EntriesCell';
+import { RelationCell } from './RelationCell';
 export function DatabaseCell({ property, value, save, databases, disabled, run, wrap = false }: { property: Property; value: unknown; save: (value: unknown) => void; databases: NotesDatabase[]; disabled: boolean; run?: () => void; wrap?: boolean }) {
   const [draft, setDraft] = useState(displayValue(value));
   const cancelled = useRef(false);
@@ -14,6 +15,7 @@ export function DatabaseCell({ property, value, save, databases, disabled, run, 
     const target = databases.find(db => db.id === property.target), title = target?.properties.find(p => p.type === 'title');
     const options = property.type === 'relation' ? (target?.rows || []).map(row => ({ value: row.pageId || row.id, label: displayValue(row.values[title?.id || 'title']) || 'Untitled' })) : (property.options || []).map(o => ({ value: o.name, label: o.name }));
     const selected = Array.isArray(value) ? value.map(String) : [];
+    if (property.type === 'relation') return <RelationCell name={property.name} target={property.target} selected={selected} labels={options} disabled={disabled} save={save}/>;
     return <details className="databaseMulti"><summary>{selected.map(id => options.find(o => o.value === id)?.label || id).join(', ') || '—'}</summary><div>{options.map(o => <label key={o.value}><input type="checkbox" checked={selected.includes(o.value)} disabled={disabled} onChange={e => save(e.target.checked ? [...selected, o.value] : selected.filter(v => v !== o.value))} />{o.label}</label>)}</div></details>;
   }
   if (property.type === 'date') {

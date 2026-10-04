@@ -1,9 +1,9 @@
 const { protocol, net, shell } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { resolveAsset } = require('./asset-path.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'localflow-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
-module.exports = async root => {
-  const { resolveAsset } = await import('./notion-import.mjs');
+module.exports = root => {
   const allowed = new Set(['.png','.jpg','.jpeg','.gif','.webp','.avif','.svg','.mp4','.mov','.webm','.mp3','.wav','.ogg','.pdf','.csv','.txt']);
   protocol.handle('localflow-asset', request => {
     try { const file = resolveAsset(root,request.url); if (!allowed.has(path.extname(file).toLowerCase())) return new Response('Unsupported file type',{status:415}); return net.fetch(pathToFileURL(file).href); }

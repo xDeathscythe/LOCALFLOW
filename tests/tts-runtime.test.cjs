@@ -14,7 +14,7 @@ try {
   delete process.env.LOCALFLOW_VOICE_ROOT;
   assert.strictEqual(
     resolveTtsRoot("C:\\Program Files\\LocalFlow\\resources\\app.asar", true, "C:\\Users\\Test\\AppData\\Local"),
-    "C:\\Program Files\\LocalFlow\\resources\\runtime\\tts",
+    "C:\\Users\\Test\\AppData\\Local\\LocalFlow\\tts",
   );
   assert.strictEqual(ttsRuntimeReady(path.join(appRoot, "runtime", "tts")), true);
   console.log("TTS runtime path and readiness checks passed.");

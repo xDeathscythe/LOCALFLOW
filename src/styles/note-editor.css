@@ -23,13 +23,14 @@
 .noteDatabaseChoices { width: 100%; max-height: 260px; overflow: auto; border-top: 1px solid var(--color-border); padding-top: 8px; }.noteDatabaseChoices button { display: block; text-align: left; width: 100%; background: transparent; }.noteDatabaseChoices button:hover { background: var(--niwa-control-hover); }
 .noteEditorError { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; color: #dd9696; font-size: 12px; }.noteEditorError button { color: inherit; background: transparent; }
 .contextualNoteEditor .noteProse { padding-top: 14px; }
+.contextualNoteEditor .noteProse ol { padding-left: 3em; }
 .contextualNoteEditor .noteProse .tableWrapper { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--color-text-soft) transparent; }
 .contextualNoteEditor .noteProse table { table-layout: fixed; min-width: 100%; }
 .contextualNoteEditor .noteProse td,.contextualNoteEditor .noteProse th { min-width: 90px; position: relative; }
 .contextualNoteEditor .noteProse .ProseMirror-selectednode { outline: 1px solid #8095b7; outline-offset: 3px; }
 .contextualNoteEditor .noteProse [data-resize-handle] { width: 10px; height: 10px; border-radius: 3px; background: #9aaccc; border: 1px solid var(--workspace-bg); opacity: 0; }
 .contextualNoteEditor .noteProse [data-resize-container]:hover [data-resize-handle],.contextualNoteEditor .noteProse .ProseMirror-selectednode [data-resize-handle] { opacity: 1; }
-@media(max-width:760px) { .contextualNoteEditor .noteProse { padding-inline: 34px 20px; }.noteQuickTools { padding-inline: 10px; } }
+@media(max-width:760px) { .contextualNoteEditor .noteProse,.noteWorkspace[data-page-wide=true] .contextualNoteEditor .noteProse { padding-inline: 48px 20px; }.noteQuickTools { padding-inline: 10px; } }
 
 .noteInsertCatalog section > small { display:block; padding:12px 8px 5px; color:var(--color-text-soft); font-size:11px; }
 .noteInsertCatalog section:first-child > small { padding-top:5px; }

@@ -5,11 +5,15 @@ param(
 $ErrorActionPreference = "Stop"
 $SourceRoot = [IO.Path]::GetFullPath($SourceRoot)
 $destinationRoot = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $PSScriptRoot) "models\whisper"))
-$requiredFiles = @("config.json", "model.bin", "preprocessor_config.json", "tokenizer.json", "vocabulary.json")
-$models = @("large-v3", "large-v3-turbo")
+$models = @("large-v3")
+
+function ModelFiles($model) {
+  @('config.json', 'model.bin', 'tokenizer.json')
+  @('preprocessor_config.json', 'vocabulary.json')
+}
 
 foreach ($model in $models) {
-  foreach ($fileName in $requiredFiles) {
+  foreach ($fileName in (ModelFiles $model)) {
     $sourceFile = Join-Path (Join-Path $SourceRoot $model) $fileName
     if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) {
       throw "Missing Whisper model file: $sourceFile"
@@ -21,7 +25,7 @@ foreach ($model in $models) {
   $destinationPath = Join-Path $destinationRoot $model
   if ($SourceRoot -ne $destinationRoot) {
     New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
-    foreach ($fileName in $requiredFiles) {
+    foreach ($fileName in (ModelFiles $model)) {
       $sourceFile = Get-Item -LiteralPath (Join-Path (Join-Path $SourceRoot $model) $fileName)
       $destinationFile = Join-Path $destinationPath $fileName
       Copy-Item -LiteralPath $sourceFile.FullName -Destination $destinationFile -Force

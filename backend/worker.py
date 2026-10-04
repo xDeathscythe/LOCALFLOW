@@ -18,7 +18,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-DEFAULT_WHISPER_MODEL = "large-v3-turbo"
+DEFAULT_WHISPER_MODEL = "large-v3"
 DEFAULT_LANGUAGE = "auto"
 DEFAULT_CLEANUP_MODEL = "gpt-5.6-terra"
 DEFAULT_CLEANUP_REASONING_EFFORT = "medium"
@@ -151,28 +151,15 @@ def normalize_transcript_text(text: str, configured: str, detected: str | None =
 
 
 def resolve_device() -> str:
-    configured = env("LOCALFLOW_WHISPER_DEVICE", "cpu")
-    if configured == "auto":
-        return "auto"
-    return configured
+    return env("LOCALFLOW_WHISPER_DEVICE", "auto")
 
 
 def resolve_compute_type() -> str:
-    configured = env("LOCALFLOW_WHISPER_COMPUTE_TYPE", "int8")
-    if configured == "auto":
-        return "auto"
-    return configured
+    return env("LOCALFLOW_WHISPER_COMPUTE_TYPE", "auto")
 
 
 def resolve_whisper_download_root() -> str:
     return env("LOCALFLOW_WHISPER_DOWNLOAD_ROOT", DEFAULT_WHISPER_DOWNLOAD_ROOT)
-
-
-def resolve_whisper_model_source(model_name: str, download_root: str) -> str:
-    bundled_model = Path(download_root) / model_name
-    if not (bundled_model / "model.bin").is_file():
-        bundled_model = Path(DEFAULT_WHISPER_DOWNLOAD_ROOT) / model_name
-    return str(bundled_model) if (bundled_model / "model.bin").is_file() else model_name
 
 
 def load_whisper_model(request_id: str) -> WhisperModel:
@@ -187,31 +174,10 @@ def load_whisper_model(request_id: str) -> WhisperModel:
     if _whisper_model is not None and _whisper_model_key == key:
         return _whisper_model
 
-    emit(
-        {
-            "id": request_id,
-            "type": "progress",
-            "stage": "loading-whisper",
-            "message": f"Loading local Whisper model: {model_name}",
-        }
-    )
     started = perf_counter()
-    from faster_whisper import WhisperModel
-    import numpy as np
-
-    model_source = resolve_whisper_model_source(model_name, download_root)
-    model = WhisperModel(model_source, device=device, compute_type=compute_type, download_root=download_root)
-    # ponytail: use the real inference path to warm features, language detection,
-    # encoder and decoder once. Silence with VAD enabled would skip the decoder.
-    silence = np.zeros(16000, dtype=np.float32)
-    segments, _ = model.transcribe(silence, language=None, vad_filter=False,
-                                  beam_size=1, best_of=1, temperature=0,
-                                  max_new_tokens=1, no_speech_threshold=None,
-                                  condition_on_previous_text=False)
-    for _ in segments:
-        pass
-    from faster_whisper.vad import get_speech_timestamps
-    get_speech_timestamps(silence)
+    from whisper_runtime import load_profile
+    model, runtime = load_profile(model_name, device, compute_type, download_root, DEFAULT_WHISPER_DOWNLOAD_ROOT,
+                                  lambda message: emit({"id": request_id, "type": "progress", "stage": "loading-whisper", "message": message}))
     _whisper_model = model
     _whisper_model_key = key
     emit(
@@ -219,7 +185,8 @@ def load_whisper_model(request_id: str) -> WhisperModel:
             "id": request_id,
             "type": "progress",
             "stage": "whisper-ready",
-            "message": f"Whisper model ready in {perf_counter() - started:.1f}s",
+            "message": f"Whisper {runtime['model']} ready on {runtime['device'].upper()} in {perf_counter() - started:.1f}s",
+            "speechRuntime": runtime,
         }
     )
     return _whisper_model
@@ -236,9 +203,11 @@ def load_onnx_model(request_id: str, model_name: str):
             "id": request_id,
             "type": "progress",
             "stage": "loading-stt",
-            "message": f"Loading local {model_label(model_name)} model (first use downloads its int8 weights)",
+            "message": f"Loading local {model_label(model_name)} model",
         }
     )
+    from model_downloads import resolve_model
+    resolve_model(model_name, resolve_whisper_download_root(), DEFAULT_WHISPER_DOWNLOAD_ROOT)
     started = perf_counter()
     _onnx_stt_model = load_onnx_stt_model(model_name)
     _onnx_stt_model_name = model_name
@@ -304,29 +273,8 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
         )
         return result
 
-    try:
-        model = load_whisper_model(request_id)
-        segments, info, started = run_whisper_transcription(request_id, model, path, language)
-    except RuntimeError as exc:
-        if (
-            not is_cuda_runtime_missing(exc)
-            or resolve_device() == "cpu"
-            or not env_bool("LOCALFLOW_ALLOW_CPU_FALLBACK", False)
-        ):
-            raise
-        emit(
-            {
-                "id": request_id,
-                "type": "progress",
-                "stage": "cpu-fallback",
-                "message": "CUDA runtime is unavailable; retrying locally on CPU int8.",
-            }
-        )
-        os.environ["LOCALFLOW_WHISPER_DEVICE"] = "cpu"
-        os.environ["LOCALFLOW_WHISPER_COMPUTE_TYPE"] = "int8"
-        reset_whisper_model()
-        model = load_whisper_model(request_id)
-        segments, info, started = run_whisper_transcription(request_id, model, path, language)
+    model = load_whisper_model(request_id)
+    segments, info, started = run_whisper_transcription(request_id, model, path, language)
 
     detected_language = getattr(info, "language", language)
     raw_segments = []
@@ -390,11 +338,6 @@ def reset_whisper_model() -> None:
     global _whisper_model, _whisper_model_key
     _whisper_model = None
     _whisper_model_key = None
-
-
-def is_cuda_runtime_missing(exc: RuntimeError) -> bool:
-    message = str(exc).lower()
-    return any(part in message for part in ("cublas", "cudnn", "cuda", "cufft", "cannot be loaded"))
 
 
 def cleanup_level(options: dict[str, Any]) -> str:
@@ -540,14 +483,19 @@ def configure_model(request_id: str, params: dict[str, Any]) -> None:
             raise ValueError("Unsupported transcription language")
         os.environ["LOCALFLOW_WHISPER_LANGUAGE"] = language
     if model is not None:
-        if model not in {"large-v3", "large-v3-turbo"} and not is_onnx_stt_model(model):
+        if model not in {"base", "small", "large-v3", "large-v3-turbo"} and not is_onnx_stt_model(model):
             raise ValueError("Unsupported transcription model")
-        if model != env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL):
+        previous = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
+        if model != previous:
             reset_whisper_model()
             _onnx_stt_model = None
             _onnx_stt_model_name = None
             os.environ["LOCALFLOW_WHISPER_MODEL"] = model
-        warmup_model(request_id)
+        try:
+            warmup_model(request_id)
+        except Exception:
+            os.environ["LOCALFLOW_WHISPER_MODEL"] = previous
+            raise
         return
     emit({"id": request_id, "type": "result", "ok": True, "data": {"language": configured_language()}})
 
@@ -559,6 +507,15 @@ def handle_line(line: str) -> None:
     try:
         if action == "transcribe":
             handle_transcribe(payload)
+            return
+        if action in {"model-status", "download-model"}:
+            from model_downloads import model_available, resolve_model
+            model = (payload.get("params") or {}).get("model")
+            roots = (resolve_whisper_download_root(), DEFAULT_WHISPER_DOWNLOAD_ROOT)
+            if action == "download-model":
+                emit({"id": request_id, "type": "progress", "stage": "downloading-model", "message": f"Downloading {model} from Hugging Face…"})
+                resolve_model(model, *roots, download=True)
+            emit({"id": request_id, "type": "result", "ok": True, "data": {"available": model_available(model, *roots)}})
             return
         if action == "configure":
             configure_model(request_id, payload.get("params") or {})

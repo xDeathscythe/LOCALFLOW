@@ -1,10 +1,11 @@
 export function validatePresentation(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid page appearance.');
   const result = {};
-  for (const key of ['wide']) if (key in value) {
+  for (const key of ['wide', 'small', 'locked', 'wiki']) if (key in value) {
     if (typeof value[key] !== 'boolean') throw new Error('Invalid page width.');
     result[key] = value[key];
   }
+  if ('font' in value) { if (!['default','serif','mono'].includes(value.font)) throw new Error('Invalid page font.'); result.font = value.font; }
   for (const key of ['cover', 'icon']) if (key in value) {
     if (typeof value[key] !== 'string' || value[key].length > 4096 || (value[key] && !['localflow-asset:', 'https:', 'http:'].includes(new URL(value[key]).protocol))) throw new Error('Invalid page image.');
     result[key] = value[key];

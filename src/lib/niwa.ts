@@ -1,12 +1,12 @@
 import type { ChatWork } from '../components/ChatWork';
 import type { Projects, AgentActivity } from './workspace';
 export type NiwaSettings = { model: string; effort: string; voiceMode: 'realtime' | 'local'; voice: string; access: 'read' | 'workspace' | 'full'; cwd: string };
-export type NiwaMessage = { turnId?: string; work?: ChatWork; id: string; role: string; content: string; timestamp: number };
+export type NiwaMessage = { streaming?: boolean; turnId?: string; work?: ChatWork; id: string; role: string; content: string; timestamp: number };
 export type NiwaModel = { model: string; displayName: string; defaultReasoningEffort: string; supportedReasoningEfforts: { reasoningEffort: string }[] };
 export type NiwaApproval = { id: string; title: string; detail?: string; questions?: { id: string; header: string; question: string; options?: { label: string; description: string }[] }[] };
 export type NiwaMemory = { active_facts: number; documents: Record<string, { id: string; fact: string }[]> };
-export type NiwaSnapshot = { work?: ChatWork; projects?: Projects; activities?: AgentActivity[]; diff?: string; settings: NiwaSettings; voices: string[]; browser: { mode: 'chrome' | 'bundled'; connected: boolean }; messages: NiwaMessage[]; models: NiwaModel[]; memory: NiwaMemory; connectors: { id: string; enabled: boolean; transport: string }[]; busy: boolean; voice: boolean; approvals: NiwaApproval[] };
-export type NiwaEvent = { turnId?: string; work?: ChatWork; activity?: AgentActivity; diff?: string; type: string; settings?: NiwaSettings; id?: string; role?: string; content?: string; timestamp?: number; text?: string; message?: string; sdp?: string; busy?: boolean; active?: boolean; title?: string; detail?: string; questions?: NiwaApproval['questions'] };
+export type NiwaSnapshot = { conversationId?: string; messageOffset?: number; messageTotal?: number; work?: ChatWork; projects?: Projects; activities?: AgentActivity[]; diff?: string; settings: NiwaSettings; voices: string[]; browser: { mode: 'chrome' | 'bundled'; connected: boolean }; messages: NiwaMessage[]; models: NiwaModel[]; memory: NiwaMemory; connectors: { id: string; enabled: boolean; transport: string }[]; busy: boolean; voice: boolean; approvals: NiwaApproval[] };
+export type NiwaEvent = { ids?: string[]; tree?: boolean; turnId?: string; work?: ChatWork; activity?: AgentActivity; diff?: string; type: string; settings?: NiwaSettings; id?: string; role?: string; content?: string; timestamp?: number; text?: string; message?: string; sdp?: string; busy?: boolean; active?: boolean; title?: string; detail?: string; questions?: NiwaApproval['questions'] };
 
 // Capture is independent of the receive-capable WebRTC conversation.
 export class NiwaVoice {

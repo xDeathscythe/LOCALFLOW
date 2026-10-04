@@ -1,6 +1,6 @@
 {
   "name": "localflow",
-  "version": "0.1.109",
+  "version": "0.1.118",
   "private": true,
   "description": "Windows desktop dictation app using local Whisper and Codex cleanup.",
   "main": "electron/main.cjs",
@@ -16,28 +16,31 @@
     "test:cleanup": "node scripts/run-python.cjs tests/codex-cleanup.test.py",
     "test:cleanup-auth": "node tests\\cleanup-auth.test.cjs",
     "test:settings-ui": "electron tests\\settings-ui-smoke.cjs",
-    "test:stt": "node scripts/run-python.cjs tests/stt-models.test.py && node scripts/run-python.cjs tests/worker-config.test.py",
+    "test:stt": "node scripts/run-python.cjs tests/stt-models.test.py && node scripts/run-python.cjs tests/worker-config.test.py && node scripts/run-python.cjs tests/whisper-runtime.test.py",
     "test:tts": "node tests\\tts-runtime.test.cjs && node tests/voice-output.test.cjs && npm run verify:tts",
     "models:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-whisper-models.ps1",
     "runtime:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\stage-transcription-runtime.ps1",
+    "runtime:prerequisites": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-vc-runtime.ps1",
     "agent:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1",
     "agent:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-agent-runtime.ps1 -VerifyOnly",
-    "package:offline": "npm run models:stage && npm run agent:stage && npm run build && electron-builder --win --dir",
+    "package:offline": "npm run models:stage && npm run runtime:prerequisites && npm run agent:stage -- -Profile full && npm run build:release && electron-builder --config build/offline-release.cjs --win --dir",
     "start": "electron .",
     "setup:python": "uv venv --python 3.11 .venv && uv pip install --python .venv\\Scripts\\python.exe -r backend\\requirements.txt",
     "setup:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1",
     "verify:tts": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\install-tts.ps1 -VerifyOnly",
-    "dist:win": "npm run build && electron-builder --config build/windows-release.cjs --win nsis --x64 --publish never",
+    "dist:win": "npm run runtime:prerequisites && npm run build:release && electron-builder --config build/windows-release.cjs --win --dir --x64 --publish never && node scripts/build-offline-installer.cjs release/windows/win-unpacked release/windows",
     "test:runtime": "node tests/transcription-worker.test.cjs",
     "test:performance": "electron tests/recording-performance.test.cjs && node scripts/run-python.cjs tests/recording-overlay.test.py",
     "test:latency": "node tests/paste-text.test.cjs && node scripts/run-python.cjs tests/paste-input.test.py && npm run test:cleanup && electron tests/latency-ui.test.cjs",
-    "test:niwa": "node tests/niwa.test.mjs",
+    "test:niwa": "node tests/niwa.test.mjs && node tests/conversation-recovery.test.mjs",
     "test:niwa-voice": "node tests/niwa-voice.test.cjs && electron tests/niwa-push-to-talk.test.cjs && electron tests/niwa-audio-transport.test.cjs",
     "test:niwa-screen": "node tests/niwa-screen.test.mjs",
     "test:notes-databases": "node tests/notes-databases.test.mjs && electron tests/notes-ui.test.cjs",
     "test:notes-editing": "node tests/notes-editing-store.test.mjs && electron tests/notes-pdf.test.cjs && electron tests/notes-pages-ui.test.cjs && electron tests/editor-ui.test.cjs && electron tests/database-editing-ui.test.cjs",
     "dist:offline": "npm run package:offline && node scripts/build-offline-installer.cjs",
-    "test:edge": "electron tests/edge-panel.test.cjs"
+    "test:edge": "electron tests/edge-panel.test.cjs",
+    "build:release": "tsc && vite build --mode release",
+    "clean:builds": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/clean-build-artifacts.ps1"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.2.0",
@@ -100,6 +103,7 @@
         "to": "backend",
         "filter": [
           "worker.py",
+          "whisper_runtime.py",
           "codex_cleanup.py",
           "onnx_stt.py",
           "hotkey_watcher.py",
@@ -107,9 +111,11 @@
           "paste_input.py",
           "recording_overlay.py",
           "voice_output_worker.py",
+          "voice_output_session.py",
           "*.json",
           "requirements.txt",
-          "host_cleanup.py"
+          "host_cleanup.py",
+          "model_downloads.py"
         ]
       },
       {
@@ -138,7 +144,7 @@
         "to": "models/whisper",
         "filter": [
           "large-v3/**/*",
-          "large-v3-turbo/**/*"
+          "!**/.cache/**"
         ]
       },
       {
@@ -148,6 +154,14 @@
       {
         "from": "runtime/python-packages",
         "to": "runtime/python-packages"
+      },
+      {
+        "from": "runtime/prerequisites",
+        "to": "runtime/prerequisites",
+        "filter": [
+          "vc_redist.x64.exe",
+          "vc-runtime.json"
+        ]
       },
       {
         "from": "runtime/cuda",

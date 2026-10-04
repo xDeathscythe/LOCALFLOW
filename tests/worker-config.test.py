@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 from pathlib import Path
 import sys
@@ -8,10 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import worker
 
 assert not {"faster_whisper", "numpy", "av"}.intersection(sys.modules), "Configuration must not load inference libraries"
-assert worker.resolve_device() == 'cpu', 'Fresh installs must work without NVIDIA hardware'
-assert worker.resolve_compute_type() == 'int8'
+assert worker.resolve_device() == 'auto', 'Use native GPU detection, not a forced CPU default'
+assert worker.resolve_compute_type() == 'auto'
 assert worker.configured_language() == 'auto'
-assert worker.DEFAULT_WHISPER_MODEL == 'large-v3-turbo'
+assert worker.DEFAULT_WHISPER_MODEL == 'large-v3'
 
 model = object()
 worker._whisper_model = model
@@ -48,16 +49,21 @@ def transcribe(audio, **options):
         yield object()
     return segments(), None
 
-fake_model = SimpleNamespace(transcribe=transcribe)
+fake_model = SimpleNamespace(transcribe=transcribe, model=SimpleNamespace(device='cuda', compute_type='int8_float16'))
+def create_model(*args, **kwargs):
+    assert kwargs['device'] == kwargs['compute_type'] == 'auto'
+    return fake_model
 worker.reset_whisper_model()
 with patch.dict(sys.modules, {
-    "faster_whisper": SimpleNamespace(WhisperModel=lambda *args, **kwargs: fake_model),
+    "faster_whisper": SimpleNamespace(WhisperModel=create_model),
     "faster_whisper.vad": SimpleNamespace(get_speech_timestamps=lambda audio: vads.append(audio)),
-}), contextlib.redirect_stdout(io.StringIO()):
+}), contextlib.redirect_stdout(io.StringIO()) as output:
     worker.warmup_model("startup")
     worker.warmup_model("recording")
     assert worker.load_whisper_model("transcribe") is fake_model
     assert len(inferences) == len(vads) == 1, "Warm inference and VAD once per model"
+    runtime = [json.loads(line)['speechRuntime'] for line in output.getvalue().splitlines() if 'speechRuntime' in json.loads(line)][-1]
+    assert runtime['device'] == 'cuda' and runtime['model'] == 'large-v3'
     worker.reset_whisper_model()
     with patch.object(fake_model, "transcribe", side_effect=RuntimeError("GPU unavailable")):
         try:
@@ -69,4 +75,10 @@ with patch.dict(sys.modules, {
     assert worker._whisper_model is None, "A failed warmup must not be cached as ready"
     worker.warmup_model("retry")
     assert len(inferences) == len(vads) == 2
+    worker.reset_whisper_model()
+    fake_model.model.device = 'cpu'
+    fake_model.model.compute_type = 'int8_float32'
+    worker.warmup_model('cpu')
+    runtime = [json.loads(line)['speechRuntime'] for line in output.getvalue().splitlines() if 'speechRuntime' in json.loads(line)][-1]
+    assert runtime['device'] == 'cpu' and runtime['computeType'] == 'int8_float32'
 print("Full inference and VAD warmed once, reused, and retried after failure")

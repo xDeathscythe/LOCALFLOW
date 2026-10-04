@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
+import importlib.metadata
 import json
 import os
 import socket
@@ -10,9 +12,9 @@ import sys
 import time
 import urllib.request
 import wave
-import winsound
 from pathlib import Path
 from typing import Any
+from voice_output_session import serve, check_cancelled, cancel_on_forward
 
 
 VOICE_ROOT = Path(
@@ -44,19 +46,6 @@ def env_flag(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def emit(payload: dict[str, Any]) -> None:
-    print(json.dumps(payload, ensure_ascii=False), flush=True)
-
-
-def audio_duration(path: Path) -> float:
-    with wave.open(str(path), "rb") as wav_file:
-        return wav_file.getnframes() / wav_file.getframerate()
-
-
-def play_wav(path: Path) -> None:
-    winsound.PlaySound(str(path), winsound.SND_FILENAME)
-
-
 class PiperEngine:
     def __init__(self) -> None:
         from piper import PiperVoice
@@ -70,9 +59,17 @@ class PiperEngine:
             raise FileNotFoundError(f"Piper voice not found: {self.model_path}")
         self.voice = PiperVoice.load(self.model_path)
 
-    def synthesize(self, text: str, output: Path) -> None:
+    def synthesize(self, text: str, output: Path, cancelled=None) -> None:
         with wave.open(str(output), "wb") as wav_file:
-            self.voice.synthesize_wav(text, wav_file)
+            first = True
+            for chunk in self.voice.synthesize(text):
+                check_cancelled(cancelled)
+                if first:
+                    wav_file.setframerate(chunk.sample_rate)
+                    wav_file.setsampwidth(chunk.sample_width)
+                    wav_file.setnchannels(chunk.sample_channels)
+                    first = False
+                wav_file.writeframes(chunk.audio_int16_bytes)
 
 
 class XttsEngine:
@@ -88,15 +85,29 @@ class XttsEngine:
             raise RuntimeError("XTTS requires CUDA in this LocalFlow configuration")
         self.language = os.environ.get("LOCALFLOW_XTTS_LANGUAGE", "en")
         self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+        model_dir = Path(self.tts.synthesizer.checkpoint_dir)
+        model_stat = (model_dir / "model.pth").stat()
+        self.model_identity = repr((str(model_dir.resolve()), model_stat.st_size, model_stat.st_mtime_ns,
+                                    (model_dir / "config.json").read_bytes(), importlib.metadata.version("coqui-tts")))
+        self.voice_dir = OUTPUT_DIR.parent / "voice-cache" / "xtts"
 
-    def synthesize(self, text: str, output: Path) -> None:
-        self.tts.tts_to_file(
-            text=text,
-            speaker_wav=str(XTTS_REFERENCE_AUDIO),
-            language=self.language,
-            file_path=str(output),
-            split_sentences=True,
-        )
+    def synthesize(self, text: str, output: Path, cancelled=None) -> None:
+        speaker = "localflow-" + hashlib.sha256(XTTS_REFERENCE_AUDIO.read_bytes() + self.model_identity.encode()).hexdigest()
+        if not (self.voice_dir / f"{speaker}.pth").exists():
+            model = self.tts.synthesizer.tts_model
+            config = model.config
+            model.clone_voice(str(XTTS_REFERENCE_AUDIO), speaker, self.voice_dir,
+                              gpt_cond_len=config.gpt_cond_len, gpt_cond_chunk_len=config.gpt_cond_chunk_len,
+                              max_ref_length=config.max_ref_len, sound_norm_refs=config.sound_norm_refs)
+        with cancel_on_forward(self.tts.synthesizer.tts_model.gpt.gpt_inference, cancelled):
+            self.tts.tts_to_file(
+                text=text,
+                speaker=speaker,
+                voice_dir=self.voice_dir,
+                language=self.language,
+                file_path=str(output),
+                split_sentences=True,
+            )
 
 
 class OmniVoiceEngine:
@@ -140,28 +151,29 @@ class OmniVoiceEngine:
             ),
         )
 
-    def synthesize(self, text: str, output: Path) -> None:
+    def synthesize(self, text: str, output: Path, cancelled=None) -> None:
         import soundfile as sf
 
-        audio = self.model.generate(
-            text=text,
-            language=os.environ.get("LOCALFLOW_OMNIVOICE_LANGUAGE", "Serbian"),
-            voice_clone_prompt=self.voice_prompt,
-            instruct="",
-            duration=None,
-            speed=float(os.environ.get("LOCALFLOW_OMNIVOICE_SPEED", "0.95")),
-            num_step=int(os.environ.get("LOCALFLOW_OMNIVOICE_STEPS", "32")),
-            guidance_scale=float(
-                os.environ.get("LOCALFLOW_OMNIVOICE_GUIDANCE", "2.0")
-            ),
-            denoise=env_flag("LOCALFLOW_OMNIVOICE_DENOISE", True),
-            preprocess_prompt=env_flag(
-                "LOCALFLOW_OMNIVOICE_PREPROCESS_REFERENCE", True
-            ),
-            postprocess_output=env_flag(
-                "LOCALFLOW_OMNIVOICE_POSTPROCESS_OUTPUT", True
-            ),
-        )
+        with cancel_on_forward(self.model.llm, cancelled):
+            audio = self.model.generate(
+                text=text,
+                language=os.environ.get("LOCALFLOW_OMNIVOICE_LANGUAGE", "Serbian"),
+                voice_clone_prompt=self.voice_prompt,
+                instruct="",
+                duration=None,
+                speed=float(os.environ.get("LOCALFLOW_OMNIVOICE_SPEED", "0.95")),
+                num_step=int(os.environ.get("LOCALFLOW_OMNIVOICE_STEPS", "32")),
+                guidance_scale=float(
+                    os.environ.get("LOCALFLOW_OMNIVOICE_GUIDANCE", "2.0")
+                ),
+                denoise=env_flag("LOCALFLOW_OMNIVOICE_DENOISE", True),
+                preprocess_prompt=env_flag(
+                    "LOCALFLOW_OMNIVOICE_PREPROCESS_REFERENCE", True
+                ),
+                postprocess_output=env_flag(
+                    "LOCALFLOW_OMNIVOICE_POSTPROCESS_OUTPUT", True
+                ),
+            )
         sf.write(str(output), audio[0], self.model.sampling_rate)
 
 
@@ -255,7 +267,8 @@ class XvaSynthEngine:
             },
         )
 
-    def synthesize(self, text: str, output: Path) -> None:
+    def synthesize(self, text: str, output: Path, cancelled=None) -> None:
+        check_cancelled(cancelled)
         post_json(
             f"{self.url}/synthesizeSimple",
             {
@@ -288,54 +301,7 @@ def main() -> None:
     parser.add_argument("--engine", required=True)
     args = parser.parse_args()
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    engine = load_engine(args.engine)
-    emit({"type": "ready", "engine": args.engine})
-
-    for raw_line in sys.stdin:
-        raw_line = raw_line.strip()
-        if not raw_line:
-            continue
-        request: dict[str, Any] = {}
-        try:
-            request = json.loads(raw_line)
-            request_id = request.get("id")
-            if request.get("type") == "shutdown":
-                emit({"id": request_id, "success": True})
-                return
-            if request.get("type") != "speak":
-                raise ValueError(f"Unsupported worker request: {request.get('type')}")
-            text = str(request.get("text") or "").strip()
-            if not text:
-                raise ValueError("Voice output text is empty")
-            output = OUTPUT_DIR / f"{args.engine}-{int(time.time() * 1000)}.wav"
-            started = time.perf_counter()
-            with contextlib.redirect_stdout(sys.stderr):
-                engine.synthesize(text, output)
-            if not output.exists() or output.stat().st_size < 44:
-                raise RuntimeError(f"{args.engine} produced no valid WAV output")
-            duration = audio_duration(output)
-            if request.get("play", True):
-                play_wav(output)
-            emit(
-                {
-                    "id": request_id,
-                    "success": True,
-                    "engine": args.engine,
-                    "wav": str(output),
-                    "duration": round(duration, 3),
-                    "elapsed": round(time.perf_counter() - started, 3),
-                }
-            )
-        except Exception as error:
-            emit(
-                {
-                    "id": request.get("id"),
-                    "success": False,
-                    "engine": args.engine,
-                    "error": f"{type(error).__name__}: {error}",
-                }
-            )
+    serve(load_engine(args.engine), args.engine, OUTPUT_DIR)
 
 
 if __name__ == "__main__":

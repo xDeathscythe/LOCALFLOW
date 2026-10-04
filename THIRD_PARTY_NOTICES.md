@@ -40,9 +40,22 @@ own authorized voice references when preparing a full offline distribution.
 
 ## Windows installer components
 
-The standard Windows installer includes Whisper large-v3-turbo in CTranslate2
+NVIDIA CUDA 12 and cuDNN 9 runtime libraries retain NVIDIA's proprietary terms;
+they are not covered by LocalFlow's MIT license. See the
+[CUDA license](https://docs.nvidia.com/cuda/eula/index.html) and
+[cuDNN license](https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html).
+The graphics driver is provided by NVIDIA and must already be installed on the target PC.
+
+The standard Windows installer includes Whisper large-v3 and large-v3-turbo in CTranslate2
 format from [Mobius Labs](https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo),
 based on [OpenAI Whisper](https://github.com/openai/whisper), under MIT.
+The multilingual Base and Small CTranslate2 models are provided by
+[SYSTRAN](https://huggingface.co/Systran), also under MIT.
+
+The official Microsoft Visual C++ x64 Redistributable is included under Microsoft's
+terms. Its Microsoft signature is verified before packaging. Source, version and
+SHA-256 are recorded in `runtime/prerequisites/vc-runtime.json`; see
+[Microsoft's redistribution guidance](https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files).
 
 Piper 1.4.2 runs as a separate Python process under GPL-3.0-or-later. Its license
 is included in the packaged `piper_tts-1.4.2.dist-info/licenses/COPYING`.

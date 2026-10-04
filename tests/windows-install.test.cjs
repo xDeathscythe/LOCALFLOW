@@ -26,6 +26,7 @@ async function main() {
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   console.log('PACKAGED_PIPER_OFFLINE_OK');
   const application = await _electron.launch({ executablePath: executable, args: [`--user-data-dir=${profile}`], cwd: directory, env, timeout: 60000 });
+  let quitNotePath;
   try {
     const identity = await application.evaluate(({ app }) => ({ packaged: app.isPackaged, version: app.getVersion(), profile: app.getPath('userData') }));
     assert(identity.packaged);
@@ -94,6 +95,16 @@ async function main() {
     await page.evaluate(() => window.localflow.cancelCleanupConnection());
     await page.screenshot({ path: path.join(directory, 'installed.png') });
     console.log('PACKAGED_FRESH_PROFILE_CPU_VTT_NO_ACCOUNT_OAUTH_OK', JSON.stringify({ ...identity, transcript: transcript.rawText }));
+    await page.locator('.navList [data-section=notes]').click();
+    await page.locator('.notesTreeToolbar [aria-label="New note"]').click();
+    await page.locator('.notesPageDialog input').fill('Packaged worker proof');
+    await page.locator('.notesPageDialog form').evaluate(form => form.requestSubmit());
+    await page.waitForFunction(() => document.querySelector('.noteTitleInput')?.value === 'Packaged worker proof');
+    await page.waitForSelector('.noteProse');
+    quitNotePath = await page.locator('.noteEditorHeader span[title]').getAttribute('title');
+    await page.locator('.noteProse').evaluate(element => element.editor.commands.insertContent('Saved on quit 日本語 العربية'));
   } finally { await application.close(); }
+  assert.equal(fs.readFileSync(quitNotePath, 'utf8').trim(), 'Saved on quit 日本語 العربية');
+  console.log('PACKAGED_NOTES_WORKER_AND_QUIT_FLUSH_OK');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

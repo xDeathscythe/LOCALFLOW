@@ -3,10 +3,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: "./",
   // An open desktop window may still lazy-load chunks from the previous build.
-  build: { emptyOutDir: false },
+  build: mode === 'release' ? { outDir: 'runtime/release-ui', emptyOutDir: true } : { emptyOutDir: false },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -18,4 +18,4 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
   },
-});
+}));

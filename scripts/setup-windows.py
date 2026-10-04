@@ -42,11 +42,14 @@ def prepare(resources):
         if name.startswith(("LOCALFLOW_", "HF_", "HUGGINGFACE_", "TRANSFORMERS_")):
             del os.environ[name]
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
-                      LOCALFLOW_WHISPER_DEVICE="cpu", LOCALFLOW_WHISPER_COMPUTE_TYPE="int8",
+                      LOCALFLOW_WHISPER_DEVICE="auto", LOCALFLOW_WHISPER_COMPUTE_TYPE="auto",
                       LOCALFLOW_WHISPER_DOWNLOAD_ROOT=str(resources / "models" / "whisper"))
+    os.environ["PATH"] = str(resources / "runtime" / "cuda" / "bin") + os.pathsep + os.environ.get("PATH", "")
     sys.path[:0] = [str(resources / "runtime" / "python-packages"), str(resources / "backend")]
-    from worker import warmup_model
+    from worker import warmup_model, reset_whisper_model
+    os.environ["LOCALFLOW_WHISPER_MODEL"] = "large-v3"
     warmup_model("installer")
+    reset_whisper_model()
     exclude_from_windhawk(str(resources.parent / "LocalFlow.exe"))
     print("LOCALFLOW_SETUP_READY", flush=True)
 

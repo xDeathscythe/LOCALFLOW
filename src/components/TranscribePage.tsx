@@ -1,11 +1,12 @@
 import { ArrowRight, ArrowUpRight, AudioLines, ChevronDown, Clipboard, FileDown, Globe, Mic, NotebookPen, Plus, RotateCcw, Sparkles, Square, Upload } from "lucide-react";
 import { Waveform } from "./Waveform";
+import { RecordingClock } from './RecordingStatus';
 import type { CleanupLevel, TranscriptResult, TranscriptionLanguage } from "../types";
 
 export type RecentSession = { id: string; name: string; path: string; createdAt: number; result: TranscriptResult };
 type Props = {
   result: TranscriptResult | null; name: string; state: string; status: string; error: string;
-  seconds: number; stream: MediaStream | null; visible: boolean; busy: boolean; hasAudio: boolean;
+  seconds: number; startedAt: number; stream: MediaStream | null; visible: boolean; busy: boolean; hasAudio: boolean;
   model: string; language: TranscriptionLanguage; cleanup: CleanupLevel; shortcut: string; hold: boolean;
   sessions: RecentSession[];
   onLanguage: (language: TranscriptionLanguage) => void; onCleanup: (level: CleanupLevel) => void;
@@ -66,7 +67,7 @@ export function TranscribePage(p: Props) {
         <small>{p.hold ? "Hold" : "Press"} <kbd>{p.shortcut}</kbd> to speak</small>
       </div></div>
       <Waveform stream={p.stream} recording={recording} visible={p.visible} />
-      <div className="recordingAction"><time>{duration(p.seconds)}</time>
+      <div className="recordingAction"><RecordingClock seconds={p.seconds} startedAt={p.visible ? p.startedAt : 0} />
         {recording ? <button className="recordButton stop" onClick={p.onStop} aria-label="Stop and transcribe"><Square size={15} fill="currentColor" />Stop</button>
           : <button className="recordButton" onClick={p.onRecord} disabled={p.busy} aria-label="Record"><Mic size={16} />Record</button>}
       </div>

@@ -29,6 +29,7 @@ export type WorkerProgress = {
   type: string;
   stage?: string;
   message?: string;
+  speechRuntime?: { model: string; device: string; computeType: string };
   data?: Partial<TranscriptResult>;
   config?: {
     whisperModel: string;
@@ -97,7 +98,7 @@ declare global {
       saveAudioBuffer: (payload: { buffer: ArrayBuffer; extension?: string }) => Promise<string>;
       transcribeFile: (payload: { path: string; options: PolishOptions; requestId?: string }) => Promise<TranscriptResult>;
       cancelTranscription: () => Promise<void>;
-      setWhisperModel: (model: "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2") => Promise<{ whisperModel: string; whisperDownloadRoot?: string }>;
+      setWhisperModel: (model: "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2") => Promise<{ whisperModel: string; whisperDownloadRoot?: string } | null>;
       setWhisperLanguage: (language: TranscriptionLanguage) => Promise<{ language: TranscriptionLanguage; outputLanguage: string }>;
       getCleanupAuthStatus: () => Promise<CleanupAuthStatus>;
       getCleanupModels: () => Promise<{ selected: string; models: { id: string; label: string }[]; error: string }>;
@@ -121,6 +122,10 @@ declare global {
       setEdgeSettings: (value: { enabled: boolean; autoHide: boolean }) => Promise<{ enabled: boolean; autoHide: boolean }>;
       onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'notes') => void) => () => void;
       notesList: () => Promise<NotesIndex>;
+      notesTrash: () => Promise<{id:string;label:string;kind:string;deletedAt:string}[]>;
+      notesRestore: (id:string) => Promise<NotesIndex>;
+      notesHistory: (id:string) => Promise<{revision:string;label:string;updatedAt?:string;preview:string}[]>;
+      notesRestoreVersion: (value:{id:string;revision:string}) => Promise<MarkdownNote>;
       notesSkill: (value: { skill: string; text: string; prompt?: string }) => Promise<string>;
       notesImportNotion: () => Promise<(NotesIndex & { alreadyImported?: boolean; report: { pages: number; databases: number; rows: number; warnings: unknown[] } }) | null>;
       notesOpenAsset: (url: string) => Promise<void>;
@@ -132,11 +137,16 @@ declare global {
       notesRead: (id: string) => Promise<MarkdownNote>;
       notesImport: (items: unknown[]) => Promise<NotesIndex>;
       notesCreate: (value: { kind?: 'folder' | 'note' | 'database'; label: string; parentId?: string; content?: string; document?: import('@tiptap/core').JSONContent; html?: string }) => Promise<MarkdownNote | NoteNode>;
-      notesSave: (value: Pick<MarkdownNote,'id'|'label'|'content'|'revision'|'document'|'html'>) => Promise<MarkdownNote>;
+      notesSave: (value: Pick<MarkdownNote,'id'|'label'|'content'|'revision'|'document'|'html'|'presentation'>) => Promise<MarkdownNote>;
       notesRemove: (id: string) => Promise<NotesIndex>;
       notesRename: (value: { id: string; label: string }) => Promise<NotesIndex>;
       notesMove: (value: { id: string; parentId?: string; beforeId?:string }) => Promise<NotesIndex>;
       notesDatabaseRead: (id: string) => Promise<import('./lib/database').NotesDatabase>;
+      notesDatabasePage: (value: import('./lib/database').DatabasePageRequest) => Promise<import('./lib/database').DatabasePageResult>;
+      notesDatabasePatch: (value: import('./lib/database').DatabasePatch) => Promise<{revision:string}>;
+      notesDatabasePageAction: (value: import('./lib/database').DatabasePageAction) => Promise<{revision:string}>;
+      notesDatabaseOptions: (id: string) => Promise<{value:string;label:string}[]>;
+      notesDatabaseExport: (value: import('./lib/database').DatabasePageRequest) => Promise<string>;
       notesDatabaseSave: (value: import('./lib/database').NotesDatabase) => Promise<import('./lib/database').NotesDatabase>;
       notesDatabaseRunButton: (value: {id:string;rowId:string;propertyId:string;revision:string}) => Promise<import('./lib/database').NotesDatabase>;
       notesDatabaseAddRow: (value: { id: string; label?: string; values?: Record<string, unknown>; templateId?:string }) => Promise<import('./lib/database').NotesDatabase>;
@@ -149,7 +159,7 @@ declare global {
       niwaRenameChat: (value: { id: string; label: string }) => Promise<Projects>;
       niwaSelectFiles: () => Promise<string[]>;
       niwaUndoChanges: (diff: string) => Promise<void>;
-      niwaSnapshot: () => Promise<NiwaSnapshot>;
+      niwaSnapshot: (page?: { before?: number; limit?: number; conversationId?: string }) => Promise<NiwaSnapshot>;
       niwaConnect: () => Promise<{ models: NiwaModel[]; settings: NiwaSettings }>;
       niwaConnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;
       niwaDisconnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;

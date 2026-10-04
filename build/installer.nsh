@@ -19,6 +19,22 @@
 !macroend
 
 !macro customInstall
+  DetailPrint "Installing Microsoft Visual C++ x64 runtime..."
+  ClearErrors
+  ExecWait '"$INSTDIR\resources\runtime\prerequisites\vc_redist.x64.exe" /install /quiet /norestart /log "$INSTDIR\vc-runtime.log"' $0
+  ${if} ${Errors}
+    MessageBox MB_ICONSTOP "Could not start the bundled Visual C++ runtime installer." /SD IDOK
+    SetErrorLevel 1
+    Abort
+  ${endif}
+  ${if} $0 == 3010
+    SetRebootFlag true
+  ${elseIf} $0 != 0
+  ${andIf} $0 != 1638
+    MessageBox MB_ICONSTOP "Visual C++ runtime installation failed ($0). See $INSTDIR\vc-runtime.log." /SD IDOK
+    SetErrorLevel 1
+    Abort
+  ${endif}
   DetailPrint "Preparing local speech recognition and window transparency..."
   nsExec::ExecToLog '"$INSTDIR\resources\runtime\python\python.exe" -I -B "$INSTDIR\resources\scripts\setup-windows.py"'
   Pop $0

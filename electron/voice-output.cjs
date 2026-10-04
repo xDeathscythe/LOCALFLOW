@@ -126,7 +126,7 @@ function inspectVoiceOutputModels() {
   };
 }
 
-function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTimeoutMs = 360000 } = {}) {
+function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTimeoutMs = 360000, idleTimeoutMs = 300000 } = {}) {
   let worker = null;
   let workerEngine = null;
   let workerBuffer = "";
@@ -136,12 +136,14 @@ function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTi
   let readyReject = null;
   let requestSeq = 0;
   let startupTimer = null;
-  let speaking = false;
+  let speaking = null;
+  let idleTimer = null;
   let generation = 0;
   const pending = new Map();
 
   function stop(error = new Error("Voice output worker stopped")) {
     generation += 1;
+    clearTimeout(idleTimer);
     clearTimeout(startupTimer);
     rejectStartup(error);
     terminateProcess(worker);
@@ -156,6 +158,27 @@ function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTi
     pending.clear();
   }
 
+  function scheduleIdle() {
+    clearTimeout(idleTimer);
+    if (worker && !speaking && !pending.size && !readyResolve) {
+      idleTimer = setTimeout(() => stop(), idleTimeoutMs);
+      idleTimer.unref();
+    }
+  }
+
+  function cancel() {
+    if (speaking) speaking.cancelled = true;
+    speaking = null;
+    for (const [id, request] of pending) {
+      if (request.cancelled) continue;
+      request.cancelled = true;
+      request.reject(new DOMException("Voice output cancelled", "AbortError"));
+      worker?.stdin.write(`${JSON.stringify({ id, type: "cancel" })}\n`);
+    }
+    // An interrupted inference finishes silently; never unload an active worker.
+    scheduleIdle();
+  }
+
   function rejectStartup(error) {
     readyReject?.(error);
     readyReject = null;
@@ -168,14 +191,18 @@ function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTi
       readyResolve?.(payload);
       readyResolve = null;
       readyReject = null;
+      scheduleIdle();
       return;
     }
     const request = pending.get(payload?.id);
     if (!request) return;
     pending.delete(payload.id);
     clearTimeout(request.timer);
-    if (payload.success) request.resolve(payload);
-    else request.reject(new Error(payload.error || "Voice output failed"));
+    if (!request.cancelled) {
+      if (payload.success) request.resolve(payload);
+      else request.reject(new Error(payload.error || "Voice output failed"));
+    }
+    scheduleIdle();
   }
 
   function ensureWorker(engine) {
@@ -241,18 +268,23 @@ function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTi
 
   async function speak(engine, text, { play = true } = {}) {
     if (speaking) throw new Error("Voice output is already speaking");
-    speaking = true;
+    const speech = { cancelled: false };
+    speaking = speech;
+    clearTimeout(idleTimer);
     const started = generation;
     try {
-      const inventory = inspectVoiceOutputModels();
-      if (!inventory.options.find((item) => item.id === engine)?.available && engine !== "xvasynth") {
-        await ensureTtsRuntime(appRoot, inventory.voiceRoot, engine);
-        if (started !== generation) throw new Error("Voice output cancelled");
+      // A live worker already validated its installation; inspect again on restart/model change.
+      if (!worker || workerEngine !== engine || worker.killed) {
+        const inventory = inspectVoiceOutputModels();
+        if (!inventory.options.find((item) => item.id === engine)?.available && engine !== "xvasynth") {
+          await ensureTtsRuntime(appRoot, inventory.voiceRoot, engine);
+          if (speech.cancelled || started !== generation) throw new DOMException("Voice output cancelled", "AbortError");
+        }
       }
       const ready = ensureWorker(engine);
       const workerGeneration = generation;
       await ready;
-      if (workerGeneration !== generation) throw new Error("Voice output cancelled");
+      if (speech.cancelled || workerGeneration !== generation) throw new DOMException("Voice output cancelled", "AbortError");
       const id = `voice-${Date.now()}-${++requestSeq}`;
       return await new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -262,11 +294,12 @@ function createVoiceOutputManager(appRoot, { startupTimeoutMs = 120000, speechTi
         worker.stdin.write(`${JSON.stringify({ id, type: "speak", text, play })}\n`);
       });
     } finally {
-      speaking = false;
+      if (speaking === speech) speaking = null;
+      scheduleIdle();
     }
   }
 
-  return { speak, stop, inspect: inspectVoiceOutputModels };
+  return { speak, cancel, stop, inspect: inspectVoiceOutputModels };
 }
 
 module.exports = {

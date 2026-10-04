@@ -13,6 +13,7 @@ export function PageDesign({ value = {}, change }: { value?: PagePresentation; c
       const image = assets.find(asset => asset.mime.startsWith('image/'));
       if (!image) throw new Error('Choose an image.');
       patch({ [key]: image.url, ...(key === 'icon' ? { iconText: '' } : { coverPosition: 50 }) });
+      if (key === 'cover') setOpen(false);
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };

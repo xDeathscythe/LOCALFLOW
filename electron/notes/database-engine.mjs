@@ -86,8 +86,26 @@ export function formula(expression, values) {
 }
 export function computedRows(database, databases = []) {
   const all=new Map([...databases,database].map(db=>[db.id,db])), cache=new Map(), visiting=new Set();
+  const rowIndexes = new Map();
+  const relatedRows = (db, ids) => {
+    let index = rowIndexes.get(db);
+    if (!index) {
+      index = new Map();
+      db.rows.forEach((row, position) => {
+        for (const id of new Set([row.id, row.pageId])) {
+          if (id === undefined) continue;
+          if (!index.has(id)) index.set(id, []);
+          index.get(id).push(position);
+        }
+      });
+      rowIndexes.set(db, index);
+    }
+    // Preserve table order and count a row only once when both aliases match.
+    return [...new Set(ids.flatMap(id => index.get(id) || []))].sort((a, b) => a - b).map(position => db.rows[position]);
+  };
   const compute=(db,row,property)=>{
     if(!property)throw new Error('Related property is unavailable.');
+    if(property.type!=='formula'&&property.type!=='rollup')return row.values[property.id];
     const key=JSON.stringify([db.id,row.id,property.id]);
     if(cache.has(key)){const result=cache.get(key);if(result.error)throw result.error;return result.value;}
     if(visiting.has(key))throw new Error('Circular formula or rollup');visiting.add(key);
@@ -100,8 +118,8 @@ export function computedRows(database, databases = []) {
       }else if(property.type==='rollup'){
         const relation=db.properties.find(p=>p.id===property.relation), target=all.get(relation?.target);
         if(!relation||!target)throw new Error('Rollup relation is unavailable. Showing the exported value.');
-        const selected=new Set(Array.isArray(row.values[relation.id])?row.values[relation.id]:[]), targetProperty=target.properties.find(p=>p.id===property.targetProperty);
-        const records=target.rows.filter(r=>selected.has(r.id)||selected.has(r.pageId));
+        const selected=Array.isArray(row.values[relation.id])?row.values[relation.id]:[], targetProperty=target.properties.find(p=>p.id===property.targetProperty);
+        const records=relatedRows(target,selected);
         const values=property.aggregation==='count'?records:records.map(r=>compute(target,r,targetProperty));
         const nums=values.filter(v=>!isEmpty(v)).map(Number).filter(Number.isFinite), sum=nums.reduce((a,b)=>a+b,0);
         switch(property.aggregation){case 'count':value=records.length;break;case 'sum':value=sum;break;case 'average':value=nums.length?sum/nums.length:null;break;case 'min':value=nums.length?Math.min(...nums):null;break;case 'max':value=nums.length?Math.max(...nums):null;break;case 'percent_checked':value=values.length?values.filter(v=>v===true).length/values.length:0;break;case 'count_per_group':case 'percent_per_group':{const count=values.filter(v=>(property.groupValues||[]).includes(v)).length;value=property.aggregation==='count_per_group'?count:values.length?count/values.length:0;break;}case 'show':value=values.flat();break;default:throw new Error('Rollup calculation is unavailable. Showing the exported value.');}

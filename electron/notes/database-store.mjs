@@ -33,7 +33,7 @@ export function createDatabaseStore(root, changed) {
   return {
     read,
     create(id, value) { if (existsSync(file(id))) return read(id); const database = value || { id, properties: [{ id: 'title', name: 'Name', type: 'title' }], views: [{ id: randomUUID(), name: 'Table', type: 'table', sorts: [], colors: [] }], rows: [] }; writeJsonFile(file(id), validateDatabase({ ...database, id })); return read(id); },
-    save(value) { const current = read(value.id); if (current.revision !== value.revision) throw new Error('This database changed elsewhere. Reload before saving.'); const { revision: previous, ...next } = value; validateDatabase(next); writeJsonFile(file(value.id), next); changed(); return read(value.id); },
+    save(value) { const current = read(value.id); if (current.revision !== value.revision) throw new Error('This database changed elsewhere. Reload before saving.'); const { revision: previous, ...next } = value; validateDatabase(next); writeJsonFile(file(value.id), next); changed({ ids: [value.id], tree: false }); return { ...next, revision: revision(next) }; },
     query({ id, viewId, databases = [] }) { const database = read(id); return queryRows(database, database.views.find(view => view.id === viewId), databases); },
   };
 }

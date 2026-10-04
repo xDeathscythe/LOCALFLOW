@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
+import { createNotesService } from '../electron/notes-service.mjs';
+const root = mkdtempSync(join(tmpdir(), 'localflow-database-pages-'));
+const store = createNotesService(root, () => {});
+try {
+  const target = await store.create({ kind: 'database', label: 'Relations' });
+  let related = await store.databaseRead(target.id);
+  related.properties.push({id:'amount',name:'Amount',type:'number'});
+  related.rows = Array.from({length:250}, (_,i)=>({id:`target${i}`,values:{title:`Related ${i}`,amount:i}}));
+  await store.databaseSave(related);
+  const source = await store.create({kind:'database',label:'Paged database'});
+  let database = await store.databaseRead(source.id);
+  database.properties.push({id:'amount',name:'Amount',type:'number'}, {id:'double',name:'Double',type:'formula',expression:'prop("Amount") * 2'}, {id:'related',name:'Related',type:'relation',target:target.id}, {id:'sum',name:'Sum',type:'rollup',relation:'related',targetProperty:'amount',aggregation:'sum'}, {id:'date',name:'Date',type:'date'});
+  database.rows = Array.from({length:300}, (_,i)=>({id:`row${i}`,values:{title:`Row ${i}`,amount:i,related:['target249'],date:{start:i===299?'2027-03-12':'2026-10-02'}}}));
+  database = await store.databaseSave(database);
+  let page = await store.databasePage({id:source.id});
+  assert.equal(page.rows.length,100); assert.equal(page.database.rows.length,100); assert.equal(page.total,300);
+  assert.equal(page.related.find(db=>db.id===target.id).rows.length,1);
+  assert.equal(page.rows[99].values.double,198); assert.equal(page.rows[99].values.sum,249);
+  assert.equal((await store.databaseOptions(target.id)).length,250);
+  page = await store.databasePage({id:source.id,offset:100});
+  assert.equal(page.rows[0].id,'row100');
+  assert.deepEqual(page.neighbors.row100,{before:'row99',after:'row101'});
+  await store.databasePatch({id:source.id,revision:page.database.revision,rows:[{id:'row100',values:{amount:777}}]});
+  database = await store.databaseRead(source.id);
+  assert.equal(database.rows.length,300); assert.equal(database.rows[299].values.amount,299);
+  assert.equal((await store.databasePage({id:source.id,offset:100})).rows[0].values.double,1554);
+  await assert.rejects(store.databasePatch({id:source.id,revision:page.database.revision,rows:[]}),/changed elsewhere/);
+  await store.databasePatch({id:source.id,revision:database.revision,properties:[...database.properties,{id:'copied',name:'Copied',type:'number'}],copyProperty:{from:'amount',to:'copied'}});
+  database = await store.databaseRead(source.id); assert.equal(database.rows[299].values.copied,299);
+  await store.databasePatch({id:source.id,revision:database.revision,properties:database.properties.filter(p=>p.id!=='copied'),reorder:{id:'row0',beforeId:'row299'}});
+  database = await store.databaseRead(source.id); assert(database.rows.every(row=>!('copied' in row.values))); assert.equal(database.rows[298].id,'row0');
+  assert.equal((await store.databaseExport({id:source.id})).split('\r\n').length,301);
+  page = await store.databasePage({id:source.id,search:'Row 299'}); assert.equal(page.total,1); assert.equal(page.rows[0].id,'row299');
+  const views = [{...database.views[0],type:'timeline',dateProperty:'date'}];
+  await store.databasePatch({id:source.id,revision:database.revision,views});
+  page = await store.databasePage({id:source.id,month:'2027-03'});
+  assert.equal(page.total,1); assert.equal(page.rows[0].id,'row299'); assert.equal(page.earliestDate,'2026-10-02');
+  console.log('DATABASE_PAGINATION_OK: worker pages100/300, hidden-row preservation, formulas/rollups, lazy250relationoptions, global propertycopy/delete/reorder, stale revision, fullCSV, search/month query');
+} finally {
+  await store.close();
+  assert(resolve(root).startsWith(resolve(tmpdir()) + sep)); rmSync(root,{recursive:true,force:true});
+}

@@ -30,8 +30,26 @@ app.whenReady().then(async () => {
     saves++;
     return "test.webm";
   });
+  await window.loadURL('about:blank');
+  window.webContents.debugger.attach('1.3');
+  await window.webContents.debugger.sendCommand('Page.enable');
+  await window.webContents.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.appRenders = 0;
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = { supportsFiber: true, inject: () => 1,
+      onCommitFiberRoot: (_id, root) => {
+        const stack = [root.current];
+        while (stack.length) {
+          const fiber = stack.pop();
+          if (fiber.stateNode?.className === 'appShell' && fiber.return.memoizedState !== fiber.return.alternate?.memoizedState) window.appRenders++;
+          if (fiber.child) stack.push(fiber.child);
+          if (fiber.sibling) stack.push(fiber.sibling);
+        }
+      }, onCommitFiberUnmount: () => {} };
+  ` });
   await window.loadFile(path.resolve(__dirname, "../dist/index.html"));
   const run = (script) => window.webContents.executeJavaScript(script);
+  await until(() => run("Boolean(document.querySelector('[data-section=transcribe]'))"), "Navigation ready");
+  await run("document.querySelector('[data-section=transcribe]').click()");
   await until(() => run("Boolean(document.querySelector('[aria-label=Record]'))"), "UI ready");
   await run(`
     window.micDelay = 5000;
@@ -75,14 +93,19 @@ app.whenReady().then(async () => {
   await until(() => state.recording, "Second capture starts");
   await delay(100);
   const hiddenFrames = await run("window.waveFrames");
+  const parentRenders = await run('window.appRenders');
+  assert(parentRenders > 0, 'React commit instrumentation is active');
   await delay(1000);
   assert.equal(await run("window.waveFrames"), hiddenFrames, "No hidden waveform animation");
+  assert(state.elapsedSeconds >= 1, 'Overlay clock advances with main window hidden');
+  assert.equal(await run('window.appRenders'), parentRenders, 'Recording ticks must not render the App tree');
   window.webContents.send("test-visibility", true);
   await delay(200);
   const visibleStart = await run("window.waveFrames");
   await delay(1000);
   const visibleFrames = (await run("window.waveFrames")) - visibleStart;
   assert(visibleFrames > 0 && visibleFrames <= 32, `Canvas frame rate: ${visibleFrames}`);
+  assert.notEqual(await run("document.querySelector('.recordingAction time').textContent"), '00:00', 'Visible recording clock catches up');
   fs.mkdirSync(output, { recursive: true });
   fs.writeFileSync(path.join(output, "recording.png"), (await window.webContents.capturePage()).toPNG());
   hotkey("released");
@@ -108,6 +131,8 @@ app.whenReady().then(async () => {
     window.webContents.once("did-finish-load", resolve);
     window.reload();
   });
+  await until(() => run("Boolean(document.querySelector('[data-section=transcribe]'))"), "Reload navigation");
+  await run("document.querySelector('[data-section=transcribe]').click()");
   await until(() => run("Boolean(document.querySelector('[aria-label=Record]'))"), "Press-mode reload");
   hotkey("pressed");
   await until(() => state.recording, "Press mode starts");
@@ -116,7 +141,7 @@ app.whenReady().then(async () => {
   assert(state.recording, "Press mode must survive release");
   hotkey("pressed");
   await until(() => saves === 3 && !state.recording, "Second press stops");
-  const result = { feedbackMs, simulatedMicrophoneDelayMs: 5000, hiddenWaveformFrames: 0, visibleFramesPerSecond: visibleFrames, checks: "hold, press, duplicate start, early release, reset, denied microphone, track cleanup" };
+  const result = { feedbackMs, simulatedMicrophoneDelayMs: 5000, hiddenWaveformFrames: 0, recordingTickAppRenders: 0, visibleFramesPerSecond: visibleFrames, checks: "hold, press, duplicate start, early release, reset, denied microphone, track cleanup" };
   fs.writeFileSync(path.join(output, "result.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
   app.quit();

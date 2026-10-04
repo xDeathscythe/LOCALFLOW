@@ -34,7 +34,7 @@ def load_model(model_name: str):
     if model_name not in ONNX_STT_MODELS:
         raise ValueError(f"Unsupported ONNX STT model: {model_name}")
     quantization = os.environ.get("LOCALFLOW_ONNX_STT_QUANTIZATION", "int8").strip() or "int8"
-    return onnx_asr.load_model(model_name, quantization=quantization)
+    return onnx_asr.load_model(model_name, quantization=quantization, offline=True)
 
 
 def decode_audio(audio_path: Path) -> tuple[np.ndarray, float]:
@@ -72,7 +72,7 @@ def transcribe(model: Any, model_name: str, audio_path: Path, language: str, spe
     else:
         import onnx_asr
 
-        vad = onnx_asr.load_vad("silero")
+        vad = onnx_asr.load_vad("silero", offline=True)
         results = model.with_vad(vad, batch_size=1, max_speech_duration_s=20, speech_pad_ms=speech_pad_ms).recognize(
             waveform,
             sample_rate=16_000,

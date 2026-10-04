@@ -177,10 +177,11 @@ app.whenReady().then(async () => {
     }
     window.webContents.send('test-niwa-event',{type:'conversation'});await pause(200);
     await click('[aria-label="Save to Notes"]'); await pause(200);
-    assert(agent.notes.list().items.some(item=>item.kind==='note'));
+    assert((await agent.notes.list()).items.some(item=>item.kind==='note'));
     await click('.navList [data-section="notes"]');
     await waitFor("document.querySelector('.notesTreePane') !== null");
     assert.equal(await run("document.querySelector('.projectsTreePane')"), null);
+    await waitFor("[...document.querySelectorAll('.sidebar [role=treeitem]')].some(e=>e.textContent.includes('Niwa'))");
     await run("[...document.querySelectorAll('.sidebar [role=treeitem]')].find(e=>e.textContent.includes('Niwa')).click()");
     await waitFor("document.querySelector('.noteProse table') !== null");
     assert(await run("document.querySelector('.noteProse h1').textContent === 'Workspace report'"));
@@ -191,9 +192,9 @@ app.whenReady().then(async () => {
     const updated = markdown + '\n\n## Voice notes\n\n**Bold**, *italic*, and a paragraph in العربية.';
     await fill('.noteMarkdownSource', updated, 'HTMLTextAreaElement');
     await waitFor("document.querySelector('.noteEditorHeader span').textContent.includes('Saved')");
-    const noteId = agent.notes.list().items.find(item=>item.kind==='note').id;
-    assert.equal(agent.notes.read(noteId).content, updated);
-    assert.equal(fs.readFileSync(agent.notes.read(noteId).path, 'utf8'), updated);
+    const noteId = (await agent.notes.list()).items.find(item=>item.kind==='note').id;
+    assert.equal((await agent.notes.read(noteId)).content, updated);
+    assert.equal(fs.readFileSync((await agent.notes.read(noteId)).path, 'utf8'), updated);
     await click('.noteSourceToggle'); await pause(150);
     assert(await run("document.querySelector('.noteProse h2').textContent === 'Voice notes'"));
     await run("document.querySelector('.noteProse table td').scrollIntoView({block:'center'})");
@@ -210,7 +211,7 @@ app.whenReady().then(async () => {
     assert.equal(await run("document.querySelectorAll('.noteProse tr').length"),rowCount+1);
     fs.writeFileSync(path.join(output,'notes.png'),(await window.webContents.capturePage()).toPNG());
     // An agent update arrives in the same editor without reloading the app.
-    const current=agent.notes.read(noteId); agent.notes.save({...current,document:undefined,html:undefined,content:current.content+'\n\n### Agent update\n\nSynced from Niwa.'});
+    const current=(await agent.notes.read(noteId)); (await agent.notes.save({...current,document:undefined,html:undefined,content:current.content+'\n\n### Agent update\n\nSynced from Niwa.'}));
     await waitFor("document.querySelector('.noteProse').textContent.includes('Synced from Niwa.')");
     await window.reload(); await pause(450); await click('.navList [data-section="notes"]');
     await waitFor("document.querySelector('.noteProse')?.textContent.includes('Synced from Niwa.')");

@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
+import { createConversationStore } from '../../conversation-store.mjs';
 
 export function createNiwaHistory(dataDir) {
   const db = new DatabaseSync(join(dataDir, "history.sqlite"));
@@ -18,7 +19,7 @@ export function createNiwaHistory(dataDir) {
     if (offset === session.transcript.length) return;
     db.exec("BEGIN");
     try { session.transcript.slice(offset).forEach((m, i) => insert.run(`${session.id}:${offset + i}`, session.id, session.projectId, m.role, m.content, m.timestamp ?? 0)); db.exec("COMMIT"); indexed.set(session.id, session.transcript.length); }
-    catch (error) { db.exec("ROLLBACK"); throw error; }
+    catch (error) { if (db.isTransaction) db.exec("ROLLBACK"); throw error; }
   };
   const search = ({ query, project, limit = 10 }) => {
     if (typeof query !== "string" || !query.trim() || query.length > 1000) throw new Error("Search query must contain 1–1000 characters.");
@@ -31,6 +32,7 @@ export function createNiwaHistory(dataDir) {
   };
   return {
     sync, search,
+    conversations: onError => createConversationStore(db, dataDir, onError),
     read: (session, offset = 0, limit = 20) => db.prepare("SELECT * FROM messages WHERE session=? ORDER BY rowid LIMIT ? OFFSET ?").all(session, Math.min(50, limit), Math.max(0, offset)),
     forget: (session) => { indexed.delete(session); db.prepare("DELETE FROM messages WHERE session=?").run(session); db.prepare("DELETE FROM user_model WHERE EXISTS (SELECT 1 FROM json_each(user_model.evidence) WHERE value LIKE ?)").run(`${session}:%`); },
     model: () => db.prepare("SELECT * FROM user_model ORDER BY updated DESC LIMIT 50").all().map((row) => ({ ...row, evidence: JSON.parse(row.evidence) })),

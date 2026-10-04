@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createNotesStore } from '../electron/notes-store.mjs';
+const directory=mkdtempSync(join(tmpdir(),'localflow-page-tools-'));
+try {
+  let store=createNotesStore(directory);
+  const parent=store.create({kind:'database',label:'Pages'});
+  let note=store.create({parentId:parent.id,label:'日本語',content:'Original'});
+  const original=note.revision;
+  note=store.save({...note,content:'Second',presentation:{font:'serif',small:true,wide:true,wiki:true}});
+  assert.equal(store.history(note.id)[0].revision,original);
+  note=store.save({...note,presentation:{...note.presentation,locked:true}});
+  assert.throws(()=>store.save({...note,content:'Blocked'}),/Unlock/);
+  assert.throws(()=>store.rename({id:note.id,label:'Blocked'}),/Unlock/);
+  assert.throws(()=>store.restoreVersion({id:note.id,revision:original}),/Unlock/);
+  note=store.save({...note,presentation:{...note.presentation,locked:false}});
+  const restored=store.restoreVersion({id:note.id,revision:original});
+  assert.equal(restored.content,'Original');
+  assert(store.history(note.id).some(version=>version.preview==='Second'));
+  store.remove(note.id); assert.equal(store.trash().length,1); assert.equal(store.databaseRead(parent.id).rows.length,0);
+  store=createNotesStore(directory);store.restore(note.id);
+  assert.equal(store.read(note.id).content,'Original');assert.equal(store.databaseRead(parent.id).rows[0].pageId,note.id);
+  store.remove(parent.id);store=createNotesStore(directory);store.restore(parent.id);
+  assert.equal(store.read(note.id).content,'Original');assert.equal(store.trash().length,0);
+  for(let i=0;i<24;i++)store.save({...store.read(note.id),content:`Version ${i}`});
+  assert.equal(store.history(note.id).length,20);
+  console.log('PAGE_TOOLS_STORE_OK: durable trash including database rows, version restore, lock enforcement, bounded history');
+} finally { rmSync(directory,{recursive:true,force:true}); }

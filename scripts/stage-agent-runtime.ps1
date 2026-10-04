@@ -1,7 +1,8 @@
-param([switch]$VerifyOnly)
+param([switch]$VerifyOnly, [ValidateSet('standard','full')][string]$Profile = 'standard')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$targetRoot = Join-Path $projectRoot 'runtime\distribution'
+$targetRoot = Join-Path $projectRoot $(if ($Profile -eq 'full') { 'runtime\distribution-full' } else { 'runtime\distribution' })
+$engines = if ($Profile -eq 'full') { @('piper','xtts','omnivoice') } else { @('piper') }
 $env:TEMP = Join-Path $projectRoot 'runtime\temp'
 $env:TMP = $env:TEMP
 $env:UV_CACHE_DIR = Join-Path $projectRoot 'runtime\build-cache\uv'
@@ -28,8 +29,8 @@ if (-not $VerifyOnly) {
     Invoke-Checked $uv @('venv','--python','3.14.6',$mcpEnv)
     Invoke-Checked $uv @('pip','install','--python',(Join-Path $mcpEnv 'Scripts\python.exe'),'--requirement',(Join-Path $projectRoot 'build\windows-mcp-requirements.txt'))
     Invoke-Checked $python @((Join-Path $PSScriptRoot 'stage-portable-python.py'),(Join-Path $mcpEnv 'Scripts\python.exe'),(Join-Path $targetRoot 'windows-mcp'))
-    Invoke-Checked 'node' @((Join-Path $projectRoot 'node_modules\playwright\cli.js'),'install','chromium')
-    foreach ($engine in @('piper','xtts','omnivoice')) {
+    Invoke-Checked 'node' @((Join-Path $projectRoot 'node_modules\playwright\cli.js'),'install','chromium','--only-shell')
+    foreach ($engine in $engines) {
         $source = Join-Path $projectRoot "runtime\tts\$engine"
         $destination = Join-Path $targetRoot "tts\$engine"
         New-Item -ItemType Directory -Force -Path $destination | Out-Null
@@ -41,7 +42,7 @@ if (-not $VerifyOnly) {
         }
         Invoke-Checked $python @((Join-Path $PSScriptRoot 'stage-portable-python.py'),(Join-Path $source '.venv\Scripts\python.exe'),(Join-Path $destination '.venv\Scripts'))
     }
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'runtime\tts\shared') -Destination (Join-Path $targetRoot 'tts\shared') -Recurse
+    if ($Profile -eq 'full') { Copy-Item -LiteralPath (Join-Path $projectRoot 'runtime\tts\shared') -Destination (Join-Path $targetRoot 'tts\shared') -Recurse }
     $dependencies = Get-Content (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json
     [ordered]@{ schemaVersion=1; windowsMcp='0.8.6'; python='3.14.6'; fastMcp='4.0.10'; mcpProtocol='2026-07-28'; codex=$dependencies.dependencies.'@openai/codex'; playwright=$dependencies.dependencies.playwright; mcpClient=$dependencies.dependencies.'@modelcontextprotocol/client'; builtAt=(Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding utf8
     & $uv pip freeze --python (Join-Path $mcpEnv 'Scripts\python.exe') | Set-Content (Join-Path $targetRoot 'windows-mcp-requirements.txt') -Encoding utf8
@@ -51,7 +52,7 @@ $staged = Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
 $package = Get-Content (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json
 if ($staged.codex -ne $package.dependencies.'@openai/codex' -or $staged.playwright -ne $package.dependencies.playwright -or $staged.mcpClient -ne $package.dependencies.'@modelcontextprotocol/client') { throw 'Staged dependencies differ from package.json. Rebuild the offline runtime.' }
 Invoke-Checked (Join-Path $targetRoot 'windows-mcp\python.exe') @('-m','windows_mcp','serve','--help')
-foreach ($engine in @('piper','xtts','omnivoice')) {
+foreach ($engine in $engines) {
     Invoke-Checked (Join-Path $targetRoot "tts\$engine\.venv\Scripts\python.exe") @((Join-Path $PSScriptRoot 'prepare-tts-models.py'),'--engine',$engine,'--root',(Join-Path $targetRoot 'tts'),'--manifest',(Join-Path $projectRoot 'tts\manifest.json'),'--verify-only')
 }
 Write-Output 'LOCALFLOW_OFFLINE_AGENT_RUNTIME_VERIFIED'

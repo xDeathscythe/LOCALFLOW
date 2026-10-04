@@ -18,7 +18,7 @@ function createEdgePanel({ directory, display, onAction, onChange }) {
   let expanded;
   const bounds = () => {
     const area = display().workArea;
-    const width = area.width <= 1600 ? 31 : 37;
+    const width = 31;
     return { x: area.x + area.width - width, y: area.y + 79, width, height: 146 };
   };
   const sync = () => {

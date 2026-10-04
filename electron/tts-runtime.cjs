@@ -9,7 +9,7 @@ function resolveTtsRoot(appRoot, isPackaged, localAppData) {
     return path.resolve(appRoot, configured);
   }
   if (isPackaged) {
-    return path.join(path.dirname(appRoot), "runtime", "tts");
+    return path.join(localAppData, "LocalFlow", "tts");
   }
   return path.join(appRoot, "runtime", "tts");
 }
@@ -71,9 +71,14 @@ function runInstaller(resourcesRoot, ttsRoot, engine) {
 const installations = new Map();
 async function ensureTtsRuntime(resourcesRoot, ttsRoot, engine) {
   if (ttsRuntimeReady(ttsRoot, engine)) return { root: ttsRoot, installed: false };
-  if (fs.existsSync(path.join(resourcesRoot, 'runtime', 'distribution.json'))) throw new Error('Bundled voice files are missing. Repair the LocalFlow installation.');
   const key = `${ttsRoot}:${engine || "all"}`;
-  if (!installations.has(key)) installations.set(key, runInstaller(resourcesRoot, ttsRoot, engine).finally(() => installations.delete(key)));
+  if (!installations.has(key)) installations.set(key, (async () => {
+    const { confirmModelDownload } = require("./model-download-dialog.cjs");
+    if (!await confirmModelDownload(engine || "voice models", "the model publishers")) {
+      throw new Error("Model download cancelled");
+    }
+    await runInstaller(resourcesRoot, ttsRoot, engine);
+  })().finally(() => installations.delete(key)));
   await installations.get(key);
   if (!ttsRuntimeReady(ttsRoot, engine)) {
     throw new Error(`TTS installer completed but runtime is incomplete: ${ttsRoot}`);

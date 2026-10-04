@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { parseHTML } from 'linkedom';
 import { databaseFromExport, readRowProperties } from './notion-database.mjs';
+export { resolveAsset } from './asset-path.cjs';
 
 const pageId = name => name.match(/(?:^|[ /])([a-f0-9]{32})(?=\.|$|\/)/i)?.[1]?.toLowerCase();
 export function exportedPage(byId, filename) {
@@ -20,15 +21,6 @@ const key = value => createHash('sha256').update(value).digest('hex').slice(0,32
 const localId = id => `notion-${id}`;
 const walk = root => readdirSync(root, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(join(root, entry.name)) : entry.isFile() ? [join(root, entry.name)] : []);
 const inside = (root, file) => { const rel = relative(root, file); return rel && !isAbsolute(rel) && !rel.split(sep).includes('..'); };
-export function resolveAsset(root, url) {
-  const parsed = new URL(url);
-  if (parsed.protocol !== 'localflow-asset:' || !/^[a-f0-9]{32}$/.test(parsed.hostname)) throw new Error('Invalid asset URL.');
-  const locationsFile=join(root,'imports','locations.json');
-  const locations=existsSync(locationsFile)?JSON.parse(readFileSync(locationsFile,'utf8')):{};
-  const base = resolve(locations[parsed.hostname] || join(root, 'imports', parsed.hostname)), file = resolve(base, decodeURIComponent(parsed.pathname).replace(/^[/\\]+/, ''));
-  if (!inside(base, file) || !existsSync(file) || !statSync(file).isFile()) throw new Error('Asset not found.');
-  return file;
-}
 
 // Preserve structural HTML alongside readable Markdown. Original exports are kept intact.
 export function htmlToMarkdown(node) {

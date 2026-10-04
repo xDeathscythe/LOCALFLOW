@@ -2,13 +2,13 @@ const {BrowserWindow}=require('electron');
 const {readFile,writeFile}=require('node:fs/promises');
 const {extname}=require('node:path');
 const {parseHTML}=require('linkedom');
+const {resolveAsset}=require('./asset-path.cjs');
 
 async function printableHtml(root,{title,html}) {
   if(typeof title!=='string'||title.length>300||typeof html!=='string'||html.length>5_000_000)throw new Error('Invalid page export.');
   const {document}=parseHTML('<html><head></head><body></body></html>');document.body.innerHTML=html;
   for(const control of document.body.querySelectorAll('input,textarea,select')){const span=document.createElement('span');span.textContent=control.localName==='select'?(control.querySelector('option[selected]')||control.querySelector('option'))?.textContent||'':control.getAttribute('type')==='checkbox'?(control.hasAttribute('checked')?'☑':'☐'):control.getAttribute('value')||control.textContent||'';control.replaceWith(span);}
   const tags=new Set('p div span section article header footer h1 h2 h3 h4 h5 h6 strong b em i u s del mark blockquote pre code br hr ul ol li table thead tbody tfoot tr th td img a details summary aside figure figcaption button small label input'.split(' '));
-  const {resolveAsset}=await import('./notion-import.mjs');
   for(const element of [...document.body.querySelectorAll('*')]) {
     if(!tags.has(element.localName)){element.remove();continue;}
     for(const attr of [...element.attributes])if(!['class','style','href','src','alt','colspan','rowspan','data-type','data-checked','checked','type'].includes(attr.name))element.removeAttribute(attr.name);

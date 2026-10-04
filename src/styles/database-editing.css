@@ -46,3 +46,6 @@
 .notesDatabasePage .databaseTextCell { resize:none; }
 .notesDatabasePage .databaseTextCell:focus { resize:vertical; }
 .databaseContent:focus-visible { outline:1px solid var(--color-border-strong); outline-offset:-1px; }
+.databasePagination { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:12px 0; font-size:12px; }
+.databasePagination span { margin-right:auto; color:var(--color-text-soft); }
+.databasePagination button:disabled { opacity:.4; }

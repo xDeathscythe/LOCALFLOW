@@ -23,7 +23,7 @@ app.whenReady().then(async () => {
     screen.getCursorScreenPoint = () => ({ x: area.x + area.width - 2, y: area.y + 100 });
     await new Promise(resolve => window.webContents.once('did-finish-load', resolve));
     await pause();
-    assert.equal(window.getBounds().width, 37);
+    assert.equal(window.getBounds().width, 31);
     const nativeCalls = { resize: 0, show: 0, ignore: [] };
     const setBounds = window.setBounds.bind(window), showInactive = window.showInactive.bind(window), setIgnoreMouseEvents = window.setIgnoreMouseEvents.bind(window);
     window.setBounds = (...args) => { nativeCalls.resize++; return setBounds(...args); };
@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
     const closedShape = await shape();
     await window.webContents.executeJavaScript(`document.body.dispatchEvent(new MouseEvent('mousemove', {clientX: 12}))`); await pause(80);
     assert.equal(await shape(), closedShape, 'transparent area does not reveal the collapsed panel');
-    await window.webContents.executeJavaScript(`document.body.dispatchEvent(new MouseEvent('mousemove', {clientX: 35}))`); await pause(80);
+    await window.webContents.executeJavaScript(`document.body.dispatchEvent(new MouseEvent('mousemove', {clientX: 29}))`); await pause(80);
     assert.deepEqual(nativeCalls.ignore.at(-1), { ignore: false, options: { forward: true } }, 'edge handle restores native clicks');
     const openingShape = await shape();
     fs.writeFileSync(path.join(output, 'opening.png'), (await window.webContents.capturePage()).toPNG());
@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
     const openShape = await shape();
     assert.notEqual(openingShape, closedShape, 'shape starts morphing');
     assert.notEqual(openingShape, openShape, 'opening has intermediate geometry');
-    assert.deepEqual(window.getBounds(), { x: area.x + area.width - 37, y: area.y + 79, width: 37, height: 146 });
+    assert.deepEqual(window.getBounds(), { x: area.x + area.width - 31, y: area.y + 79, width: 31, height: 146 });
     const centered = await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('button')).map(button => { const b = button.getBoundingClientRect(); return {left:b.left,right:innerWidth-b.right}; })`);
     assert(centered.every(button => Math.abs(button.left - button.right) < .1), 'all three controls have equal horizontal margins');
     const contour = await window.webContents.executeJavaScript(`(() => {
@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
         for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 24) {
           const x = b.left + r + r * Math.cos(angle);
           const y = (Math.sin(angle) < 0 ? b.top + r : b.bottom - r) + r * Math.sin(angle);
-          for (const [dx, dy] of [[-2,0],[2,0],[0,-2],[0,2]]) if (!inside(x + dx, y + dy)) clearance = false;
+          for (const [dx, dy] of [[-2,0],[2,0],[0,-2],[0,2]]) if (!inside((x + dx) * 37 / innerWidth, y + dy)) clearance = false;
         }
       }
       const b = document.querySelector('.controls').getBoundingClientRect();
@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
     assert(contour.clearance, 'every selector position clears the contour by at least 2px');
     assert.equal(contour.top, 28); assert.equal(contour.bottom, 28);
     const selectorY = () => window.webContents.executeJavaScript('new DOMMatrix(getComputedStyle(document.querySelector(".selector")).transform).m42');
-    assert.deepEqual(await window.webContents.executeJavaScript(`(() => { const s = getComputedStyle(document.querySelector('.selector')); return [s.width, s.height, s.borderRadius, s.backgroundColor]; })()`), ['19px', '28px', '18px', 'rgb(164, 70, 24)'], 'original orange pill geometry and color are preserved');
+    assert.deepEqual(await window.webContents.executeJavaScript(`(() => { const s = getComputedStyle(document.querySelector('.selector')); return [s.width, s.height, s.borderRadius, s.backgroundColor]; })()`), ['19px', '28px', '18px', 'rgb(171, 240, 209)'], 'mint selector keeps the original pill geometry');
     assert.equal(await selectorY(), 31, 'selector starts on microphone');
     await window.webContents.executeJavaScript(`document.querySelector('[data-action=agent]').dispatchEvent(new PointerEvent('pointerenter'))`); await pause(80);
     assert((await selectorY()) > 0 && (await selectorY()) < 31, 'hover selector travels through intermediate positions');
@@ -126,22 +126,22 @@ app.whenReady().then(async () => {
     assert.equal(await agentAnimation(), 'star-listen');
     assert.equal(await window.webContents.executeJavaScript('getComputedStyle(document.querySelector(".levels i")).animationName'), 'none', 'agent recording does not animate the dictation microphone');
     await window.webContents.executeJavaScript('window.edge.hover(null)'); await pause();
-    assert.equal(window.getBounds().width, 37, 'recording keeps panel open');
+    assert.equal(window.getBounds().width, 31, 'recording keeps panel open');
     edge.update({ recording: false, voice: false, agentListening: false, recordingTarget: 'microphone' });
     await window.webContents.executeJavaScript('window.edge.hover(12)');
     await pause(80);
     const closingShape = await shape();
     assert.notEqual(closingShape, openShape, 'closing morph begins');
     assert.notEqual(closingShape, closedShape, 'closing has intermediate geometry');
-    assert.equal(window.getBounds().width, 37, 'closing keeps the native canvas stable');
-    await window.webContents.executeJavaScript('window.edge.hover(35)'); await pause();
-    assert.equal(window.getBounds().width, 37, 'reversing close keeps the native canvas stable');
+    assert.equal(window.getBounds().width, 31, 'closing keeps the native canvas stable');
+    await window.webContents.executeJavaScript('window.edge.hover(29)'); await pause();
+    assert.equal(window.getBounds().width, 31, 'reversing close keeps the native canvas stable');
     await window.webContents.executeJavaScript(`document.body.dispatchEvent(new MouseEvent('mouseleave'))`); await pause();
-    assert.equal(window.getBounds().width, 37);
+    assert.equal(window.getBounds().width, 31);
     assert.equal(await shape(), closedShape);
     edge.update({ voice: true }); await pause();
     assert.equal(await shape(), closedShape, 'muted connected voice must not pin the notch open');
-    await window.webContents.executeJavaScript('window.edge.hover(35)'); await pause();
+    await window.webContents.executeJavaScript('window.edge.hover(29)'); await pause();
     assert.equal(await shape(), openShape);
     screen.getCursorScreenPoint = () => ({ x: area.x - 100, y: area.y - 100 });
     await pause(1000);
@@ -153,8 +153,8 @@ app.whenReady().then(async () => {
     await pause();
     assert.equal(nativeCalls.resize, 0, 'morph and visibility updates never resize the transparent window');
     assert.equal(nativeCalls.show, 0, 'minimize/restore state updates never re-show an already visible panel');
-    edge.set({ enabled: true, autoHide: false }); await pause(); assert.equal(window.getBounds().width, 37);
-    for (const [displayWidth, panelWidth] of [[1366, 31], [1536, 31], [1600, 31], [1601, 37], [1920, 37]]) {
+    edge.set({ enabled: true, autoHide: false }); await pause(); assert.equal(window.getBounds().width, 31);
+    for (const [displayWidth, panelWidth] of [[1366, 31], [1536, 31], [1600, 31], [1601, 31], [1920, 31]]) {
       area.width = displayWidth;
       screen.emit('display-metrics-changed'); await pause();
       assert.deepEqual(window.getBounds(), { x: area.x + displayWidth - panelWidth, y: area.y + 79, width: panelWidth, height: 146 });

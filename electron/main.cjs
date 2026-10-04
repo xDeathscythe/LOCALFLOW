@@ -46,7 +46,7 @@ const ONNX_STT_MODELS = new Set([
   "nemo-parakeet-tdt-0.6b-v3",
   "nemo-canary-1b-v2",
 ]);
-const ALLOWED_WHISPER_MODELS = new Set([...BUNDLED_WHISPER_MODELS, ...ONNX_STT_MODELS]);
+const ALLOWED_WHISPER_MODELS = new Set(["base", "small", "large-v3-turbo", ...BUNDLED_WHISPER_MODELS, ...ONNX_STT_MODELS]);
 const ALLOWED_WHISPER_LANGUAGES = new Set(["sr", "en", "auto"]);
 const WHISPER_OUTPUT_LANGUAGES = Object.freeze({ sr: "Serbian Latin", en: "English", auto: "Original language" });
 const RECORDING_OVERLAY_SIZE = Object.freeze({ width: 144, height: 42 });
@@ -371,8 +371,12 @@ app.on("second-instance", () => showMainWindow());
 app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
   app.setAppUserModelId("local.localflow.desktop");
-  const openNoteAsset = await registerNoteAssets(path.join(app.getPath('userData'), 'notes'));
+  const openNoteAsset = registerNoteAssets(path.join(app.getPath('userData'), 'notes'));
   loadDotEnv();
+  if (process.env.LOCALFLOW_WHISPER_MODEL === "auto") {
+    process.env.LOCALFLOW_WHISPER_MODEL = "large-v3";
+    persistDotEnvValue("LOCALFLOW_WHISPER_MODEL", "large-v3");
+  }
   ensureRuntimeEnv();
   process.env.CODEX_HOME = path.join(app.getPath('userData'), 'niwa', 'codex');
   process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(resourcesRoot(), 'runtime', 'browsers');
@@ -482,9 +486,15 @@ app.whenReady().then(async () => {
     if (!ALLOWED_WHISPER_MODELS.has(model)) {
       throw new Error(`Unsupported STT model: ${model}`);
     }
+    const { available } = await transcriptionWorker.send("model-status", { model });
+    if (!available) {
+      const { confirmModelDownload } = require("./model-download-dialog.cjs");
+      if (!await confirmModelDownload(model)) return null;
+      await transcriptionWorker.send("download-model", { model });
+    }
+    await transcriptionWorker.send("configure", { model });
     process.env.LOCALFLOW_WHISPER_MODEL = model;
     persistDotEnvValue("LOCALFLOW_WHISPER_MODEL", model);
-    await transcriptionWorker.send("configure", { model });
     return {
       whisperModel: model,
       whisperDownloadRoot: ONNX_STT_MODELS.has(model)
@@ -591,7 +601,7 @@ app.whenReady().then(async () => {
     const location = await dialog.showOpenDialog(mainWindow, { title: 'Choose where to keep the imported Notion attachments', defaultPath: path.dirname(choice.filePaths[0]), properties: ['openDirectory','createDirectory'] });
     if (location.canceled) return null;
     const bundle = await prepareNotionImport(choice.filePaths[0], path.join(app.getPath('userData'),'notes'), { python: resolvePython(), storageRoot: path.join(location.filePaths[0],'LocalFlow Notes') });
-    const result = (await niwaReady).notes.importBundle(bundle);
+    const result = await (await niwaReady).notes.importBundle(bundle);
     return { ...result, report: bundle.report };
   });
   ipcMain.handle('get-edge-settings', event => { fromMain(event); return edgePanel.get(); });
@@ -603,7 +613,7 @@ app.whenReady().then(async () => {
     'niwa-stop-voice': 'stopVoice', 'niwa-interrupt': 'interrupt', 'niwa-configure': 'configure',
     'niwa-save-connector': 'saveConnector', 'niwa-forget': 'forget',
   })) ipcMain.handle(channel, async (event, value) => { fromMain(event); const agent = await niwaReady; return agent[method](value); });
-  for (const method of ['list', 'read', 'create', 'save', 'remove', 'duplicate', 'importLegacy', 'rename', 'move', 'databaseRead', 'databaseSave', 'databaseAddRow', 'databaseMoveRow', 'databaseRunButton', 'databaseQuery']) {
+  for (const method of ['list', 'read', 'create', 'save', 'remove', 'duplicate', 'importLegacy', 'rename', 'move', 'trash', 'restore', 'history', 'restoreVersion', 'databaseRead', 'databaseSave', 'databaseAddRow', 'databaseMoveRow', 'databaseRunButton', 'databaseQuery', 'databasePage', 'databasePatch', 'databasePageAction', 'databaseOptions', 'databaseExport']) {
     ipcMain.handle(`notes-${method}`, async (event, value) => { fromMain(event); return (await niwaReady).notes[method](value); });
   }
   ipcMain.handle('niwa-select-files', async event => { fromMain(event); const choice = await dialog.showOpenDialog(mainWindow, { title: 'Add files to chat', properties: ['openFile', 'multiSelections'] }); return choice.canceled ? [] : choice.filePaths; });
@@ -658,7 +668,7 @@ app.whenReady().then(async () => {
       elapsedSeconds: Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0,
     };
     syncRecordingOverlayWindow();
-    if (warmup) { voiceOutputManager?.stop(); transcriptionWorker.send("warmup").catch(() => {}); }
+    if (warmup) { voiceOutputManager?.cancel(); transcriptionWorker.send("warmup").catch(() => {}); }
   });
 
 });
@@ -671,7 +681,22 @@ app.on("activate", () => {
   showMainWindow();
 });
 
-app.on("before-quit", () => {
+let shutdownTask, shutdownComplete = false;
+app.on("before-quit", event => {
+  if (!shutdownComplete) {
+    event.preventDefault();
+    if (!shutdownTask) shutdownTask = (async () => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        await mainWindow.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+          const event = new CustomEvent('localflow-save-before-quit', { cancelable: true, detail: { resolve, reject } });
+          if (window.dispatchEvent(event)) resolve();
+        })`);
+      }
+      await (await niwaReady)?.close();
+      shutdownComplete = true; app.quit();
+    })().catch(error => { shutdownTask = null; showMainWindow(); dialog.showErrorBox('Could not save before quitting', error.message); });
+    return;
+  }
   isQuitting = true;
   transcriptionWorker?.stop();
   duplexCleanup?.close();
@@ -687,6 +712,5 @@ app.on("before-quit", () => {
   }
   voiceOutputManager?.stop();
   edgePanel?.close();
-  void niwaAgent?.close();
   cleanupAuthManager?.close();
 });

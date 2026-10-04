@@ -4,6 +4,8 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readJsonFile, writeJsonFile } from './niwa/host/niwa-store.mjs';
 import { createDatabaseStore, validateDatabase } from './notes/database-store.mjs';
 import { runDatabaseButton } from './notes/database-actions.mjs';
+import { databasePage, databasePatch, databasePageAction, databaseOptions, databaseExport } from './notes/database-page.mjs';
+import { pageHistory } from './notes/page-history.mjs';
 import { validatePresentation } from './notes/presentation.mjs';
 
 export function createNotesStore(directory, changed = () => {}) {
@@ -19,18 +21,21 @@ export function createNotesStore(directory, changed = () => {}) {
   const label = value => { if (typeof value !== 'string' || !value.trim() || value.length > 300) throw new Error('Enter a title of 1–300 characters.'); return value.trim(); };
   const text = value => { if (typeof value !== 'string' || value.length > 2_000_000) throw new Error('Markdown must be at most 2 million characters.'); return value; };
   const write = (id, content) => { const target = file(id), temporary = `${target}.tmp`; writeFileSync(temporary, text(content), 'utf8'); renameSync(temporary, target); };
-  const commit = () => { writeJsonFile(index, state); changed(); };
+  const commit = (ids = [], tree = true) => { writeJsonFile(index, state); changed({ ids, tree }); };
   const databases = createDatabaseStore(root, changed);
   const richFile = id => `${file(id)}.json`;
   const writeRich = (id, content, value) => writeJsonFile(richFile(id), { hash: hash(content), document: value.document || null, html: value.html || null });
+  const snapshot = (item, content, rich) => ({ ...item, content, ...rich, revision: hash(content + '\0' + item.label + '\0' + JSON.stringify(rich) + '\0' + JSON.stringify(item.presentation)), path: file(item.id) });
   const read = id => {
     const item = find(id);
     if (!item || item.kind !== 'note') throw new Error('Note not found.');
     const content = readFileSync(file(id), 'utf8');
     const rich = readJsonFile(richFile(id), null);
     const validRich = rich?.hash === hash(content) ? { document: rich.document, html: rich.html } : {};
-    return { ...item, content, ...validRich, revision: hash(content + '\0' + item.label + '\0' + JSON.stringify(validRich) + '\0' + JSON.stringify(item.presentation)), path: file(id) };
+    return snapshot(item, content, validRich);
   };
+  const versions = pageHistory(root);
+  const assertUnlocked = item => { if (item?.presentation?.locked) throw new Error('Unlock this page before editing.'); };
   const list = () => ({ items: structuredClone(state.items), directory: root });
   const rename = (item, title) => {
     item.label = label(title);
@@ -60,7 +65,7 @@ export function createNotesStore(directory, changed = () => {}) {
         if (item.kind === 'folder') return { ...item, children: save(item.children) };
         const { content, ...metadata } = item; write(item.id, content); return metadata;
       });
-      state = { imported: true, items: [...state.items, ...save(imported)] }; commit(); return list();
+      state = { ...state, imported: true, items: [...state.items, ...save(imported)] }; commit(); return list();
     },
     create({ kind = 'note', label: title, parentId, content = '', document, html }) {
       if (!['folder', 'note', 'database'].includes(kind)) throw new Error('Invalid note kind.');
@@ -80,17 +85,47 @@ export function createNotesStore(directory, changed = () => {}) {
       const item = find(id), nextLabel = label(title);
       const nextPresentation = presentation === undefined ? item.presentation : validatePresentation(presentation);
       text(content);
-      write(id, content); writeRich(id, content, { document, html }); item.presentation = nextPresentation; if(item.label!==nextLabel)rename(item,nextLabel); item.updatedAt = new Date().toISOString(); commit(); return read(id);
+      const treeChanged = item.label !== nextLabel || JSON.stringify(item.presentation) !== JSON.stringify(nextPresentation);
+      const rich = { document: document || null, html: html || null };
+      const contentChanged = content !== current.content;
+      const richChanged = JSON.stringify(rich) !== JSON.stringify({ document: current.document, html: current.html });
+      if (!treeChanged && !contentChanged && !richChanged) return current;
+      if (current.presentation?.locked && (contentChanged || richChanged || nextLabel !== current.label || nextPresentation?.locked !== false || JSON.stringify({...nextPresentation,locked:true}) !== JSON.stringify({...current.presentation,locked:true}))) throw new Error('Unlock this page before editing.');
+      versions.remember(current);
+      if (contentChanged) write(id, content);
+      if (contentChanged || richChanged) writeRich(id, content, rich);
+      item.presentation = nextPresentation; if(item.label!==nextLabel)rename(item,nextLabel); item.updatedAt = new Date().toISOString(); commit([id], treeChanged); return snapshot(item, content, rich);
+    },
+    trash() { return (state.trash || []).map(({item, deletedAt}) => ({id:item.id,label:item.label,kind:item.kind,deletedAt})); },
+    restore(id) {
+      const entry = state.trash?.find(value => value.item.id === id);
+      if (!entry || find(id)) throw new Error('Page not found in trash.');
+      const parent = entry.parentId ? find(entry.parentId) : null;
+      if (parent?.kind === 'database') {
+        const db = databases.read(parent.id);
+        db.rows.push(entry.row || {id, pageId:id, values:{[db.properties.find(p => p.type === 'title').id]:entry.item.label}});
+        databases.save(db);
+      }
+      (parent ? (parent.children ||= []) : state.items).push(entry.item);
+      state.trash = state.trash.filter(value => value !== entry); commit(); return list();
+    },
+    history(id) { read(id); return versions.read(id).map(({revision,label,updatedAt,content}) => ({revision,label,updatedAt,preview:content.slice(0,300)})).reverse(); },
+    restoreVersion({id, revision}) {
+      const current = read(id); assertUnlocked(current);
+      const version = versions.read(id).find(value => value.revision === revision);
+      if (!version) throw new Error('Page version not found.');
+      return this.save({...version,id,presentation:version.presentation||{},revision:current.revision});
     },
     remove(id) {
-      if (!find(id)) throw new Error('Note not found.');
-      const parent=parentOf(id);
-      const remove = items => items.filter(item => item.id !== id).map(item => item.children ? { ...item, children: remove(item.children) } : item);
-      writeJsonFile(join(root, `archive-${Date.now()}-${randomUUID()}.json`), state.items);
-      if(parent?.kind==='database'){const db=databases.read(parent.id);writeJsonFile(join(root,`archive-database-${Date.now()}-${randomUUID()}.json`),db);db.rows=db.rows.filter(row=>row.pageId!==id);databases.save(db);}
-      state.items = remove(state.items); commit(); return list();
+      const item = find(id); if (!item) throw new Error('Note not found.');
+      const parent = parentOf(id), db = parent?.kind === 'database' ? databases.read(parent.id) : null;
+      const entry = {item:structuredClone(item),parentId:parent?.id,deletedAt:new Date().toISOString(),row:db?.rows.find(row => row.pageId === id)};
+      state.trash ||= []; state.trash.push(entry);
+      if (db) { db.rows = db.rows.filter(row => row.pageId !== id); databases.save(db); }
+      const detach = items => { const at=items.findIndex(value=>value.id===id); if(at>=0) items.splice(at,1); else items.forEach(value=>detach(value.children||[])); };
+      detach(state.items); commit(); return list();
     },
-    rename({ id, label: title }) { const item = find(id); if (!item) throw new Error('Note not found.'); rename(item,title); commit(); return list(); },
+    rename({ id, label: title }) { const item = find(id); if (!item) throw new Error('Note not found.'); assertUnlocked(item); rename(item,title); commit(); return list(); },
     move({ id, parentId, beforeId }) {
       const item = find(id), parent = parentId ? find(parentId) : null;
       if (!item || (parentId && !parent) || parentId === id || (parentId && find(parentId, item.children || []))) throw new Error('Invalid destination.');
@@ -123,7 +158,21 @@ export function createNotesStore(directory, changed = () => {}) {
       if(parent?.kind==='database'){const db=databases.read(parent.id),old=db.rows.find(row=>row.pageId===id);db.rows.push({id:next.id,pageId:next.id,values:{...(old?.values||{}),[db.properties.find(p=>p.type==='title').id]:next.label}});databases.save(db);}commit();return structuredClone(next);
     },
     databaseRead(id) { if (find(id)?.kind !== 'database') throw new Error('Database not found.'); return databases.read(id); },
-    databaseSave(value) { if (find(value.id)?.kind !== 'database') throw new Error('Database not found.'); const title=value.properties.find(p=>p.type==='title'); for(const row of value.rows)if(row.pageId && find(row.pageId))label(row.values[title?.id] || 'Untitled'); const result=databases.save(value); for(const row of result.rows){const page=find(row.pageId);if(page)page.label=String(row.values[title.id] || 'Untitled');}commit();return result; },
+    databasePage(value) { return databasePage(this, value); },
+    databasePatch(value) { return databasePatch(this, value); },
+    databasePageAction(value) { return databasePageAction(this, value); },
+    databaseOptions(id) { return databaseOptions(this, id); },
+    databaseExport(value) { return databaseExport(this, value); },
+    databaseSave(value) {
+      if (find(value.id)?.kind !== 'database') throw new Error('Database not found.');
+      const pages = new Map(), collect = items => { for (const item of items) { pages.set(item.id, item); collect(item.children || []); } }; collect(state.items);
+      const title = value.properties.find(p => p.type === 'title');
+      for (const row of value.rows) if (pages.has(row.pageId)) { label(row.values[title?.id] || 'Untitled'); if (pages.get(row.pageId).label !== String(row.values[title?.id] || 'Untitled')) assertUnlocked(pages.get(row.pageId)); }
+      const result = databases.save(value), changedPages = [];
+      for (const row of result.rows) { const page = pages.get(row.pageId), name = String(row.values[title.id] || 'Untitled'); if (page && page.label !== name) { assertUnlocked(page); page.label = name; changedPages.push(page.id); } }
+      if (changedPages.length) commit([value.id, ...changedPages]);
+      return result;
+    },
     databaseQuery(value) { const related=new Map(); const visit=id=>{if(related.has(id)||find(id)?.kind!=='database')return;const db=databases.read(id);related.set(id,db);db.properties.filter(p=>p.type==='relation'&&p.target).forEach(p=>visit(p.target));};visit(value.id);return databases.query({...value,databases:[...related.values()]}); },
     databaseRunButton(value) { return runDatabaseButton(this,value); },
     databaseAddRow({ id, label: title = 'Untitled', values = {}, templateId }) {

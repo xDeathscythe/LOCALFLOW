@@ -14,11 +14,11 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { version as APP_VERSION } from '../package.json';
 import { ProfileMenu } from "./components/ProfileMenu";
 import { PanelResize } from "./components/PanelResize";
-import { NotesPage } from "./components/NotesPage";
+import { RecordingOverlay } from './components/RecordingStatus';
 import { AppearanceSettings } from "./components/AppearanceSettings";
 import { TranscribePage, type RecentSession } from "./components/TranscribePage";
 import { createAudioRecording, type AudioRecording } from "./lib/audio-recording";
@@ -41,9 +41,10 @@ import type {
 
 type RunState = "idle" | "starting" | "recording" | "saving" | "ready" | "processing" | "done" | "error";
 type NavSection = "transcribe" | "notes" | "niwa" | "files" | "history" | "settings" | "shortcuts" | "about";
-type WhisperModelId = "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2";
+type WhisperModelId = "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2";
 type HotkeyMode = "hold" | "press";
 type RecordingMode = "manual" | "paste" | "notes" | "niwa";
+const NotesPage = lazy(() => import('./components/NotesPage').then(module => ({ default: module.NotesPage })));
 const CLEANUP_LEVEL_STORAGE_KEY = "localflow.cleanup-level.v1";
 const HOTKEY_MODE_STORAGE_KEY = "localflow.hotkey-mode.v1";
 const cleanupLevels = new Set<CleanupLevel>(["none", "light", "medium", "high"]);
@@ -68,7 +69,7 @@ function savedHotkeyMode(): HotkeyMode {
 }
 
 const defaultConfig = {
-  whisperModel: "large-v3-turbo",
+  whisperModel: "large-v3",
   whisperDownloadRoot: "",
   language: "auto",
   outputLanguage: "Original language",
@@ -126,6 +127,8 @@ const whisperModelOptions: Array<{
   label: string;
   description: string;
 }> = [
+  { id: "base", label: "Whisper Base", description: "Lightweight multilingual dictation; prioritizes speed." },
+  { id: "small", label: "Whisper Small", description: "Multilingual dictation for CPU and smaller GPUs." },
   {
     id: "large-v3-turbo",
     label: "large-v3-turbo",
@@ -199,7 +202,7 @@ const cleanupLevelOptions: Array<{
 const navItems = [
   { id: "transcribe", label: "Transcribe", icon: Mic },
   { id: "notes", label: "Notes", icon: NotebookPen },
-  { id: "niwa", label: "Agents", icon: MessageCircle },
+  { id: "niwa", label: "Brainstorm space", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
   { id: "history", label: "History", icon: History },
   { id: "settings", label: "Settings", icon: Settings },
@@ -226,7 +229,9 @@ function audioExtensionFromMime(mimeType: string) {
 }
 
 export function App() {
+  const [speechRuntime, setSpeechRuntime] = useState<WorkerProgress["speechRuntime"]>();
   const [notesSidebar, setNotesSidebar] = useState<HTMLDivElement | null>(null);
+  const [notesHeader, setNotesHeader] = useState<HTMLElement | null>(null);
   const [state, setState] = useState<RunState>("idle");
   const [audioPath, setAudioPath] = useState("");
   const [audioName, setAudioName] = useState("New transcription");
@@ -236,7 +241,7 @@ export function App() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const [config, setConfig] = useState(defaultConfig);
   const [activeSection, setActiveSection] = useState<NavSection>("niwa");
-  const edgeSectionRef = useRef<NavSection | null>(null);
+  const [notesOpened, setNotesOpened] = useState(false);
   const [exportedPath, setExportedPath] = useState("");
   const [error, setError] = useState("");
   const [switchingModel, setSwitchingModel] = useState(false);
@@ -258,12 +263,10 @@ export function App() {
   const niwaModeRef = useRef('realtime');
   const [notesCapture, setNotesCapture] = useState<{ id: number; text: string } | null>(null);
   const [shortcutConfig, setShortcutConfig] = useState<ShortcutConfig | null>(null);
-  const recordingOverlaySeconds = Math.floor(recordingSeconds);
 
   const mediaRecorderRef = useRef<AudioRecording | null>(null);
   const recordingGeneration = useRef(0);
   const activeRequest = useRef<string | null>(null);
-  const timerRef = useRef<number | null>(null);
   const hotkeyStopTimerRef = useRef<number | null>(null);
   const hotkeyStopRequestedRef = useRef(false);
   const startedAtRef = useRef(0);
@@ -275,6 +278,7 @@ export function App() {
   const hotkeyModeRef = useRef<HotkeyMode>(hotkeyMode);
 
   useEffect(() => window.localflow.onWindowVisibility(setWindowVisible), []);
+  useEffect(() => { if (activeSection === 'notes') setNotesOpened(true); }, [activeSection]);
   useEffect(() => window.localflow.onNiwaEvent(event => {
     if (event.type === 'approval') setActiveSection('niwa');
   }), []);
@@ -292,7 +296,7 @@ export function App() {
   }, [hotkeyMode]);
 
   useEffect(() => {
-    if (!window.localflow?.getVoiceOutputConfig) return;
+    if (activeSection !== 'settings' || !window.localflow?.getVoiceOutputConfig) return;
     let active = true;
     window.localflow.getVoiceOutputConfig()
       .then((nextConfig) => {
@@ -304,7 +308,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeSection]);
 
   useEffect(() => {
     let active = true;
@@ -342,6 +346,8 @@ export function App() {
   useEffect(() => {
     return window.localflow.onWorkerProgress((payload: WorkerProgress) => {
       if (payload.action === "transcribe" && payload.id !== activeRequest.current) return;
+      if (payload.speechRuntime) setSpeechRuntime(payload.speechRuntime);
+      if (payload.stage === "loading-whisper" || payload.stage === "loading-stt" || payload.stage === "warmup-failed") setSpeechRuntime(undefined);
       if (payload.config) {
         setConfig((current) => ({ ...current, ...payload.config }));
       }
@@ -430,10 +436,8 @@ export function App() {
 
   const cleanupRecordingResources = () => {
     if (microphoneOwner.current === 'dictation') microphoneOwner.current = null;
-    if (timerRef.current !== null) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (startedAtRef.current) setRecordingSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    startedAtRef.current = 0;
     if (hotkeyStopTimerRef.current !== null) {
       window.clearTimeout(hotkeyStopTimerRef.current);
       hotkeyStopTimerRef.current = null;
@@ -471,7 +475,7 @@ export function App() {
       activeRequest.current = null;
       setResult(data);
       setRecentSessions(current => [{ id: requestId, name, path, createdAt: Date.now(), result: data }, ...current].slice(0, 20));
-      setRecordingSeconds(data.duration || recordingSeconds);
+      if (data.duration !== undefined) setRecordingSeconds(data.duration);
       setStatus("Transcript ready");
       setState("done");
       return data;
@@ -535,9 +539,6 @@ export function App() {
       if (generation !== recordingGeneration.current) { recorder.stop(); return; }
       mediaRecorderRef.current = recorder;
       startedAtRef.current = Date.now();
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
-      }, 1000);
       stateRef.current = "recording";
       setState("recording");
       setStatus("Recording");
@@ -617,19 +618,6 @@ export function App() {
     };
     hotkeyStopTimerRef.current = window.setTimeout(attemptStop, delay);
   };
-
-  useEffect(() => {
-    const sectionChanged = edgeSectionRef.current !== activeSection;
-    edgeSectionRef.current = activeSection;
-    window.localflow.setRecordingOverlayState({
-      recording: state === "recording",
-      starting: state === "starting",
-      agentListening: niwaListening || (state === 'recording' && recordingModeRef.current === 'niwa'),
-      recordingTarget: recordingModeRef.current === 'niwa' ? 'agent' : 'microphone',
-      elapsedSeconds: recordingOverlaySeconds,
-      selected: !sectionChanged ? undefined : activeSection === 'niwa' ? 'agent' : activeSection === 'notes' ? 'notes' : activeSection === 'transcribe' ? 'microphone' : undefined,
-    });
-  }, [state, recordingOverlaySeconds, activeSection, niwaListening]);
 
   useEffect(() => {
     return window.localflow.onRecordingOverlayStop(() => {
@@ -713,6 +701,7 @@ export function App() {
     setStatus(`Loading STT model ${model}`);
     try {
       const nextConfig = await window.localflow.setWhisperModel(model);
+      if (!nextConfig) { setStatus("Model download cancelled"); return; }
       setConfig((current) => ({ ...current, ...nextConfig }));
       setStatus(`${model} ready`);
     } catch (modelError) {
@@ -1017,12 +1006,13 @@ export function App() {
                   <strong>{cleanupAccessLabel}</strong>
                 </div>
                 <div>
-                  <small>Runtime</small>
-                  <strong>X:\wORK cODEX\localflow\runtime</strong>
+                  <small>Whisper acceleration</small>
+                  <strong>{speechRuntime ? `${speechRuntime.device === "cuda" ? "NVIDIA GPU" : speechRuntime.device.toUpperCase()} · ${speechRuntime.model}` : "Checking your hardware…"}</strong>
                 </div>
               </div>
             </div>
 
+            {speechRuntime?.device === "cpu" && ["large-v3", "large-v3-turbo"].includes(speechRuntime.model) && <p role="status">This large model is running on the CPU and may be slow. GPU acceleration requires compatible NVIDIA hardware.</p>}
             <ModelSettings visible={activeSection === 'settings'} disabled={isBusy || state === 'recording'} onModel={cleanupModel => setConfig(current => ({ ...current, cleanupModel }))} />
             <div className="settingsGroup">
               <div className="settingsGroupHeading">
@@ -1125,6 +1115,10 @@ export function App() {
   };
 
   return <main className="appShell">
+      <RecordingOverlay startedAt={state === 'recording' ? startedAtRef.current : 0} seconds={recordingSeconds} section={activeSection}
+        recording={state === 'recording'} starting={state === 'starting'}
+        agentListening={niwaListening || (state === 'recording' && recordingModeRef.current === 'niwa')}
+        recordingTarget={recordingModeRef.current === 'niwa' ? 'agent' : 'microphone'} />
       <div className="windowDragRegion" aria-hidden="true" />
       <aside className="sidebar">
         <PanelResize label="Resize folders" property="--sidebar-width" edge="right" min={180} max={480} fraction={0.35} />
@@ -1139,7 +1133,7 @@ export function App() {
         </div>
       </aside>
       <section className="workspace">
-        <header className="workspaceHeader"><strong>{pageTitle}</strong></header>
+        <header className="workspaceHeader" ref={setNotesHeader}>{activeSection !== 'notes' && <strong>{pageTitle}</strong>}</header>
         <NiwaAgent sidebar={notesSidebar} visible={activeSection === 'niwa'} shortcutLabel={shortcutConfig?.['niwa-agent']?.label || 'Ctrl + Caps Lock'}
           recording={state === 'recording' && recordingModeRef.current === 'niwa'}
           microphoneBusy={state === 'recording' || state === 'starting'}
@@ -1154,15 +1148,15 @@ export function App() {
           onListening={setNiwaListening}
           onMode={mode => { niwaModeRef.current = mode; }}
           onLocalRecord={() => state === 'recording' && recordingModeRef.current === 'niwa' ? stopRecording() : void startRecording('niwa')} />
-        <NotesPage sidebar={notesSidebar} visible={activeSection === "notes"} onOpen={() => setActiveSection("notes")}
+        {(notesOpened || activeSection === 'notes' || notesCapture) && <Suspense fallback={null}><NotesPage sidebar={notesSidebar} header={notesHeader} visible={activeSection === "notes"} onOpen={() => setActiveSection("notes")}
           capture={notesCapture} onCaptureHandled={() => setNotesCapture(null)} onStatus={setStatus}
           recording={state === "recording" && recordingModeRef.current === "notes"}
           recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
           onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
-        />
+        /></Suspense>}
         {activeSection === "transcribe" ? <TranscribePage
           result={result} name={audioName} state={state} status={status} error={error}
-          seconds={recordingSeconds} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
+          seconds={recordingSeconds} startedAt={state === 'recording' ? startedAtRef.current : 0} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
           model={config.whisperModel} language={config.language as TranscriptionLanguage} cleanup={options.cleanupLevel}
           shortcut={shortcutConfig?.dictation?.label || "Ctrl + Shift"} hold={hotkeyMode === "hold"} sessions={recentSessions}
           onLanguage={language => void switchWhisperLanguage(language)} onCleanup={updateCleanupLevel}

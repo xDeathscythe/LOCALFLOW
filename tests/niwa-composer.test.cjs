@@ -29,6 +29,24 @@ app.whenReady().then(async () => {
     await enter();
     assert.deepEqual(sent, ['日本語\nDrugi red']);
     assert.equal(await value(), '');
+    const sendEvent = event => window.webContents.send('test-niwa-event', event);
+    for (let index = 0; index < 120; index++) sendEvent({ type: 'message', id: String(index), role: 'assistant', content: `Message ${index}`, timestamp: index });
+    await pause();
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.niwaBubble').length"), 100, 'long chats mount only the newest page');
+    await window.webContents.executeJavaScript("[...document.querySelectorAll('button')].find(button => button.textContent.includes('Load earlier')).click()");
+    await pause();
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.niwaBubble').length"), 120);
+    for (let index = 0; index < 100; index++) sendEvent({ type: 'delta', id: 'stream', text: '語' });
+    sendEvent({ type: 'busy', busy: false });
+    await pause();
+    assert((await window.webContents.executeJavaScript("document.querySelector('.niwaBubble:last-of-type').textContent")).includes('語'.repeat(100)), 'batched stream retains every delta');
+    sendEvent({ type: 'message', id: 'stream', role: 'assistant', content: 'Completed 完了', timestamp: 121 });
+    await pause();
+    assert((await window.webContents.executeJavaScript("document.querySelector('.niwaBubble:last-of-type').textContent")).includes('Completed 完了'), 'final message replaces deltas');
+    sendEvent({ type: 'delta', id: 'old', text: 'stale' });
+    sendEvent({ type: 'conversation' });
+    await pause();
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.niwaBubble').length"), 0, 'pending deltas cannot leak into the next chat');
     console.log('NIWA_ENTER_SHIFT_ENTER_IME_OK');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }

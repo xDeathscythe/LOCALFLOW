@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Asterisk, Mic, AudioLines, Square, Settings2, PanelRight, Plus, MessageCircle } from 'lucide-react';
-import { NiwaVoice, type NiwaApproval, type NiwaMessage, type NiwaSettings, type NiwaSnapshot } from '../lib/niwa';
+import { NiwaVoice, type NiwaApproval, type NiwaSettings, type NiwaSnapshot } from '../lib/niwa';
+import { useChatMessages } from '../lib/chat-messages';
 import { AgentComposer } from './AgentComposer';
-import { ChangesCard, WorkDetails, type ChatWork } from './ChatWork';
+import { WorkDetails, type ChatWork } from './ChatWork';
 import { AgentDiff } from './AgentDiff';
 import { ProjectSidebar } from './ProjectSidebar';
-import { MarkdownContent, MessageActions } from './MarkdownContent';
+import { ChatMessage } from './ChatMessage';
 import type { AgentActivity } from '../lib/workspace';
 import { BrowserConnection } from './BrowserConnection';
 
@@ -15,9 +16,13 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   onListening: (active: boolean) => void;
 }) {
   const [snapshot, setSnapshot] = useState<NiwaSnapshot | null>(null);
-  const [messages, setMessages] = useState<NiwaMessage[]>([]);
+  const { messages, receive: receiveMessage, replace: replaceMessages, prepend: prependMessages, clear: clearMessages } = useChatMessages();
   const [work, setWork] = useState<ChatWork | undefined>();
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [draftKey, setDraftKey] = useState(0);
+  const [messageLimit, setMessageLimit] = useState(100);
+  const [messageOffset, setMessageOffset] = useState(0), [loadingEarlier, setLoadingEarlier] = useState(false);
+  const conversationId = useRef<string | undefined>(undefined);
+  const refreshVersion = useRef(0);
   const [viewedDiff, setViewedDiff] = useState<string | null>(null);
   const [focusedFile, setFocusedFile] = useState<string | undefined>();
   const transcript = useRef<HTMLDivElement>(null);
@@ -26,7 +31,6 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [diff, setDiff] = useState('');
   const [showDiff, setShowDiff] = useState(true);
-  const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
@@ -47,7 +51,11 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   };
   const act = async (work: () => Promise<unknown>) => { try { setError(''); await work(); } catch (error) { setError(error instanceof Error ? error.message : String(error)); } };
   const refresh = async () => {
-    const next = await window.localflow.niwaSnapshot(); setSnapshot(next); setDiff(next.diff || ''); setMessages(next.messages); setActivities(next.activities || []); setWork(next.work); setBusy(next.busy); setApprovals(next.approvals); onMode(next.settings.voiceMode);
+    const version = ++refreshVersion.current;
+    const next = await window.localflow.niwaSnapshot();
+    if (version !== refreshVersion.current) return;
+    conversationId.current = next.conversationId; setMessageOffset(next.messageOffset || 0);
+    setSnapshot(next); setDiff(next.diff || ''); replaceMessages(next.messages); setActivities(next.activities || []); setWork(next.work); setBusy(next.busy); setApprovals(next.approvals); onMode(next.settings.voiceMode);
   };
   useEffect(() => {
     const element = footer.current;
@@ -66,15 +74,11 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
     }, active => { setMicrophoneActive(active); onListening(active); });
     void act(refresh);
     const unsubscribe = window.localflow.onNiwaEvent(event => {
-      if (event.type === 'conversation') { setInput(''); setAttachments([]); setViewedDiff(null); setFocusedFile(undefined); setActivities([]); followTail.current = true; void act(refresh); }
+      if (event.type === 'conversation') { clearMessages(); setMessageLimit(100); setDraftKey(current => current + 1); setViewedDiff(null); setFocusedFile(undefined); setActivities([]); followTail.current = true; void act(refresh); }
       if (event.type === 'projects') void act(async () => { const projects = await window.localflow.niwaProjects(); setSnapshot(current => current && { ...current, projects }); });
       if (event.type === 'work') setWork(event.work);
       if (event.activity) setActivities(current => [...current.filter(item => item.id !== event.activity!.id), event.activity!]);
-      if (event.type === 'message' && event.id) setMessages(current => [...current.filter(message => message.id !== event.id), { id: event.id!, role: event.role!, content: event.content!, timestamp: event.timestamp!, turnId: event.turnId, work: event.work }]);
-      if (event.type === 'delta') setMessages(current => {
-        const found = current.some(message => message.id === event.id);
-        return found ? current.map(message => message.id === event.id ? { ...message, content: message.content + event.text } : message) : [...current, { id: event.id!, role: 'assistant', content: event.text!, timestamp: Date.now(), turnId: event.turnId }];
-      });
+      receiveMessage(event);
       if (event.type === 'diff') { setDiff(event.diff || ''); setViewedDiff(null); setFocusedFile(undefined); }
       if (event.type === 'busy') setBusy(event.busy!);
       if (event.type === 'settings' && event.settings) setSnapshot(current => current && { ...current, settings: event.settings! });
@@ -146,10 +150,11 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   const configure = async (patch: Partial<NiwaSettings>) => act(async () => {
     const settings = await window.localflow.niwaConfigure(patch); setSnapshot(current => current && { ...current, settings }); onMode(settings.voiceMode);
   });
-  const send = () => act(async () => { const text = [input.trim(), attachments.length ? `Attached local files:\n${attachments.map(path => JSON.stringify(path)).join('\n')}` : ''].filter(Boolean).join('\n\n'); if (!text) return; followTail.current = true; await window.localflow.niwaSend(text); setInput(''); setAttachments([]); });
+  const send = async (text: string) => { setError(''); followTail.current = true; await window.localflow.niwaSend(text); };
   const active = voiceActive || starting || recording;
   const listening = microphoneActive || recording;
-  const viewChanges = (patch: string, file?: string) => { setViewedDiff(patch); setFocusedFile(file); setShowDiff(true); };
+  const viewChanges = useCallback((patch: string, file?: string) => { setViewedDiff(patch); setFocusedFile(file); setShowDiff(true); }, []);
+  const undoChanges = useCallback(async (patch: string) => { try { setError(''); await window.localflow.niwaUndoChanges(patch); } catch (error) { setError(String(error)); } }, []);
   const lastAssistantId = messages.filter(message => message.role === 'assistant').at(-1)?.id;
   const currentChat = snapshot?.projects?.chats.find(chat => chat.id === snapshot.projects?.activeId);
   return <>{sidebar && visible && snapshot?.projects && <ProjectSidebar target={sidebar} projects={snapshot.projects} disabled={active || busy} run={act} />}<section className={`niwaPage ${showDiff ? 'withDiff' : ''}`} hidden={!visible}>
@@ -167,14 +172,25 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
     </div></details>
     <div className="niwaTranscript" ref={transcript} aria-live="polite" onScroll={() => { const element = transcript.current; if (element) followTail.current = element.scrollHeight - element.scrollTop - element.clientHeight < 90; }}>
       {!messages.length && <div className="niwaEmpty"><Asterisk size={36} /><h3>What shall we work on?</h3></div>}
-      {messages.map(message => <article className={`niwaBubble ${message.role}`} key={message.id}>
-        {message.work && <WorkDetails work={message.work} />}
-        <MarkdownContent content={message.content} />
-        {message.role === 'assistant' && <>
-          <ChangesCard diff={message.work?.diff || (message.id === lastAssistantId && !message.work ? diff : '')} canUndo={!busy && !active && snapshot?.settings.access !== 'read' && (!message.work || message.work.diff === diff)} onView={file => viewChanges(message.work?.diff || diff, file)} onUndo={() => act(() => window.localflow.niwaUndoChanges(message.work?.diff || diff))} />
-          <MessageActions content={message.content} />
-        </>}
-      </article>)}
+      {(messageOffset > 0 || messages.length > messageLimit) && <button disabled={loadingEarlier} onClick={() => void act(async () => {
+        const element = transcript.current, height = element?.scrollHeight || 0, top = element?.scrollTop || 0;
+        followTail.current = false;
+        const version = refreshVersion.current;
+        setLoadingEarlier(true);
+        try {
+          if (messages.length <= messageLimit && messageOffset > 0) {
+            const earlier = await window.localflow.niwaSnapshot({ before: messageOffset, conversationId: conversationId.current });
+            if (version !== refreshVersion.current) return;
+            prependMessages(earlier.messages); setMessageOffset(earlier.messageOffset || 0);
+          }
+          setMessageLimit(current => current + 100);
+          requestAnimationFrame(() => { if (element) element.scrollTop = top + element.scrollHeight - height; });
+        } finally { setLoadingEarlier(false); }
+      })}>Load earlier messages</button>}
+      {messages.slice(-messageLimit).map(message => <ChatMessage key={message.id} message={message}
+        diff={message.work?.diff || (message.id === lastAssistantId && !message.work ? diff : '')}
+        canUndo={!busy && !active && snapshot?.settings.access !== 'read' && (!message.work || message.work.diff === diff)}
+        onView={viewChanges} onUndo={undoChanges} />)}
       {busy && <WorkDetails busy work={work || { startedAt: Date.now(), activities, diff }} />}
       {!busy && !work && activities.length > 0 && <details className="chatWork"><summary>Activity</summary><div className="agentActivities">{activities.map(item => <details key={item.id} className="agentActivity"><summary><span>{item.title}</span><small>{item.status}</small></summary><pre>{item.content}</pre></details>)}</div></details>}
       <div ref={tail} />
@@ -182,10 +198,9 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
     <div className="niwaChatFooter" ref={footer}>
     {approvals.map(approval => <Approval key={approval.id} approval={approval} respond={answer => void act(() => window.localflow.niwaRespond(approval.id, answer))} />)}
     {error && <div className="errorBox" role="alert">{error}</div>}
-    <AgentComposer input={input} setInput={setInput} attachments={attachments} setAttachments={setAttachments} snapshot={snapshot} disabled={active || busy} busy={busy} configure={configure}
+    <AgentComposer draftKey={draftKey} snapshot={snapshot} disabled={active || busy} busy={busy} configure={configure} onError={setError}
       connect={() => void act(async () => { const value = await window.localflow.niwaConnect(); setSnapshot(current => current && { ...current, ...value }); })}
-      send={() => void send()} interrupt={() => void act(() => window.localflow.niwaInterrupt())}
-      attach={() => void act(async () => { const paths = await window.localflow.niwaSelectFiles(); setAttachments(current => [...new Set([...current, ...paths])]); })}
+      send={send} interrupt={() => void act(() => window.localflow.niwaInterrupt())}
       voiceControls={<div className="niwaVoiceBar">{realtime && <button className="composerDictate" title={recording ? 'Stop local recording' : 'Dictate with local voice'} aria-label={recording ? 'Stop local recording' : 'Dictate with local voice'} disabled={microphoneBusy && !recording} onClick={onLocalRecord}>{recording ? <Square size={14} /> : <Mic size={15} />}</button>}<button className={`niwaTalk ${listening ? 'live' : ''}`} aria-label={realtime ? 'Hold to talk to Niwa' : recording ? 'Stop local recording' : 'Talk with local voice'} title={realtime ? `Hold to talk · ${shortcutLabel}` : 'Talk with local voice'} aria-pressed={listening}
       onClick={() => { if (!realtime) onLocalRecord(); }}
       onPointerDown={event => { if (realtime && event.button === 0) { event.currentTarget.setPointerCapture(event.pointerId); setTalkHeld('pointer', true); } }}

@@ -4,5 +4,9 @@ export type Condition = { property?: string; operator: string; value?: unknown; 
 export type DatabaseView = { id: string; name: string; type: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'timeline' | 'form'; filter?: Condition; sorts?: { property: string; direction: 'asc' | 'desc' }[]; groupBy?: string; dateProperty?: string; visible?: string[]; order?: string[]; widths?: Record<string, number>; wrap?: boolean; colors?: { color: string; filter: Condition }[] };
 export type DatabaseRow = { id: string; pageId?: string; values: Record<string, unknown>; errors?: Record<string, string> };
 export type NotesDatabase = { id: string; revision: string; properties: Property[]; views: DatabaseView[]; rows: DatabaseRow[]; source?: unknown };
+export type DatabasePageRequest = { id: string; viewId?: string; search?: string; offset?: number; limit?: number; metadataOnly?: boolean; month?: string };
+export type DatabasePageResult = { database: NotesDatabase; rows: DatabaseRow[]; related: NotesDatabase[]; total: number; offset: number; viewId?: string; earliestDate?: string; queryError?: string; neighbors?: Record<string, {before?:string;after?:string}> };
+export type DatabasePatch = { id: string; revision: string; properties?: Property[]; views?: DatabaseView[]; rows?: { id: string; values: Record<string, unknown> }[]; deleteRows?: string[]; copyProperty?: { from: string; to: string }; reorder?: { id: string; beforeId: string } };
+export type DatabasePageAction = { id: string; revision?: string; action: 'add' | 'duplicate' | 'remove' | 'move' | 'run'; rowId?: string; label?: string; values?: Record<string, unknown>; templateId?: string; targetId?: string; propertyId?: string };
 
 export type DatabaseAction = { type: 'add_row' | 'edit_row'; databaseId?: string; templateId?: string; values: Record<string, {kind: 'property' | 'now' | 'value'; property?: string; value?: unknown}> };

@@ -1,7 +1,7 @@
 const { app } = require("electron");
 const fs = require("fs");
 const path = require("path");
-const BUNDLED_WHISPER_MODELS = ["large-v3-turbo", "large-v3"];
+const BUNDLED_WHISPER_MODELS = ["large-v3"];
 
 function appRoot() {
   return app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");

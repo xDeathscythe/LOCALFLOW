@@ -11,15 +11,16 @@ app.whenReady().then(async () => { let agent; try {
   agent = createNiwaAgent({ directory, appRoot: path.resolve('.'), binary: () => '', speak: async () => {}, notify: event => window.webContents.send('test-niwa-event', event) });
   await installAssets(path.join(directory, 'notes'));
   const errors = []; window.webContents.on('console-message', (_event, level, message) => { if (level >= 3) errors.push(message); });
-  for (const method of ['list', 'read', 'importLegacy', 'create', 'save', 'remove', 'rename', 'move', 'duplicate', 'databaseRead', 'databaseSave', 'databaseAddRow']) ipcMain.handle(`workspace-notes-${method}`, (_event, value) => agent.notes[method](value));
+  for (const method of ['list', 'read', 'importLegacy', 'create', 'save', 'remove', 'rename', 'move', 'duplicate', 'databasePage','databasePatch','databasePageAction','databaseOptions','databaseExport','databaseRead', 'databaseSave', 'databaseAddRow']) ipcMain.handle(`workspace-notes-${method}`, (_event, value) => agent.notes[method](value));
   for (const method of ['snapshot', 'projects', 'configure']) ipcMain.handle(`workspace-${method}`, (_event, value) => agent[method](value));
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a+FkAAAAASUVORK5CYII=', 'base64');
   let uploads = 0, picks = 0;
   ipcMain.handle('workspace-notes-pick-assets', () => { picks++; return storeUploads(path.join(directory, 'notes'), [{ name: 'picked.png', data: png }]); });
   ipcMain.handle('workspace-notes-upload-assets', (_event, files) => { uploads++; return storeUploads(path.join(directory, 'notes'), files); });
   const requests = []; ipcMain.handle('workspace-notes-skill', (_event, value) => { requests.push(value); return '**Исправљени текст**'; });
-  const destination = agent.notes.create({label:'Destination',content:'Keep destination'});
-  const page = agent.notes.create({ label: 'Block menu proof', content: 'Šema za ponudu\n\n1. Први ред\n2. 日本語の文章\n3. العربية\n\nLast block' });
+  const destination = (await agent.notes.create({label:'Destination',content:'Keep destination'}));
+  await agent.notes.create({ label: 'List handle spacing', content: '- Bullet\n  - Nested bullet\n\n100. Numbered\n\n- [ ] Task\n  - [ ] Nested task' });
+  const page = (await agent.notes.create({ label: 'Block menu proof', content: 'Šema za ponudu\n\n1. Први ред\n2. 日本語の文章\n3. العربية\n\nLast block' }));
   await window.loadFile(path.resolve('dist/index.html'));
   const run = script => window.webContents.executeJavaScript(script).catch(error => { throw new Error(error.message + '\n' + script); });
   const wait = async script => { for (let i = 0; i < 100; i++) { if (await run(`Boolean(${script})`)) return; await pause(80); } throw new Error('Timed out: ' + script); };
@@ -32,9 +33,30 @@ app.whenReady().then(async () => { let agent; try {
 
   await wait("document.querySelector('.navList [data-section=notes]')"); await click('.navList [data-section=notes]');
   await wait("document.querySelector('.noteProse')");
+  await run("[...document.querySelectorAll('.notesPageTreeRow')].find(e=>e.textContent.includes('List handle spacing')).click()");
+  await wait("document.querySelector('.noteProse li[data-checked]')");
+  window.showInactive();
+  for (const width of [1440, 700]) {
+    window.setSize(width, 980); await pause(160);
+    for (const selector of ['.noteProse ul:not([data-type])>li>p', '.noteProse ul:not([data-type]) ul>li>p', '.noteProse ol>li>p', '.noteProse li[data-checked]>div>p', '.noteProse li[data-checked] li[data-checked]>div>p']) {
+      await run(`{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();e.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:r.left+8,clientY:r.top+8}));}`);
+      await wait("document.querySelector('.noteBlockHandle')");
+      await pause(120);
+      const geometry = await run(`{const p=document.querySelector(${JSON.stringify(selector)}),li=p.closest('li'),h=document.querySelector('.noteBlockHandle').getBoundingClientRect(),l=li.parentElement.getBoundingClientRect();({handleLeft:h.left,handleRight:h.right,listLeft:l.left})}`);
+      assert(geometry.handleRight <= geometry.listLeft - 1, `${width}px ${selector}: handle must clear list marker gutter: ${JSON.stringify(geometry)}`);
+      assert(geometry.handleLeft >= 0, 'handle stays reachable');
+      if (selector === '.noteProse ul:not([data-type])>li>p') {
+        await run("document.querySelector('.noteBlockHandle').style.opacity='1'");
+        await pause(150);
+        fs.mkdirSync(path.resolve('output/notes-editing'), { recursive: true });
+        fs.writeFileSync(path.resolve(`output/notes-editing/list-handle-${width}.png`), (await window.webContents.capturePage()).toPNG());
+      }
+    }
+  }
+  window.setSize(1440, 980); await pause(160);
   // Select the fixture page explicitly, independent of sidebar ordering.
   await run("[...document.querySelectorAll('.notesPageTreeRow')].find(e=>e.textContent.includes('Block menu proof')).click()");
-  await wait("document.querySelector('.noteProse ol li')");
+  await wait("document.querySelector('.noteProse ol li:nth-child(2)')");
   const handle = async selector => {
     await run(`{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();e.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:r.left+8,clientY:r.top+8}));}`);
     await wait("document.querySelector('[aria-label=\"Block actions\"]')"); await click('[aria-label="Block actions"]');
@@ -78,22 +100,22 @@ app.whenReady().then(async () => { let agent; try {
   assert(requests[0].text.includes('日本語の文章'));assert(!requests[0].text.includes('Први ред'));assert.equal(requests[0].skill,'improve');
   await textClick('.noteBlockDialog button','Replace block');await wait("document.querySelector('.noteProse strong')?.textContent==='Исправљени текст'");
   assert((await run("document.querySelector('.noteProse').textContent")).includes('العربية'));
-  await pause(800);assert(agent.notes.read(page.id).content.includes('Исправљени текст'));
+  await pause(800);assert((await agent.notes.read(page.id)).content.includes('Исправљени текст'));
   // A heading conversion from the six-dot selection must retain the other list rows.
   await handle('.noteProse li p');await searchAction('Heading 2','h2');await wait("document.querySelector('.noteProse h2')?.textContent==='Први ред'");
   assert((await run("document.querySelector('.noteProse').textContent")).includes('العربية'));
   await handle('.noteProse h2');await searchAction('Toggle heading 2','toggle2');
   await wait("document.querySelector('.noteProse summary[data-heading-level=\"2\"]')");
   await handle('.noteProse > p:last-child');await choose('comment');await fill('[aria-label="Block action input"]','Persistent comment');await textClick('.noteBlockDialog button','Add comment');await dismiss();
-  await pause(900);assert(JSON.stringify(agent.notes.read(page.id).document).includes('Persistent comment'));
+  await pause(900);assert(JSON.stringify((await agent.notes.read(page.id)).document).includes('Persistent comment'));
   await handle('.noteProse > p:last-child');await choose('present');await wait("document.querySelector('.notePresentation')");await textClick('.notePresentation button','Exit presentation');
   await handle('.noteProse > p:last-child');await choose('move');await choose('move-page');
   await run(`{const e=document.querySelector('[aria-label="Destination page"]');e.value=${JSON.stringify(destination.id)};e.dispatchEvent(new Event('change',{bubbles:true}));}`);await textClick('.noteBlockDialog button','Move block');
-  await wait("!document.querySelector('.noteBlockDialog')");assert(agent.notes.read(destination.id).content.includes('Last block'));assert(agent.notes.read(destination.id).content.includes('Keep destination'));
+  await wait("!document.querySelector('.noteBlockDialog')");assert((await agent.notes.read(destination.id)).content.includes('Last block'));assert((await agent.notes.read(destination.id)).content.includes('Keep destination'));
   await handle('.noteProse > p');await searchAction('Synced block','synced');await textClick('.noteBlockDialog button','Apply');await wait("document.querySelector('.noteSyncedBlock')");
   await handle('.noteSyncedBlock');await choose('duplicate');await wait("document.querySelectorAll('.noteSyncedBlock').length===2");
-  await pause(900);const saved=agent.notes.read(page.id),refs=saved.document.content.filter(n=>n.type==='syncedBlock');assert.equal(refs.length,2);assert.equal(refs[0].attrs.sourceId,refs[1].attrs.sourceId);
-  const source=agent.notes.read(refs[0].attrs.sourceId);agent.notes.save({...source,content:'Changed source 日本語',document:undefined});
+  await pause(900);const saved=(await agent.notes.read(page.id)),refs=saved.document.content.filter(n=>n.type==='syncedBlock');assert.equal(refs.length,2);assert.equal(refs[0].attrs.sourceId,refs[1].attrs.sourceId);
+  const source=(await agent.notes.read(refs[0].attrs.sourceId));(await agent.notes.save({...source,content:'Changed source 日本語',document:undefined}));
   await wait("[...document.querySelectorAll('.noteSyncedBlock')].every(e=>e.textContent.includes('Changed source 日本語'))");
   await handle('.noteProse li p');await choose('skills');window.showInactive();await pause(200);
   fs.mkdirSync(path.resolve('output/notes-editing'),{recursive:true});fs.writeFileSync(path.resolve('output/notes-editing/notion-block-menu.png'),(await window.webContents.capturePage()).toPNG());
