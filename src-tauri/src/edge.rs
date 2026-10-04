@@ -13,10 +13,12 @@ pub fn create(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, "edge", WebviewUrl::App("edge.html".into()))
+        .title("LocalFlow Edge")
         .inner_size(5., 146.)
         .visible(false)
         .transparent(true)
         .decorations(false)
+        .shadow(false)
         .resizable(false)
         .skip_taskbar(true)
         .always_on_top(true)
@@ -80,9 +82,11 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
         && (state["recording"] == true || state["starting"] == true);
     if recording && app.get_webview_window("recording").is_none() {
         WebviewWindowBuilder::new(app, "recording", WebviewUrl::App("recording.html".into()))
+            .title("LocalFlow dictation")
             .inner_size(144., 42.)
             .transparent(true)
             .decorations(false)
+            .shadow(false)
             .resizable(false)
             .always_on_top(true)
             .skip_taskbar(true)

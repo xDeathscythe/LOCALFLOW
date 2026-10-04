@@ -37,7 +37,7 @@ async function run() {
     if(process.argv.includes('--glass')) {
       for(const theme of ['dark','light','static-black','static-white']) {
         await page.evaluate(async theme=>{document.documentElement.dataset.theme=await window.localflow.setAppearance(theme);},theme);
-        const material=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-material.ps1'),'-NativeProcessId',String(processHandle.pid),...(theme.startsWith('static-')?['-Opaque']:[])],{windowsHide:true,encoding:'utf8'});
+        const material=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-material.ps1'),'-NativeProcessId',String(processHandle.pid),'-ImagePath',path.join(directory,`main-${theme}.png`),...(theme.startsWith('static-')?['-Opaque']:[])],{windowsHide:true,encoding:'utf8'});
         assert.equal(material.status,0,material.stderr||material.stdout);
         console.log('NATIVE_GLASS_DESKTOP_PIXELS_OK',theme,material.stdout.trim());
       }
@@ -114,6 +114,23 @@ async function run() {
     let edge;
     for(let i=0;i<50;i++){edge=browser.contexts().flatMap(context=>context.pages()).find(page=>page.url().endsWith('/edge.html'));if(edge)break;await page.waitForTimeout(50);}
     assert(edge);await edge.waitForSelector('body.collapsed');
+    const checkShape=(surface,name)=>{
+      const material=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-material.ps1'),'-NativeProcessId',String(processHandle.pid),'-Surface',surface,'-ImagePath',path.join(directory,name+'.png')],{windowsHide:true,encoding:'utf8'});
+      assert.equal(material.status,0,material.stderr||material.stdout);
+      console.log('NATIVE_SHAPED_WINDOW_PIXELS_OK',name,material.stdout.trim());
+    };
+    if(process.argv.includes('--glass')) {
+      for(const theme of ['dark','light','static-black','static-white']) {
+        await page.evaluate(theme=>window.localflow.setAppearance(theme),theme);
+        for(const expanded of [true,false]) {
+          await page.evaluate(expanded=>window.localflow.setEdgeSettings({enabled:true,autoHide:!expanded}),expanded);
+          await edge.waitForFunction(expanded=>document.body.classList.contains('collapsed')!==expanded,expanded);
+          await edge.waitForTimeout(700);
+          checkShape('edge',`edge-${theme}-${expanded?'expanded':'collapsed'}`);
+        }
+      }
+      await page.evaluate(()=>window.localflow.setAppearance('dark'));
+    }
     await edge.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-hover',args:[1]}));
     await edge.waitForFunction(()=>!document.body.classList.contains('collapsed'));
     await edge.locator('[data-action="notes"]').click();
@@ -124,6 +141,7 @@ async function run() {
     let overlay;
     for(let i=0;i<50;i++){overlay=browser.contexts().flatMap(context=>context.pages()).find(page=>page.url().endsWith('/recording.html'));if(overlay)break;await page.waitForTimeout(50);}
     assert(overlay);await overlay.waitForFunction(()=>document.querySelector('output').textContent==='1:05');
+    if(process.argv.includes('--glass'))checkShape('recording','recording');
     await overlay.locator('button').click();
     await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'overlay-state',args:[{recording:false,starting:false}]}));
     await edge.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-action',args:['notes']}));
@@ -140,5 +158,5 @@ async function run() {
     console.log(JSON.stringify({result:'NATIVE_DESKTOP_OK',version:require('../package.json').version,usableMs:+usableMs.toFixed(1),profile,checks:['real WebView2 UI','rich note save','stale revision rejected','binary audio','audio traversal rejected','native PDF','asset protocol and traversal refusal','native screen capture','hidden WebRTC transport','edge hover/navigation','auxiliary-window permissions','background recording overlay','graceful flush and exit']}));
   } finally { await browser.close(); }
 }
-const timeout=setTimeout(()=>{console.error('Native integration check timed out',logs.slice(-6000));process.exitCode=1;spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});},process.argv.includes('--inference')?180000:55000);
+const timeout=setTimeout(()=>{console.error('Native integration check timed out',logs.slice(-6000));process.exitCode=1;spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});},process.argv.includes('--inference')?180000:process.argv.includes('--glass')?90000:55000);
 run().catch(error=>{console.error(error,logs.slice(-6000));process.exitCode=1;}).finally(()=>{clearTimeout(timeout);spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});fs.writeFileSync(path.join(directory,'host.log'),logs);});

@@ -1,6 +1,6 @@
 # LocalFlow
 
-**0.2.1 · Windows x64 · MIT**
+**0.2.2 · Windows x64 · MIT**
 
 Local dictation, rich notes and the Niwa voice agent. The desktop shell uses
 Rust/Tauri 2 and Windows WebView2. Electron is no longer an application dependency.
@@ -14,7 +14,7 @@ computer tools, MCP connectors and voice-output engines remain available.
 
 ## Windows package
 
-Open `release/LocalFlow-0.2.1-Windows-x64/LocalFlow.exe`. Keep the whole directory
+Open `release/LocalFlow-0.2.2-Windows-x64/LocalFlow.exe`. Keep the whole directory
 together: it contains Python, Node, Codex, CUDA/cuDNN, large-v3 and browser tools.
 The executable alone is not the complete application. Microsoft WebView2 and the
 Visual C++ x64 runtime are required; the latter is included under
@@ -73,5 +73,6 @@ Native integration checks use an isolated profile, synthetic audio, actual
 WebView2, native clipboard/input, PDF, capture, attachments, edge/overlay windows
 and graceful shutdown. The inference variant loads the real PC large-v3 model.
 See [architecture, measurements and Android direction](docs/windows-rework-0.2.0.md),
-[the Windows glass fix](docs/windows-glass-0.2.1.md)
+[the Windows glass fix](docs/windows-glass-0.2.1.md),
+[shaped Windows panels](docs/windows-edge-0.2.2.md)
 and [third-party notices](THIRD_PARTY_NOTICES.md).
