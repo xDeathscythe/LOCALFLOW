@@ -118,6 +118,7 @@ async fn desktop_ready(app: tauri::AppHandle, window: tauri::WebviewWindow) -> R
     }
     window.show().map_err(|e| e.to_string())?;
     window.set_focus().map_err(|e| e.to_string())?;
+    window.as_ref().set_focus().map_err(|e| e.to_string())?;
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let result = handle
@@ -174,6 +175,7 @@ fn show(app: &tauri::AppHandle) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        let _ = window.as_ref().set_focus();
         let _ = window.emit("window-visibility", true);
     }
 }

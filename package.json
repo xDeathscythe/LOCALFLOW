@@ -1,6 +1,6 @@
 {
   "name": "localflow",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Native Windows dictation, rich notes and Niwa agent with local PC inference.",
   "type": "module",
@@ -17,6 +17,7 @@
     "dist:offline": "npm run desktop:build && node scripts/package-windows.cjs --zip",
     "test:native": "node tests/native-desktop.test.cjs src-tauri/target/release/localflow-desktop.exe",
     "test:native:inference": "npm run test:native -- --inference",
+    "test:native:glass": "npm run test:native -- --glass",
     "test:workspace": "node tests/project-notes.test.mjs && node tests/undo-patch.test.mjs && node --experimental-strip-types tests/diff-parser.test.ts",
     "test:notes": "node --experimental-strip-types tests/notes-model.test.ts",
     "test:notes-editing": "node tests/notes-editing-store.test.mjs && node tests/page-tools.test.mjs && node tests/notes-pdf.test.cjs",

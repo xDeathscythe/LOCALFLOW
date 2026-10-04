@@ -59,9 +59,9 @@ pub fn appearance(window: &WebviewWindow, theme: &str) -> Result<(), String> {
             size: usize,
         }
         let mut accent = Accent {
-            state: if glass { 3 } else { 0 },
-            flags: 2,
-            color: 0,
+            state: if glass { 4 } else { 0 },
+            flags: 0,
+            color: 0x01000000,
             animation: 0,
         };
         let composition = Composition {
@@ -79,7 +79,9 @@ pub fn appearance(window: &WebviewWindow, theme: &str) -> Result<(), String> {
                     windows::Win32::Foundation::HWND,
                     *const Composition,
                 ) -> i32 = std::mem::transmute(address);
-                set(hwnd, &composition);
+                if set(hwnd, &composition) == 0 {
+                    return Err("Could not apply the Windows window material.".into());
+                }
             }
         }
     }

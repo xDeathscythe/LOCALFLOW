@@ -16,7 +16,7 @@ for(const file of fs.readdirSync(path.join(root,'assets')).filter(file=>fs.statS
 copy('assets/tts/README.md');
 copy('runtime/dependency-notices','licenses/dependencies');
 for(const file of ['LICENSE','README.md','THIRD_PARTY_NOTICES.md','start-localflow-desktop.ps1','scripts/install-tts.ps1','scripts/prepare-tts-models.py'])copy(file);
-copy('docs/windows-rework-0.2.0.md');
+copy('docs');
 for(const directory of ['node','python','python-packages','cuda','browsers','prerequisites'])copy('runtime/'+directory);
 copy('runtime/native-host/node_modules','node_modules');
 copy('runtime/native-host/manifest.json','host-manifest.json');

@@ -34,6 +34,15 @@ async function run() {
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
     await assert.rejects(()=>page.evaluate(()=>window.localflow.setAppearance('__proto__')),/Unknown appearance/);
     for(const theme of ['light','static-white','dark','static-black','dark'])assert.equal(await page.evaluate(theme=>window.localflow.setAppearance(theme),theme),theme);
+    if(process.argv.includes('--glass')) {
+      for(const theme of ['dark','light','static-black','static-white']) {
+        await page.evaluate(async theme=>{document.documentElement.dataset.theme=await window.localflow.setAppearance(theme);},theme);
+        const material=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-material.ps1'),'-NativeProcessId',String(processHandle.pid),...(theme.startsWith('static-')?['-Opaque']:[])],{windowsHide:true,encoding:'utf8'});
+        assert.equal(material.status,0,material.stderr||material.stdout);
+        console.log('NATIVE_GLASS_DESKTOP_PIXELS_OK',theme,material.stdout.trim());
+      }
+      await page.evaluate(async()=>{document.documentElement.dataset.theme=await window.localflow.setAppearance('dark');});
+    }
     const note = await page.evaluate(()=>window.localflow.notesCreate({label:'日本語 العربية',content:'Native persisted note',document:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Native persisted note'}]}]}}));
     await page.locator('[data-section="notes"]').click();
     await page.waitForSelector('.noteProse',{timeout:15000});
