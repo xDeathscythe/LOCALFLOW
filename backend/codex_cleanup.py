@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from time import monotonic
 from pathlib import Path
 from typing import Any
 
@@ -75,21 +76,26 @@ def clean_transcript(prompt: str, model: str, reasoning_effort: str, timeout: in
         "--json",
         "-",
     ]
+    from host_cleanup import check_cancelled
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, encoding='utf-8', errors='replace',
+                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    deadline, input_text = monotonic() + timeout, prompt
     try:
-        process = subprocess.run(
-            command,
-            input=prompt,
-            text=True,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"Codex cleanup timed out after {timeout} seconds") from exc
-
+        while True:
+            check_cancelled()
+            if monotonic() >= deadline:
+                raise RuntimeError(f'Codex cleanup timed out after {timeout} seconds')
+            try:
+                stdout, stderr = process.communicate(input=input_text, timeout=min(0.1, deadline-monotonic()))
+                break
+            except subprocess.TimeoutExpired:
+                input_text = None
+    except BaseException:
+        process.kill()
+        process.communicate()
+        raise
     if process.returncode != 0:
-        detail = (process.stderr or process.stdout or "unknown Codex error").strip()[-1200:]
+        detail = (stderr or stdout or "unknown Codex error").strip()[-1200:]
         raise RuntimeError(f"Codex cleanup failed: {detail}")
-    return parse_final_message(process.stdout)
+    return parse_final_message(stdout)

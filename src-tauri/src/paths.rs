@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 use tauri::Manager;
+pub fn webview() -> Result<PathBuf, String> {
+    Ok(profile()?.join("webview"))
+}
 pub fn profile() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os("LOCALFLOW_USER_DATA") {
         return Ok(path.into());

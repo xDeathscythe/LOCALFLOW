@@ -9,9 +9,10 @@ export default defineConfig(({ mode }) => ({
   build: mode === 'release' ? { outDir: 'runtime/release-ui', emptyOutDir: true } : { emptyOutDir: false },
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
+    alias: [
+      { find: "@", replacement: fileURLToPath(new URL("./src", import.meta.url)) },
+      { find: /^katex$/, replacement: fileURLToPath(new URL("./src/lib/lazy-math.ts", import.meta.url)) },
+    ],
   },
   server: {
     host: "127.0.0.1",

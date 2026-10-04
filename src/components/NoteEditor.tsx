@@ -11,7 +11,6 @@ import { TablePicker } from './notes/TablePicker';
 import { DatabasePicker } from './notes/DatabasePicker';
 import { currentBlock, insertAfterBlock } from './notes/block-actions';
 import { BlockActionDialog, BlockPresentation } from './notes/BlockActionDialog';
-import 'katex/dist/katex.min.css';
 import '../styles/note-editor.css';
 
 type Position = { x: number; y: number };

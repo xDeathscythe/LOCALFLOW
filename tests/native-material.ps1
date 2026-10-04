@@ -37,9 +37,11 @@ public class LocalFlowMaterialCheck {
     static void Paint() { Application.DoEvents(); Thread.Sleep(400); Application.DoEvents(); }
     static void Focus(IntPtr window) {
         uint owner;uint current=GetCurrentThreadId(),foreground=GetWindowThreadProcessId(GetForegroundWindow(),out owner);
+        uint target=GetWindowThreadProcessId(window,out owner);
         bool attached=current!=foreground&&AttachThreadInput(current,foreground,true);
-        try { if(!SetForegroundWindow(window))throw new Exception("Could not focus the material fixture"); }
-        finally { if(attached)AttachThreadInput(current,foreground,false); }
+        bool targetAttached=target!=current&&target!=foreground&&AttachThreadInput(current,target,true);
+        try { if(GetForegroundWindow()!=window){SetForegroundWindow(window);Thread.Sleep(100);if(GetForegroundWindow()!=window){var title=new StringBuilder(256);GetWindowText(window,title,title.Capacity);throw new Exception("Could not focus the material fixture: "+title+" target="+window+" foreground="+GetForegroundWindow());}} }
+        finally { if(targetAttached)AttachThreadInput(current,target,false);if(attached)AttachThreadInput(current,foreground,false); }
     }
     static int[] Pixel(int x, int y) {
         var dc = GetDC(IntPtr.Zero);
@@ -78,7 +80,7 @@ public class LocalFlowMaterialCheck {
                 if(unfocused[0]-unfocused[2]<40)throw new Exception("Glass becomes opaque after focus loss");
             }
             for(int i=0;i<3;i++)if(Math.Abs(opaqueRed[i]-opaqueBlue[i])>5)throw new Exception("The workspace must remain opaque");
-            Focus(previous);return new[]{red,blue,unfocused,opaqueRed,opaqueBlue};
+            SetForegroundWindow(previous);return new[]{red,blue,unfocused,opaqueRed,opaqueBlue};
         }
     }
     public static int[][] Shape(uint expected, string title, string image) {

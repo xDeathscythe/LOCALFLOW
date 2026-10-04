@@ -290,6 +290,7 @@ pub async fn dispatch(app: &tauri::AppHandle, method: &str, args: Value) -> Resu
                     "cleanup",
                     WebviewUrl::App("cleanup.html".into()),
                 )
+                .data_directory(crate::paths::webview()?)
                 .visible(false)
                 .initialization_script(initialization)
                 .build();
@@ -317,7 +318,7 @@ pub async fn dispatch(app: &tauri::AppHandle, method: &str, args: Value) -> Resu
             Ok(Value::Null)
         }
         "recording-ready" => {
-            crate::edge::update(app, json!({}))?;
+            crate::edge::ready(app, "recording")?;
             Ok(Value::Null)
         }
         "get-edge-settings" | "set-edge-settings" | "edge-ready" | "edge-hover" | "edge-action"

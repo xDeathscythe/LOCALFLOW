@@ -1,6 +1,6 @@
 # LocalFlow
 
-**0.2.2 · Windows x64 · MIT**
+**0.2.3 · Windows x64 · MIT**
 
 Local dictation, rich notes and the Niwa voice agent. The desktop shell uses
 Rust/Tauri 2 and Windows WebView2. Electron is no longer an application dependency.
@@ -14,7 +14,7 @@ computer tools, MCP connectors and voice-output engines remain available.
 
 ## Windows package
 
-Open `release/LocalFlow-0.2.2-Windows-x64/LocalFlow.exe`. Keep the whole directory
+Open `release/LocalFlow-0.2.3-Windows-x64/LocalFlow.exe`. Keep the whole directory
 together: it contains Python, Node, Codex, CUDA/cuDNN, large-v3 and browser tools.
 The executable alone is not the complete application. Microsoft WebView2 and the
 Visual C++ x64 runtime are required; the latter is included under
@@ -50,6 +50,14 @@ and agent/browser tools with `npm run runtime:prerequisites` and
 `npm run agent:stage` before packaging. Optional voice-cloning payloads and private
 voice references are excluded from the standard package.
 
+Each build also creates a smaller `LocalFlow-<version>-Windows-x64-update` folder.
+After quitting the installed application, run its `scripts/update-localflow.ps1`
+with `-From` pointing to the previous complete release directory. It verifies
+installed runtime/model hashes and creates a new release beside the old one.
+Use the complete package if those components differ; an update never overwrites
+an existing release. Builds share immutable runtime files locally through hard
+links; changing a build source cannot change an already packaged runtime.
+
 ## Verify
 
 ```powershell
@@ -67,6 +75,7 @@ npm run test:latency
 npm run test:runtime
 npm run test:stt
 npm run test:performance
+npm run test:release
 ```
 
 Native integration checks use an isolated profile, synthetic audio, actual
@@ -74,5 +83,6 @@ WebView2, native clipboard/input, PDF, capture, attachments, edge/overlay window
 and graceful shutdown. The inference variant loads the real PC large-v3 model.
 See [architecture, measurements and Android direction](docs/windows-rework-0.2.0.md),
 [the Windows glass fix](docs/windows-glass-0.2.1.md),
-[shaped Windows panels](docs/windows-edge-0.2.2.md)
+[shaped Windows panels](docs/windows-edge-0.2.2.md),
+[0.2.3 performance results](docs/performance-0.2.3.md)
 and [third-party notices](THIRD_PARTY_NOTICES.md).

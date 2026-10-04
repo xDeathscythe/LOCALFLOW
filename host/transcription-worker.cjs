@@ -3,7 +3,7 @@ const { createInterface } = require("readline");
 const { terminateProcess } = require("./child-process.cjs");
 
 function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeoutMs = 30 * 60 * 1000 }) {
-  // ponytail: retain the loaded model until cancellation, failure, or app exit.
+  // Keep the loaded model across cancellation; only failures and app exit terminate it.
   let worker = null;
   let sequence = 0;
   const pending = new Map();
@@ -86,7 +86,14 @@ function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeo
     });
   }
 
-  return { send, stop };
+  function cancel() {
+    cleanupAbort?.abort(); cleanupAbort = null;
+    for (const [id, request] of pending) if (request.action === 'transcribe') {
+      if (worker?.stdin.writable) worker.stdin.write(JSON.stringify({ action: 'cancel', id }) + '\n');
+      settle(id, Object.assign(new Error('Transcription cancelled'), { code: 'CANCELLED' }));
+    }
+  }
+  return { send, cancel, stop };
 }
 
 module.exports = { createTranscriptionWorker };

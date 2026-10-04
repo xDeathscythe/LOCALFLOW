@@ -1,11 +1,41 @@
-import { useEffect, useState } from 'react';
-import type { NotesDatabase } from '../../lib/database';
-import { computedRows } from '../../../host/notes/database-engine.mjs';
+import { useEffect, useRef, useState } from 'react';
+import type { DatabasePageResult } from '../../lib/database';
 import { DatabaseCell } from './DatabaseCell';
-export function RowProperties({databaseId,pageId}:{databaseId:string;pageId:string}){
-  const [database,setDatabase]=useState<NotesDatabase|null>(null),[related,setRelated]=useState<NotesDatabase[]>([]),[error,setError]=useState(''),[pending,setPending]=useState(false);
-  useEffect(()=>{let live=true;const load=async()=>{const db=await window.localflow.notesDatabaseRead(databaseId),seen=new Map<string,NotesDatabase>();const visit=async(value:NotesDatabase):Promise<void>=>{if(seen.has(value.id))return;seen.set(value.id,value);await Promise.all(value.properties.filter(p=>p.target).map(async p=>{try{await visit(await window.localflow.notesDatabaseRead(p.target!));}catch{}}));};await visit(db);if(live){setDatabase(db);setRelated([...seen.values()]);}};void load().catch(e=>setError(String(e)));const off=window.localflow.onNiwaEvent(event=>{if(event.type==='notes-changed')void load().catch(e=>setError(String(e)));});return()=>{live=false;off();};},[databaseId,pageId]);
-  if(!database)return error?<p role="alert">{error}</p>:null;
-  const row=computedRows(database,related).find(r=>r.pageId===pageId);if(!row)return null;
-  return <details className="noteRowProperties" open><summary>Properties</summary>{error&&<p role="alert">{error}</p>}{database.properties.filter(p=>p.type!=='title').map(property=><div key={property.id}><label>{property.name}</label><div className="databaseCell"><DatabaseCell property={property} value={row.values[property.id]} databases={related} disabled={pending} run={()=>{setPending(true);void window.localflow.notesDatabaseRunButton({id:databaseId,rowId:row.id,propertyId:property.id,revision:database.revision}).then(setDatabase).catch(e=>setError(String(e))).finally(()=>setPending(false));}} save={async value=>{setPending(true);setError('');try{setDatabase(await window.localflow.notesDatabaseSave({...database,rows:database.rows.map(r=>r.id===row.id?{...r,values:{...r.values,[property.id]:value}}:r)}));}catch(e){setError(String(e));}finally{setPending(false);}}}/>{row.errors?.[property.id]&&<span className="databaseFormulaError" title={row.errors[property.id]}>⚠</span>}</div></div>)}</details>;
+
+export function RowProperties({ databaseId, pageId }: { databaseId: string; pageId: string }) {
+  const [result, setResult] = useState<DatabasePageResult>(), [error, setError] = useState(''), [pending, setPending] = useState(false);
+  const sequence = useRef(0), dependencies = useRef([databaseId]);
+  const load = async () => {
+    const current = ++sequence.current;
+    try {
+      const value = await window.localflow.notesDatabaseRow({ id: databaseId, pageId });
+      if (current === sequence.current) { dependencies.current = value.dependencies || [databaseId]; setResult(value); setError(''); }
+    } catch (error) { if (current === sequence.current) setError(String(error)); }
+  };
+  useEffect(() => {
+    setResult(undefined); dependencies.current = [databaseId]; void load();
+    let timer: ReturnType<typeof setTimeout>;
+    const off = window.localflow.onNiwaEvent(event => {
+      if (event.type === 'notes-changed' && (!event.ids?.length || event.ids.some(id => dependencies.current.includes(id)))) {
+        clearTimeout(timer); timer = setTimeout(() => void load(), 100);
+      }
+    });
+    return () => { sequence.current++; clearTimeout(timer); off(); };
+  }, [databaseId, pageId]);
+  const database = result?.database, row = result?.rows[0];
+  if (!database || !row) return error ? <p role="alert">{error}</p> : null;
+  const change = async (operation: () => Promise<unknown>) => {
+    if (pending) return;
+    setPending(true); setError('');
+    try { await operation(); await load(); } catch (error) { setError(String(error)); } finally { setPending(false); }
+  };
+  return <details className="noteRowProperties" open><summary>Properties</summary>{error && <p role="alert">{error}</p>}
+    {database.properties.filter(property => property.type !== 'title').map(property => <div key={property.id}>
+      <label>{property.name}</label><div className="databaseCell">
+        <DatabaseCell property={property} value={row.values[property.id]} databases={result.related} disabled={pending}
+          run={() => void change(() => window.localflow.notesDatabasePageAction({ id: databaseId, rowId: row.id, propertyId: property.id, revision: database.revision, action: 'run' }))}
+          save={value => change(() => window.localflow.notesDatabasePatch({ id: databaseId, revision: database.revision, rows: [{ id: row.id, values: { [property.id]: value } }] }))} />
+        {row.errors?.[property.id] && <span className="databaseFormulaError" title={row.errors[property.id]}>⚠</span>}
+      </div></div>)}
+  </details>;
 }

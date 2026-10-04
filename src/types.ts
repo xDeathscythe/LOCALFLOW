@@ -143,6 +143,7 @@ declare global {
       notesMove: (value: { id: string; parentId?: string; beforeId?:string }) => Promise<NotesIndex>;
       notesDatabaseRead: (id: string) => Promise<import('./lib/database').NotesDatabase>;
       notesDatabasePage: (value: import('./lib/database').DatabasePageRequest) => Promise<import('./lib/database').DatabasePageResult>;
+      notesDatabaseRow: (value: {id:string;rowId?:string;pageId?:string}) => Promise<import('./lib/database').DatabasePageResult>;
       notesDatabasePatch: (value: import('./lib/database').DatabasePatch) => Promise<{revision:string}>;
       notesDatabasePageAction: (value: import('./lib/database').DatabasePageAction) => Promise<{revision:string}>;
       notesDatabaseOptions: (id: string) => Promise<{value:string;label:string}[]>;

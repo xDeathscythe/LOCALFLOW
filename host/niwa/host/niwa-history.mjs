@@ -13,12 +13,14 @@ export function createNiwaHistory(dataDir) {
     CREATE TABLE IF NOT EXISTS user_model(id TEXT PRIMARY KEY, dimension TEXT, observation TEXT, evidence TEXT, confidence REAL, updated INTEGER);`);
   const insert = db.prepare("INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?)");
   const indexed = new Map();
-  const sync = (session) => {
+  const sync = (session, range) => {
     if (session.parentId || session.source === "niwa-code-side-chat") return;
-    const offset = indexed.get(session.id) ?? Number(db.prepare("SELECT count(*) AS n FROM messages WHERE session=?").get(session.id).n);
-    if (offset === session.transcript.length) return;
+    let offset = indexed.get(session.id) ?? Number(db.prepare("SELECT count(*) AS n FROM messages WHERE session=?").get(session.id).n);
+    const start=session.messageOffset||0,total=start+session.transcript.length;
+    if (offset === total) return;
+    while(offset<start){if(!range)throw new Error('Conversation index needs an earlier page.');const messages=range(offset,Math.min(500,start-offset));if(!messages.length)throw new Error('Conversation history is incomplete.');db.exec('BEGIN');try{messages.forEach((m,i)=>insert.run(`${session.id}:${offset+i}`,session.id,session.projectId,m.role,m.content,m.timestamp??0));db.exec('COMMIT');offset+=messages.length;indexed.set(session.id,offset);}catch(error){if(db.isTransaction)db.exec('ROLLBACK');throw error;}}
     db.exec("BEGIN");
-    try { session.transcript.slice(offset).forEach((m, i) => insert.run(`${session.id}:${offset + i}`, session.id, session.projectId, m.role, m.content, m.timestamp ?? 0)); db.exec("COMMIT"); indexed.set(session.id, session.transcript.length); }
+    try { session.transcript.slice(offset-start).forEach((m, i) => insert.run(`${session.id}:${offset + i}`, session.id, session.projectId, m.role, m.content, m.timestamp ?? 0)); db.exec("COMMIT"); indexed.set(session.id, total); }
     catch (error) { if (db.isTransaction) db.exec("ROLLBACK"); throw error; }
   };
   const search = ({ query, project, limit = 10 }) => {

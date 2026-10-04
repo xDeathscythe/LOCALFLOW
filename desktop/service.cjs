@@ -96,7 +96,7 @@ const handlers = {
     if (!value || typeof value.path !== 'string' || !path.isAbsolute(value.path) || !fs.statSync(value.path).isFile()) throw new Error('Choose an existing audio file.');
     return transcription.send('transcribe', value, value.requestId);
   },
-  'cancel-transcription': () => transcription.stop(),
+  'cancel-transcription': () => transcription.cancel(),
   'set-whisper-model': async model => {
     if (!['base','small','large-v3-turbo',...runtime.BUNDLED_WHISPER_MODELS,'nemo-parakeet-tdt-0.6b-v3','nemo-canary-1b-v2'].includes(model)) throw new Error('Unsupported STT model.');
     if (!(await transcription.send('model-status', { model })).available) {
@@ -139,7 +139,6 @@ const handlers = {
   'recording-start': () => { voice?.cancel(); void transcription.send('warmup').catch(report); },
   'export-text': async value => { const target = await native('save-dialog', { title:'Export text', defaultName:value.defaultName || 'localflow-transcript.txt', extensions:['txt','md'] }); if (!target) return null; await fs.promises.writeFile(target, String(value.text || ''), 'utf8'); return target; },
   'notes-pick-assets': async () => { const files = await native('open-dialog', { title:'Add images or files', multiple:true }); return (await import('../host/notes/uploads.mjs')).importUploadPaths(path.join(directory,'notes'), files); },
-  'notes-upload-assets': async files => (await import('../host/notes/uploads.mjs')).storeUploads(path.join(directory,'notes'), files.map(file => ({...file, data:Buffer.from(file.data)}))),
   'notes-open-asset': url => native('reveal-path', require('../host/notes/asset-path.cjs').resolveAsset(path.join(directory,'notes'), url)),
   'notes-export-pdf': async value => { const target = await native('save-dialog', { title:'Export PDF', defaultName:String(value.title || 'Page').replace(/[<>:"/\\|?*]/g,'-')+'.pdf', extensions:['pdf'] }); if (!target) return null; const html = await require('../host/notes/pdf.cjs').printableHtml(path.join(directory,'notes'), value); return native('print-pdf', {html, path:target, landscape:value.landscape === true}); },
   'notes-import-notion': async () => {

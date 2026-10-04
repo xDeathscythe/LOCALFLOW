@@ -12,6 +12,7 @@ async function main() {
     require('readline').createInterface({input: process.stdin}).on('line', line => {
       const {id, action, params} = JSON.parse(line);
       if(action === 'exit') process.exit(7);
+      if(action === 'cancel') return;
       console.log(JSON.stringify({id, type:'progress', stage:'started'}));
       setTimeout(() => console.log(JSON.stringify({id, type:'result', ok:true, data:{pid:process.pid, ...params}})), params.delay || 0);
     });
@@ -24,10 +25,10 @@ async function main() {
     const first = await worker.send("warmup");
     assert.equal((await worker.send("configure", { language: "en" })).pid, first.pid);
     const cancelled = assert.rejects(worker.send("transcribe", { delay: 1000 }, "cancelled"), /cancelled/);
-    worker.stop();
+    worker.cancel();
     await cancelled;
     const recovered = await worker.send("transcribe", {}, "current");
-    assert.notEqual(recovered.pid, first.pid);
+    assert.equal(recovered.pid, first.pid, 'Cancellation keeps the model process alive');
     assert(events.some((event) => event.id === "current" && event.action === "transcribe"));
     await assert.rejects(worker.send("exit"), /exited/);
     await worker.send("warmup");

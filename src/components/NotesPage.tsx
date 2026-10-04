@@ -179,6 +179,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
           if(!editor?.querySelector('.databaseEmbedPlaceholder,.noteDatabaseEmbed .noteFolderState'))break;
           if(attempt===99)throw new Error('A database is still loading. Try exporting again.');
         }
+        await (await import('../lib/lazy-math')).mathReady();
         const html = editor?.querySelector('.noteProse')?.innerHTML;
         if (!html) throw new Error('Open this page and try exporting again.');
         const path = await window.localflow.notesExportPdf({ title: value.label, html }); if (path) onStatus(`PDF saved: ${path}`);

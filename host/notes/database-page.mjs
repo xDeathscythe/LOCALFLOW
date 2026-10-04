@@ -31,71 +31,20 @@ function query(store, { id, viewId, search = '', month }) {
   }
   return { database, view, related, rows, earliestDate, queryError };
 }
-
-export function databasePage(store, request) {
-  if (request.metadataOnly) return { database: { ...store.databaseRead(request.id), rows: [] }, rows: [], related: [], total: 0, offset: 0 };
-  const { database, view, rows, related, earliestDate, queryError } = query(store, request);
-  const limit = Math.max(1, Math.min(100, Math.floor(Number(request.limit) || 100)));
-  const offset = Math.max(0, Math.min(Math.floor(Number(request.offset) || 0), Math.max(0, Math.ceil(rows.length / limit) - 1) * limit));
-  const page = rows.slice(offset, offset + limit), ids = new Set(page.map(row => row.id));
-  const neighbors = {};
-  for (let i = 0; i < database.rows.length; i++) if (ids.has(database.rows[i].id)) neighbors[database.rows[i].id] = { before: database.rows[i-1]?.id, after: database.rows[i+1]?.id };
-  // Send only selected relation labels. The full option list is requested when its editor opens.
-  const selected = new Map();
-  for (const property of database.properties) if (property.type === 'relation' && property.target) {
-    if (!selected.has(property.target)) selected.set(property.target, new Set());
-    for (const row of page) for (const id of Array.isArray(row.values[property.id]) ? row.values[property.id] : []) selected.get(property.target).add(id);
-  }
-  return {
-    database: { ...database, rows: database.rows.filter(row => ids.has(row.id)) }, rows: page, total: rows.length, offset, viewId: view.id, earliestDate, queryError, neighbors,
-    related: [...related.values()].map(value => {
-      const title = value.properties.find(property => property.type === 'title').id, wanted = selected.get(value.id);
-      return { ...value, rows: value.rows.filter(row => wanted?.has(row.id) || wanted?.has(row.pageId)).map(row => ({ id: row.id, pageId: row.pageId, values: { [title]: row.values[title] } })) };
-    }),
-  };
-}
-
-export function databasePatch(store, patch) {
-  const current = store.databaseRead(patch.id);
-  if (patch.revision !== current.revision) throw new Error('This database changed elsewhere. Reload before saving.');
-  const properties = patch.properties || current.properties, propertyIds = new Set(properties.map(property => property.id));
-  const deletedProperties = current.properties.filter(property => !propertyIds.has(property.id));
-  const updates = new Map((patch.rows || []).map(row => [row.id, row.values])), removed = new Set(patch.deleteRows || []);
-  for (const id of [...updates.keys(), ...removed]) if (!current.rows.some(row => row.id === id)) throw new Error('Database row not found.');
-  if (patch.copyProperty && (!current.properties.some(property => property.id === patch.copyProperty.from) || !propertyIds.has(patch.copyProperty.to))) throw new Error('Invalid copied property.');
-  const rows = current.rows.filter(row => !removed.has(row.id)).map(row => {
-    const values = { ...row.values, ...updates.get(row.id) };
-    if (patch.copyProperty) values[patch.copyProperty.to] = row.values[patch.copyProperty.from];
-    for (const property of deletedProperties) delete values[property.id];
-    return { ...row, values };
-  });
-  if (patch.reorder) {
-    const index = rows.findIndex(row => row.id === patch.reorder.id), before = rows.findIndex(row => row.id === patch.reorder.beforeId);
-    if (index < 0 || before < 0 || index === before) throw new Error('Invalid row order.');
-    const [moved] = rows.splice(index, 1); rows.splice(rows.findIndex(row => row.id === patch.reorder.beforeId), 0, moved);
-  }
-  return { revision: store.databaseSave({ ...current, properties, views: patch.views || current.views, rows }).revision };
-}
-
 export function databasePageAction(store, value) {
-  const current = store.databaseRead(value.id);
+  const current = value.rowId ? store.databaseRow({id:value.id,rowId:value.rowId}).database : store.databasePage({id:value.id,metadataOnly:true}).database;
   if (value.revision && value.revision !== current.revision) throw new Error('This database changed elsewhere. Reload before saving.');
   const row = current.rows.find(row => row.id === value.rowId);
   if (value.action !== 'add' && !row) throw new Error('Database row not found.');
   switch (value.action) {
     case 'add': store.databaseAddRow(value); break;
     case 'duplicate': store.databaseAddRow({ id: value.id, label: displayValue(row.values[current.properties.find(p => p.type === 'title').id]) + ' (copy)', values: row.values, templateId: row.pageId }); break;
-    case 'remove': if (row.pageId) store.remove(row.pageId); else databasePatch(store, { ...value, revision: current.revision, deleteRows: [row.id] }); break;
+    case 'remove': if (row.pageId) store.remove(row.pageId); else store.databasePatch( { ...value, revision: current.revision, deleteRows: [row.id] }); break;
     case 'move': store.databaseMoveRow(value); break;
     case 'run': store.databaseRunButton(value); break;
     default: throw new Error('Invalid database action.');
   }
-  return { revision: store.databaseRead(value.id).revision };
-}
-
-export function databaseOptions(store, id) {
-  const database = store.databaseRead(id), title = database.properties.find(property => property.type === 'title').id;
-  return database.rows.map(row => ({ value: row.pageId || row.id, label: displayValue(row.values[title]) || 'Untitled' }));
+  return { revision: store.databasePage({id:value.id,metadataOnly:true}).database.revision };
 }
 
 export function databaseExport(store, request) {

@@ -40,10 +40,10 @@ export function createNiwaAgent({ directory, appRoot, binary, notify, speak, cap
   const notes = sharedNotes || createNotesService(directory, change => notify({ type: 'notes-changed', ...change }));
   const transcripts = history.conversations(error => notify({ type: 'error', message: `Could not save conversation: ${error.message}` }));
   let conversation = transcripts.read(transcriptFile, { id: randomUUID(), transcript: [], projectId: settings.cwd });
-  const homeCwd = activeId === 'niwa' ? conversation.projectId || settings.cwd : transcripts.read(join(dataDir, 'conversation.json'), { id: randomUUID(), transcript: [], projectId: settings.cwd }).projectId || settings.cwd;
+  const homeCwd = activeId === 'niwa' ? conversation.projectId || settings.cwd : transcripts.metadata(join(dataDir, 'conversation.json')).projectId || settings.cwd;
   settings = { ...settings, ...conversation.settings, cwd: activeId === 'niwa' ? homeCwd : projects.folder(projects.chat(activeId).folderId).cwd };
   const syncHistory = () => {
-    try { history.sync(conversation); }
+    try { history.sync(conversation, (offset,limit) => transcripts.range(transcriptFile,offset,limit)); }
     catch (error) { notify({ type: 'error', message: `Could not index conversation: ${error.message}` }); }
   };
   syncHistory();
@@ -54,9 +54,19 @@ export function createNiwaAgent({ directory, appRoot, binary, notify, speak, cap
   const pendingChanges = new Map();
   let undoing = false;
   const publish = (type, payload = {}) => notify({ type, ...payload });
-  const persist = (changed = []) => { conversation.settings = settings; transcripts.write(transcriptFile, conversation, changed); syncHistory(); };
+  const persist = (changed = []) => {
+    conversation.settings = settings; transcripts.write(transcriptFile, conversation, changed); syncHistory();
+    if (conversation.transcript.length > 200) {
+      try {
+        transcripts.flush();
+        const removed = conversation.transcript.length - 100;
+        conversation.transcript = conversation.transcript.slice(removed);
+        conversation.messageOffset = (conversation.messageOffset || 0) + removed;
+      } catch (error) { notify({ type: 'error', message: `Could not save conversation: ${error.message}` }); }
+    }
+  };
   const append = (role, content, id = randomUUID()) => {
-    if (!content || conversation.transcript.some(message => message.id === id)) return;
+    if (!content || conversation.transcript.some(message => message.id === id) || transcripts.has(transcriptFile,id)) return;
     conversation.transcript.push({ id, role, content, timestamp: Date.now(), ...(turnId ? { turnId } : {}) }); persist();
     if (role === 'user') { projects.touch(activeId, content); publish('projects'); }
     publish('message', conversation.transcript.at(-1));
@@ -243,8 +253,10 @@ export function createNiwaAgent({ directory, appRoot, binary, notify, speak, cap
     snapshot: ({ before, limit = 100, conversationId } = {}) => {
       if (conversationId !== undefined && conversationId !== activeId) throw new Error('Conversation changed.');
       if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (before !== undefined && (!Number.isInteger(before) || before < 0))) throw new Error('Invalid conversation page.');
-      const end = Math.min(before ?? conversation.transcript.length, conversation.transcript.length), offset = Math.max(0, end - limit);
-      return { conversationId: activeId, messageOffset: offset, messageTotal: conversation.transcript.length, work: conversation.work, projects: projects.snapshot(), activities: conversation.activities || [], diff: conversation.diff || '', settings, voices: realtime.LIVE_VOICES, browser: web.status(), messages: conversation.transcript.slice(offset, end), models: catalog, memory: memory.review(), connectors: connectors.list(), busy, voice, approvals: [...approvals].map(([id, value]) => ({ id, title: value.title, detail: value.detail, questions: value.questions })) };
+      const total=(conversation.messageOffset||0)+conversation.transcript.length;
+      const end = Math.min(before ?? total, total), offset = Math.max(0, end - limit);
+      const messages=offset>=(conversation.messageOffset||0)?conversation.transcript.slice(offset-(conversation.messageOffset||0),end-(conversation.messageOffset||0)):transcripts.range(transcriptFile,offset,end-offset);
+      return { conversationId: activeId, messageOffset: offset, messageTotal: total, work: conversation.work, projects: projects.snapshot(), activities: conversation.activities || [], diff: conversation.diff || '', settings, voices: realtime.LIVE_VOICES, browser: web.status(), messages, models: catalog, memory: memory.review(), connectors: connectors.list(), busy, voice, approvals: [...approvals].map(([id, value]) => ({ id, title: value.title, detail: value.detail, questions: value.questions })) };
     },
     connectBrowser: async () => { if (busy || voice) throw new Error('Stop the current task and voice before connecting a browser.'); return web.connectChrome(); },
     disconnectBrowser: async () => { if (busy || voice) throw new Error('Stop the current task and voice before disconnecting a browser.'); return web.disconnectChrome(); },

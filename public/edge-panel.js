@@ -10,7 +10,6 @@ const highlight = () => {
 };
 const trackHover = event => window.edge.hover(event.clientX);
 document.body.addEventListener('mouseenter', trackHover);
-document.body.addEventListener('mousemove', trackHover);
 document.body.addEventListener('mouseleave', () => { hovered = null; highlight(); window.edge.hover(null); });
 for (const button of buttons) {
   const preview = () => { hovered = button.dataset.action; highlight(); };

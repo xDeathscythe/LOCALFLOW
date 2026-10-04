@@ -8,7 +8,7 @@ function SyncedBlockView({ node, extension }: NodeViewProps) {
   useEffect(() => {
     let live = true;
     const refresh = () => { void window.localflow.notesRead(node.attrs.sourceId).then(note => { if (live) { setContent(note.content); setError(''); } }).catch(error => { if (live) setError(String(error)); }); };
-    refresh(); const off = window.localflow.onNiwaEvent(event => { if (event.type === 'notes-changed') refresh(); });
+    refresh(); const off = window.localflow.onNiwaEvent(event => { if (event.type === 'notes-changed' && (!event.ids?.length || event.ids.includes(node.attrs.sourceId))) refresh(); });
     return () => { live = false; off(); };
   }, [node.attrs.sourceId]);
   return <NodeViewWrapper className="noteSyncedBlock" contentEditable={false}><header><span>Synced block</span><button onClick={() => extension.options.openNote?.(node.attrs.sourceId)}>Edit source</button></header>{error ? <p role="alert">{error}</p> : <MarkdownContent content={content} />}</NodeViewWrapper>;

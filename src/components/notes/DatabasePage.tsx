@@ -15,7 +15,7 @@ export function DatabasePage({ id, label, open, embedded = false }: { id: string
   const scrollArea=useRef<HTMLDivElement>(null);
   const [destinations,setDestinations]=useState<NoteNode[]>([]);
   const [database, setDatabase] = useState<NotesDatabase | null>(null), [databases, setDatabases] = useState<NotesDatabase[]>([]);
-  const relatedIds = useRef<string[]>([]); relatedIds.current = [id, ...(database?.properties.flatMap(property => property.target ? [property.target] : []) || [])];
+  const relatedIds = useRef<string[]>([id]);
   const [viewId, setViewId] = useState(''), [editingView, setEditingView] = useState<DatabaseView | null>(null), [property, setProperty] = useState<Property | null>(null);
   const [error, setError] = useState(''), [pending, setPending] = useState(false), [search, setSearch] = useState(''), [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<DatabaseRow[]>([]), [total, setTotal] = useState(0), [loading, setLoading] = useState(true);
@@ -37,6 +37,7 @@ export function DatabasePage({ id, label, open, embedded = false }: { id: string
       const result = await window.localflow.notesDatabasePage(value);
       if (sequence !== loadSequence.current || key !== JSON.stringify(request.current)) return;
       setNeighbors(result.neighbors || {});
+      relatedIds.current = result.dependencies || [id];
       setDatabase(result.database); setRows(result.rows); setDatabases(result.related); setTotal(result.total); setOffset(result.offset); setPageOffset(result.offset); setLoadedKey(key); setEarliestDate(result.earliestDate); setQueryError(result.queryError || ''); setError('');
     } catch (error) { if (sequence === loadSequence.current && key === JSON.stringify(request.current)) { setError(String(error)); setLoadedKey(key); }
     } finally { if (sequence === loadSequence.current) setLoading(false); }

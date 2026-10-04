@@ -13,6 +13,7 @@ pub fn create(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, "edge", WebviewUrl::App("edge.html".into()))
+        .data_directory(crate::paths::webview()?)
         .title("LocalFlow Edge")
         .inner_size(5., 146.)
         .visible(false)
@@ -36,10 +37,12 @@ pub fn create(app: &tauri::AppHandle) -> Result<(), String> {
 pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
     let desktop = app.state::<crate::Desktop>();
     let mut state = desktop.edge.lock().unwrap();
+    let mut changed = false;
     for (key, value) in value.as_object().ok_or("Invalid edge state")? {
+        changed |= state[key] != *value;
         state[key] = value.clone();
     }
-    state["expanded"] = json!(
+    let expanded = json!(
         state["autoHide"] == false
             || state["hover"] == true
             || state["recording"] == true
@@ -47,32 +50,45 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
             || state["agentListening"] == true
             || state["busy"] == true
     );
+    changed |= state["expanded"] != expanded;
+    state["expanded"] = expanded;
     if let Some(window) = app.get_webview_window("edge") {
         let width = if state["expanded"] == true { 31. } else { 5. };
-        window
-            .set_size(tauri::LogicalSize::new(width, 146.))
-            .map_err(|e| e.to_string())?;
         if let Some(monitor) = app
             .get_webview_window("main")
             .and_then(|main| main.current_monitor().ok().flatten())
         {
             let area = monitor.work_area();
             let scale = monitor.scale_factor();
+            let size = tauri::PhysicalSize::new(
+                (width * scale).round() as u32,
+                (146. * scale).round() as u32,
+            );
+            if window.inner_size().map_err(|e| e.to_string())? != size {
+                window.set_size(size).map_err(|e| e.to_string())?;
+            }
+            let position = tauri::PhysicalPosition::new(
+                area.position.x + area.size.width as i32 - (width * scale) as i32,
+                area.position.y + (79. * scale) as i32,
+            );
+            if window.outer_position().map_err(|e| e.to_string())? != position {
+                window.set_position(position).map_err(|e| e.to_string())?;
+            }
+        }
+        let visible = state["enabled"] != false;
+        if window.is_visible().map_err(|e| e.to_string())? != visible {
+            if visible {
+                window.show()
+            } else {
+                window.hide()
+            }
+            .map_err(|e| e.to_string())?;
+        }
+        if changed {
             window
-                .set_position(tauri::PhysicalPosition::new(
-                    area.position.x + area.size.width as i32 - (width * scale) as i32,
-                    area.position.y + (79. * scale) as i32,
-                ))
+                .emit("edge-state", &*state)
                 .map_err(|e| e.to_string())?;
         }
-        if state["enabled"] != false {
-            window.show().map_err(|e| e.to_string())?;
-        } else {
-            window.hide().map_err(|e| e.to_string())?;
-        }
-        window
-            .emit("edge-state", &*state)
-            .map_err(|e| e.to_string())?;
     }
     let main_hidden = app.get_webview_window("main").is_none_or(|window| {
         !window.is_visible().unwrap_or(false) || window.is_minimized().unwrap_or(false)
@@ -80,8 +96,10 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
     let recording = state["enabled"] == false
         && main_hidden
         && (state["recording"] == true || state["starting"] == true);
-    if recording && app.get_webview_window("recording").is_none() {
+    let created = recording && app.get_webview_window("recording").is_none();
+    if created {
         WebviewWindowBuilder::new(app, "recording", WebviewUrl::App("recording.html".into()))
+            .data_directory(crate::paths::webview()?)
             .title("LocalFlow dictation")
             .inner_size(144., 42.)
             .transparent(true)
@@ -104,22 +122,32 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
             {
                 let area = monitor.work_area();
                 let scale = monitor.scale_factor();
+                let position = tauri::PhysicalPosition::new(
+                    area.position.x + (area.size.width as i32 - (144. * scale) as i32) / 2,
+                    area.position.y + area.size.height as i32 - (60. * scale) as i32,
+                );
+                if window.outer_position().map_err(|e| e.to_string())? != position {
+                    window.set_position(position).map_err(|e| e.to_string())?;
+                }
+            }
+            if !window.is_visible().map_err(|e| e.to_string())? {
+                window.show().map_err(|e| e.to_string())?;
+            }
+            if changed || created {
                 window
-                    .set_position(tauri::PhysicalPosition::new(
-                        area.position.x + (area.size.width as i32 - (144. * scale) as i32) / 2,
-                        area.position.y + area.size.height as i32 - (60. * scale) as i32,
-                    ))
+                    .emit("recording-state", &*state)
                     .map_err(|e| e.to_string())?;
             }
-            window.show().map_err(|e| e.to_string())?;
-            window
-                .emit("recording-state", &*state)
-                .map_err(|e| e.to_string())?;
         } else {
             window.close().map_err(|e| e.to_string())?;
         }
     }
     Ok(())
+}
+pub fn ready(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let state = app.state::<crate::Desktop>().edge.lock().unwrap().clone();
+    app.emit_to(label, &format!("{label}-state"), state)
+        .map_err(|error| error.to_string())
 }
 pub fn dispatch(app: &tauri::AppHandle, method: &str, value: &Value) -> Result<Value, String> {
     match method {
@@ -138,7 +166,7 @@ pub fn dispatch(app: &tauri::AppHandle, method: &str, value: &Value) -> Result<V
             )?;
             return Ok(value.clone());
         }
-        "edge-ready" => update(app, json!({}))?,
+        "edge-ready" => ready(app, "edge")?,
         "edge-hover" => update(app, json!({"hover":value.is_number()}))?,
         "edge-action" => {
             let action = value.as_str().ok_or("Invalid action")?;

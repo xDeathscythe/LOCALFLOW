@@ -21,6 +21,7 @@ pub async fn export(app: &tauri::AppHandle, value: Value) -> Result<Value, Strin
         "pdf",
         WebviewUrl::External("about:blank".parse().unwrap()),
     )
+    .data_directory(crate::paths::webview()?)
     .visible(false)
     .build()
     .map_err(|e| e.to_string())?;

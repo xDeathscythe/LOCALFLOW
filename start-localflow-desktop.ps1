@@ -15,6 +15,5 @@ Set-Location $Root
 "$(Get-Date -Format o) [boot] Starting LocalFlow desktop app from $Root" | Out-File -FilePath $Log -Encoding utf8 -Append
 $env:LOCALFLOW_APP_ROOT = $Root
 $env:LOCALFLOW_PACKAGED = if ($SourceCheckout) { '0' } else { '1' }
-$env:WEBVIEW2_USER_DATA_FOLDER = Join-Path (Join-Path $env:APPDATA 'localflow') 'webview'
 & $Executable *>> $Log
 exit $LASTEXITCODE

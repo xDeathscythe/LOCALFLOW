@@ -10,7 +10,7 @@ from time import perf_counter
 from typing import Any
 
 from codex_cleanup import clean_transcript
-from host_cleanup import clean_with_host, next_command
+from host_cleanup import clean_with_host, next_command, begin_job, end_job, check_cancelled
 from onnx_stt import is_onnx_stt_model, load_model as load_onnx_stt_model, model_cache_root, model_label, transcribe as transcribe_onnx
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -280,6 +280,7 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
     detected_language = getattr(info, "language", language)
     raw_segments = []
     for segment in segments:
+        check_cancelled(request_id)
         raw_segments.append(
             {
                 "start": segment.start,
@@ -443,6 +444,7 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
     options = params.get("options") if isinstance(params.get("options"), dict) else {}
 
     result = transcribe_audio(request_id, audio_path)
+    check_cancelled(request_id)
     emit(
         {
             "id": request_id,
@@ -457,6 +459,7 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
         }
     )
     polished = polish_transcript(request_id, result["text"], options, result["language"])
+    check_cancelled(request_id)
     emit(
         {
             "id": request_id,
@@ -506,6 +509,7 @@ def handle_line(line: str) -> None:
     request_id = str(payload.get("id") or "")
     action = payload.get("action")
     try:
+        begin_job(request_id)
         if action == "transcribe":
             handle_transcribe(payload)
             return
@@ -535,9 +539,15 @@ def handle_line(line: str) -> None:
                 "trace": traceback.format_exc(),
             }
         )
+    finally:
+        end_job(request_id)
 
 
 def main() -> None:
+    # NumPy's Windows DLL initialization deadlocks if a pipe reader is already blocked.
+    # All speech engines use NumPy; initialize it before starting that reader.
+    import numpy
+
     model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
     emit(
         {

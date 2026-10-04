@@ -129,11 +129,14 @@ export function computedRows(database, databases = []) {
   };
   return database.rows.map(row=>{const values={...row.values},errors={};for(const property of database.properties)try{values[property.id]=compute(database,row,property);}catch(error){errors[property.id]=error.message;}return {...row,values,errors};});
 }
-export function queryRows(database, view, databases = []) {
-  const rows = computedRows(database, databases).filter(row => matches(row.values, view?.filter));
-  for (const sort of [...(view?.sorts || [])].reverse()) rows.sort((a,b) => {
+const collator = new Intl.Collator(undefined, { numeric: true });
+export function sortRows(rows, sorts = []) {
+  for (const sort of [...sorts].reverse()) rows.sort((a,b) => {
     const av = a.values[sort.property], bv = b.values[sort.property];
-    return (typeof av === 'number' && typeof bv === 'number' ? av - bv : displayValue(av).localeCompare(displayValue(bv), undefined, { numeric: true })) * (sort.direction === 'desc' ? -1 : 1);
+    return (typeof av === 'number' && typeof bv === 'number' ? av - bv : collator.compare(displayValue(av), displayValue(bv))) * (sort.direction === 'desc' ? -1 : 1);
   });
   return rows;
+}
+export function queryRows(database, view, databases = []) {
+  return sortRows(computedRows(database, databases).filter(row => matches(row.values, view?.filter)), view?.sorts);
 }

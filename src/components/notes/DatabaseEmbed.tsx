@@ -1,13 +1,13 @@
-import {useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {Node,mergeAttributes} from '@tiptap/core';
 import {NodeViewWrapper,ReactNodeViewRenderer,type NodeViewProps} from '@tiptap/react';
-import {DatabasePage} from './DatabasePage';
+const DatabasePage=lazy(()=>import('./DatabasePage').then(module=>({default:module.DatabasePage})));
 function Preview({node,extension}:NodeViewProps){
   const container=useRef<HTMLDivElement>(null),[visible,setVisible]=useState(false);
   // Mount only nearby databases; long imported dashboards can contain dozens.
   useEffect(()=>{const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}},{rootMargin:'200px'});if(container.current)observer.observe(container.current);const print=()=>setVisible(true);window.addEventListener('localflow-notes-print',print);return()=>{observer.disconnect();window.removeEventListener('localflow-notes-print',print);};},[]);
   return <NodeViewWrapper ref={container} className="noteDatabaseEmbed" contentEditable={false} onContextMenu={(event:React.MouseEvent)=>event.stopPropagation()}>
-    {visible?<DatabasePage id={node.attrs.id} label={node.attrs.label||'Database'} embedded open={id=>extension.options.openNote?.(id)}/>:<div className="databaseEmbedPlaceholder">{node.attrs.label||'Database'}</div>}
+    {visible?<Suspense fallback={<div className="databaseEmbedPlaceholder">{node.attrs.label||'Database'}</div>}><DatabasePage id={node.attrs.id} label={node.attrs.label||'Database'} embedded open={id=>extension.options.openNote?.(id)}/></Suspense>:<div className="databaseEmbedPlaceholder">{node.attrs.label||'Database'}</div>}
   </NodeViewWrapper>;
 }
 export const DatabaseEmbed=Node.create({name:'databaseEmbed',group:'block',atom:true,
