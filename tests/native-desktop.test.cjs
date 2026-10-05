@@ -49,6 +49,15 @@ async function run() {
       }
       await page.evaluate(async()=>{document.documentElement.dataset.theme=await window.localflow.setAppearance('dark');});
     }
+    if(process.argv.includes('--notion-media')){
+      await page.locator('[data-section="notes"]').click();
+      await require('./native-notion-media.cjs')(page,directory);
+      assert(!logs.includes('\n[ui]'),'Native media UI must not report an uncaught execution error.');
+      await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'application-quit',args:[]}));
+      for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));
+      assert.equal(processHandle.exitCode,0,'Media test must shut down gracefully.');
+      console.log(JSON.stringify({result:'NATIVE_NOTION_MEDIA_OK',version:require('../package.json').version,profile}));return;
+    }
     const note = await page.evaluate(()=>window.localflow.notesCreate({label:'日本語 العربية',content:'Native persisted note',document:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Native persisted note'}]}]}}));
     await page.locator('[data-section="notes"]').click();
     await page.waitForSelector('.noteProse',{timeout:15000});
