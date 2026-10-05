@@ -1,6 +1,6 @@
 # LocalFlow
 
-**0.2.3 · Windows x64 · MIT**
+**0.2.4 · Windows x64 · MIT**
 
 Local dictation, rich notes and the Niwa voice agent. The desktop shell uses
 Rust/Tauri 2 and Windows WebView2. Electron is no longer an application dependency.
@@ -14,7 +14,7 @@ computer tools, MCP connectors and voice-output engines remain available.
 
 ## Windows package
 
-Open `release/LocalFlow-0.2.3-Windows-x64/LocalFlow.exe`. Keep the whole directory
+Open `release/LocalFlow-0.2.4-Windows-x64/LocalFlow.exe`. Keep the whole directory
 together: it contains Python, Node, Codex, CUDA/cuDNN, large-v3 and browser tools.
 The executable alone is not the complete application. Microsoft WebView2 and the
 Visual C++ x64 runtime are required; the latter is included under

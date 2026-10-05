@@ -7,6 +7,11 @@ const { performance } = require('node:perf_hooks');
 const directory = fs.mkdtempSync(path.resolve('runtime/native-check-'));
 const profile = path.join(directory, 'profile');
 fs.mkdirSync(profile);
+fs.mkdirSync(path.join(profile, 'niwa/workspace'), { recursive: true });
+fs.writeFileSync(path.join(profile, 'niwa/projects.json'), JSON.stringify({
+  folders: [{ id: 'motion-project', label: '開発 العربية', cwd: path.join(profile, 'niwa/workspace') }],
+  chats: ['日本語', 'Српски', 'العربية'].map((label, index) => ({ id: `motion-${index}`, folderId: 'motion-project', label })), activeId: 'niwa',
+}));
 const port = 19223;
 const launch = performance.now();
 const environment={...process.env,LOCALFLOW_APP_ROOT:path.resolve('.'),LOCALFLOW_DEBUG_BRIDGE:'1',LOCALFLOW_USER_DATA:profile,LOCALFLOW_PACKAGED:'1',LOCALFLOW_TEST_NO_INPUT:'1',LOCALFLOW_TEST_NO_WARMUP:'1',WEBVIEW2_USER_DATA_FOLDER:path.join(directory,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port} --use-fake-device-for-media-stream --autoplay-policy=no-user-gesture-required`};
@@ -77,6 +82,8 @@ async function run() {
     await page.waitForFunction(async id=>(await window.localflow.notesDatabaseRead(id)).rows.some(row=>row.values.title==='مرحبا row'),database.id);
     await page.locator('.notesPageTreeRow').filter({hasText:'日本語 العربية'}).first().click();await page.waitForSelector('.noteProse');
     assert(fs.existsSync(path.join(profile,'notes/workspace.sqlite')));
+    await require('./tree-motion.cjs')(page, directory);
+    await page.locator('.notesPageTreeRow').filter({hasText:'日本語 العربية'}).first().click();await page.waitForSelector('.noteProse');
     const audio = await page.evaluate(async()=>window.localflow.saveAudioBuffer({buffer:new Uint8Array([1,2,3,4]).buffer,extension:'.wav'}));
     assert.deepEqual([...fs.readFileSync(audio)],[1,2,3,4]);
     await assert.rejects(()=>page.evaluate(()=>window.localflow.saveAudioBuffer({buffer:new Uint8Array([1]).buffer,extension:'../../escape'})),/Unsupported/);

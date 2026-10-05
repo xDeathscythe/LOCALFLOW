@@ -1,0 +1,24 @@
+/* ponytail: CSS handles intrinsic height and reversal without JS measurements. */
+.notesTreeChildren,
+.projectFolder::details-content {
+  interpolate-size: allow-keywords;
+  height: 0;
+  opacity: 0;
+  overflow: clip;
+  transition: height 220ms cubic-bezier(.2, 0, 0, 1), opacity 160ms ease-out, content-visibility 220ms allow-discrete;
+}
+
+.notesTreeChildren[data-open=true],
+.projectFolder[open]::details-content {
+  height: auto;
+  opacity: 1;
+}
+
+@starting-style {
+  .notesTreeChildren[data-open=true] { height: 0; opacity: 0; }
+}
+
+.notesTreeExpand svg,
+.projectFolder > summary::before {
+  transition: transform 220ms cubic-bezier(.2, 0, 0, 1);
+}
