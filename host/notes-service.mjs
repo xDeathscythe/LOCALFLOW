@@ -1,6 +1,6 @@
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 
-const methods = ['list', 'read', 'trash', 'restore', 'history', 'restoreVersion', 'importLegacy', 'create', 'save', 'remove', 'rename', 'move', 'duplicate', 'databaseRead', 'databasePage', 'databaseRow', 'databasePatch', 'databasePageAction', 'databaseOptions', 'databaseExport', 'databaseSave', 'databaseQuery', 'databaseRunButton', 'databaseAddRow', 'databaseMoveRow', 'importBundle'];
+const methods = ['list', 'read', 'trash', 'restore', 'history', 'restoreVersion', 'importLegacy', 'create', 'save', 'remove', 'rename', 'move', 'duplicate', 'databaseRead', 'databasePage', 'databaseRow', 'databasePatch', 'databasePageAction', 'databaseOptions', 'databaseExport', 'databaseSave', 'databaseQuery', 'databaseRunButton', 'databaseAddRow', 'databaseMoveRow', 'importBundle', 'syncSnapshot', 'syncChanges', 'syncRead', 'syncApply'];
 
 if (!isMainThread) {
   const { createNotesStore } = await import('./notes-store.mjs');

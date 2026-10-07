@@ -1,5 +1,39 @@
 use serde_json::{json, Value};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+fn set_overlay_visible(window: &tauri::WebviewWindow, visible: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            SWP_SHOWWINDOW,
+        };
+        let mut flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+            | if visible { SWP_SHOWWINDOW } else { SWP_HIDEWINDOW };
+        if visible && !window.is_visible().map_err(|e| e.to_string())? {
+            // Hidden Tao windows retain initial caption insets until their borderless frame is recalculated.
+            flags |= SWP_FRAMECHANGED;
+        }
+        // ponytail: one native call restores z-order and visibility without activating the overlay.
+        SetWindowPos(
+            window.hwnd().map_err(|e| e.to_string())?,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            flags,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    if visible {
+        window.show()
+    } else {
+        window.hide()
+    }
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
 fn settings() -> Result<Value, String> {
     Ok(
         std::fs::read(crate::paths::profile()?.join("edge-panel.json"))
@@ -37,11 +71,28 @@ pub fn create(app: &tauri::AppHandle) -> Result<(), String> {
 pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
     let desktop = app.state::<crate::Desktop>();
     let mut state = desktop.edge.lock().unwrap();
+    if value.get("meetingCloseRequest").is_some() && value["meetingCloseRequest"] != state["meetingCloseGeneration"] { return Ok(()); }
     let mut changed = false;
     for (key, value) in value.as_object().ok_or("Invalid edge state")? {
         changed |= state[key] != *value;
         state[key] = value.clone();
     }
+    let meeting_active = state["meeting"]["active"].is_object();
+    let meeting_offer = state["meeting"]["offer"].is_object();
+    let meeting_expanded = meeting_offer || (meeting_active && state["hover"] == true);
+    if state["meetingExpanded"] == true && !meeting_expanded {
+        state["meetingClosing"] = json!(true);
+        let generation = state["meetingCloseGeneration"].as_u64().unwrap_or(0) + 1;
+        state["meetingCloseGeneration"] = json!(generation);
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(660)).await;
+            let _ = update(&handle, json!({"meetingClosing":false,"meetingCloseRequest":generation}));
+        });
+    }
+    if meeting_expanded { state["meetingClosing"] = json!(false); }
+    changed |= state["meetingExpanded"] != json!(meeting_expanded);
+    state["meetingExpanded"] = json!(meeting_expanded);
     let expanded = json!(
         state["autoHide"] == false
             || state["hover"] == true
@@ -49,11 +100,14 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
             || state["starting"] == true
             || state["agentListening"] == true
             || state["busy"] == true
+            || meeting_active
+            || meeting_offer
     );
     changed |= state["expanded"] != expanded;
     state["expanded"] = expanded;
     if let Some(window) = app.get_webview_window("edge") {
-        let width = if state["expanded"] == true { 31. } else { 5. };
+        let width = if meeting_expanded || state["meetingClosing"] == true { 320. }
+            else if state["expanded"] == true { 31. } else { 5. };
         if let Some(monitor) = app
             .get_webview_window("main")
             .and_then(|main| main.current_monitor().ok().flatten())
@@ -76,13 +130,10 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
             }
         }
         let visible = state["enabled"] != false;
-        if window.is_visible().map_err(|e| e.to_string())? != visible {
-            if visible {
-                window.show()
-            } else {
-                window.hide()
-            }
-            .map_err(|e| e.to_string())?;
+        if visible {
+            set_overlay_visible(&window, true)?;
+        } else if window.is_visible().map_err(|e| e.to_string())? {
+            set_overlay_visible(&window, false)?;
         }
         if changed {
             window
@@ -95,7 +146,7 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
     });
     let recording = state["enabled"] == false
         && main_hidden
-        && (state["recording"] == true || state["starting"] == true);
+        && (state["recording"] == true || state["starting"] == true || meeting_active);
     let created = recording && app.get_webview_window("recording").is_none();
     if created {
         WebviewWindowBuilder::new(app, "recording", WebviewUrl::App("recording.html".into()))
@@ -122,6 +173,13 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
             {
                 let area = monitor.work_area();
                 let scale = monitor.scale_factor();
+                let size = tauri::PhysicalSize::new(
+                    (144. * scale).round() as u32,
+                    (42. * scale).round() as u32,
+                );
+                if window.inner_size().map_err(|e| e.to_string())? != size {
+                    window.set_size(size).map_err(|e| e.to_string())?;
+                }
                 let position = tauri::PhysicalPosition::new(
                     area.position.x + (area.size.width as i32 - (144. * scale) as i32) / 2,
                     area.position.y + area.size.height as i32 - (60. * scale) as i32,
@@ -130,9 +188,7 @@ pub fn update(app: &tauri::AppHandle, value: Value) -> Result<(), String> {
                     window.set_position(position).map_err(|e| e.to_string())?;
                 }
             }
-            if !window.is_visible().map_err(|e| e.to_string())? {
-                window.show().map_err(|e| e.to_string())?;
-            }
+            set_overlay_visible(&window, true)?;
             if changed || created {
                 window
                     .emit("recording-state", &*state)
@@ -167,10 +223,14 @@ pub fn dispatch(app: &tauri::AppHandle, method: &str, value: &Value) -> Result<V
             return Ok(value.clone());
         }
         "edge-ready" => ready(app, "edge")?,
+        "edge-region" => {
+            if let Some(window) = app.get_webview_window("edge") { crate::edge_region::apply(&window, value)?; }
+        }
+        "meeting-state" => update(app, json!({"meeting":value}))?,
         "edge-hover" => update(app, json!({"hover":value.is_number()}))?,
         "edge-action" => {
             let action = value.as_str().ok_or("Invalid action")?;
-            if !["agent", "microphone", "notes"].contains(&action) {
+            if !["agent", "microphone", "transcribe"].contains(&action) {
                 return Err("Invalid action".into());
             }
             update(app, json!({"selected":action}))?;

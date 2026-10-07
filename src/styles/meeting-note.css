@@ -1,0 +1,43 @@
+.meetingNoteView { max-width:850px; margin:8px auto 36px; }
+.meetingNoteCard { margin:0 48px; padding:20px 22px 26px; border:1px solid var(--color-border); border-radius:14px; background:var(--niwa-color-surface-base); }
+.meetingNoteMeta { display:flex; flex-wrap:wrap; align-items:center; gap:9px; color:var(--color-text-soft); font-size:12px; line-height:1.6; }
+.meetingNoteMeta>svg { color:var(--color-text-soft); }
+.meetingNoteMeta>span+span::before { content:'·'; margin-right:9px; }
+.meetingNoteTabs { display:flex; flex-wrap:wrap; gap:5px; margin:18px -4px 8px; padding-bottom:16px; border-bottom:1px solid var(--color-border); }
+.meetingNoteTabs button,.meetingTranscriptTools button,.meetingTranscriptPages button { display:inline-flex; gap:6px; align-items:center; color:var(--color-text-soft); background:transparent; border-radius:7px; padding:7px 10px; font-size:12px; }
+.meetingNoteTabs button[aria-pressed=true] { background:var(--niwa-control-hover); color:var(--color-text); }
+.meetingNoteTabs button:hover,.meetingTranscriptTools button:hover,.meetingTranscriptPages button:hover { background:var(--niwa-control-hover); }
+.meetingNoteTabs small { opacity:.6; font-variant-numeric:tabular-nums; }
+.meetingSummaryContent { font-size:14px; line-height:1.85; }
+.meetingSummaryContent section { margin-top:28px; }
+.meetingSummaryContent h2 { font-size:17px; line-height:1.5; font-weight:600; margin-bottom:11px; }
+.meetingSummaryContent ul { padding-left:22px; }
+.meetingSummaryContent li { margin:7px 0; padding-left:2px; overflow-wrap:anywhere; }
+.meetingSummaryContent .meetingActionItems { list-style:none; padding:0; }
+.meetingActionItems li { display:flex; align-items:baseline; gap:6px; }
+.meetingActionItems label { display:flex; gap:10px; align-items:baseline; flex:1; cursor:pointer; }
+.meetingActionItems input { accent-color:#8bc8ad; flex-shrink:0; }
+.meetingActionItems input:checked+span { color:var(--color-text-soft); text-decoration:line-through; }
+.meetingActionItems small { display:block; font-size:11px; color:var(--color-text-soft); text-decoration:none; }
+.meetingEvidence { display:inline; white-space:normal; }
+.meetingEvidence button { vertical-align:middle; margin:0 1px; padding:0 5px; min-width:19px; height:19px; border:1px solid var(--color-border); border-radius:10px; color:var(--color-text-soft); background:transparent; font-size:10px; line-height:17px; font-variant-numeric:tabular-nums; }
+.meetingEvidence button:hover { background:var(--niwa-control-hover); color:var(--color-text); border-color:var(--color-border-strong); }
+.meetingNoteNotice { margin:18px 48px; color:var(--color-text-soft); font-size:12px; line-height:1.7; }
+.meetingSummaryWaiting { padding:22px 0; color:var(--color-text-soft); }
+.meetingSummaryWaiting h2 { margin:10px 0; color:var(--color-text); }
+.meetingSummaryWaiting p { margin-top:8px; }
+.meetingTranscript { padding-top:16px; }
+.meetingTranscriptTools { display:flex; align-items:center; gap:5px; }
+.meetingTranscriptTools label { display:flex; align-items:center; gap:8px; flex:1; min-width:0; border:1px solid var(--color-border); border-radius:7px; padding:8px 10px; color:var(--color-text-soft); }
+.meetingTranscriptTools input { border:0; background:transparent; outline:none; width:100%; color:var(--color-text); font-size:12px; }
+.meetingTranscriptHint { margin:12px 0; color:var(--color-text-soft); font-size:11px; line-height:1.7; }
+.meetingTranscript article { padding:16px 10px; margin:0 -10px; border-bottom:1px solid var(--color-border); scroll-margin-block:40px; }
+.meetingTranscript article[data-highlighted=true] { background:var(--niwa-control-hover); border-radius:8px; outline:1px solid var(--color-border-strong); }
+.meetingTranscript article header { display:flex; gap:14px; align-items:center; color:var(--color-text-soft); font-size:11px; }
+.meetingTranscript article header span { display:flex; gap:5px; align-items:center; }
+.meetingTranscript time { font-variant-numeric:tabular-nums; }
+.meetingTranscript article p { font-size:14px; line-height:1.9; margin-top:7px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.meetingTranscriptPages { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; font-size:12px; }
+.meetingNoteView button:disabled { opacity:.4; cursor:default; }
+.noteWorkspace[data-page-wide=true] .meetingNoteView { max-width:none; }
+@container (max-width:680px) { .meetingNoteCard { margin-inline:24px; padding:16px; } .meetingNoteTabs button { font-size:11px; padding:7px; } }

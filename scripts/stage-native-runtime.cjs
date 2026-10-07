@@ -25,7 +25,7 @@ function stage(name,from) {
     if(candidates.some(base=>fs.existsSync(path.join(base,dependency,'package.json'))))stage(dependency,directory);
   }
 }
-for(const dependency of ['@modelcontextprotocol/client','@mozilla/readability','linkedom','jsep','playwright','typebox','@openai/codex-win32-x64'])stage(dependency,root);
+for(const dependency of ['@modelcontextprotocol/client','@mozilla/readability','linkedom','jsep','jose','playwright','typebox','@openai/codex-win32-x64','@tiptap/markdown','@tiptap/starter-kit','@tiptap/extension-task-list','@tiptap/extension-task-item'])stage(dependency,root);
 fs.writeFileSync(path.join(target,'manifest.json'),JSON.stringify({version:require('../package.json').version,node:process.version,packages:[...visited].map(directory=>({path:path.relative(root,directory),...JSON.parse(fs.readFileSync(path.join(directory,'package.json'),'utf8'))})).map(({path,name,version,license})=>({path,name,version,license}))},null,2));
 const previous=path.join(root,'runtime',`native-host-previous-${process.pid}`);
 if(fs.existsSync(destination))fs.renameSync(destination,previous);

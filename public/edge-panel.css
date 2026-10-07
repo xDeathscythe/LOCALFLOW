@@ -9,10 +9,10 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .collapsed .controls { opacity: 0; transform: translateX(16px) scale(.76, .84); pointer-events: none; transition-delay: 0ms; }
 .selector { position: absolute; inset: 0 2px auto; height: 28px; border-radius: 18px; background: var(--active); transform: translateY(31px); transition: transform 420ms cubic-bezier(.2, .85, .2, 1); pointer-events: none; }
 .controls[data-target=agent] .selector { transform: translateY(0); }
-.controls[data-target=notes] .selector { transform: translateY(62px); }
+.controls[data-target=transcribe] .selector { transform: translateY(62px); }
 button { position: relative; flex-shrink: 0; border: 0; border-radius: 18px; background: transparent; color: var(--ink); width: 23px; height: 28px; display: grid; place-items: center; cursor: pointer; padding: 0; outline-offset: -2px; transition: color 200ms; }
 button:focus-visible { outline: 1px solid currentColor; }
-.controls[data-target=agent] [data-action=agent], .controls[data-target=microphone] [data-action=microphone], .controls[data-target=notes] [data-action=notes] { color: #18372b; }
+.controls[data-target=agent] [data-action=agent], .controls[data-target=microphone] [data-action=microphone], .controls[data-target=transcribe] [data-action=transcribe] { color: #18372b; }
 button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: center; }
 button[data-action=agent] svg { stroke-width: 3.2; }
 .mic { transition: opacity 200ms; }
@@ -34,6 +34,27 @@ output { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 6px; lin
 body[data-theme=light] .edge { --surface: #eeeee7; --ink: #525b54; }
 body[data-theme=static-white] .edge { --surface: #fff; --ink: #5c625c; }
 body[data-theme=static-black] .edge { --surface: #000; --ink: #a0a0a0; }
+.controls { z-index: 3; }
+.meeting-sheet { position:absolute; width:320px; height:109px; top:18.5px; right:0; border-radius:18px 0 0 18px; background:var(--surface); transform:scaleX(.095); transform-origin:right center; opacity:0; transition:transform 620ms cubic-bezier(.4,0,.2,1),opacity 220ms ease; pointer-events:none; }
+.meeting-expanded .meeting-sheet { transform:scaleX(1); opacity:1; }
+.meeting-panel { position:absolute; right:35px; width:266px; top:34px; color:var(--ink); opacity:0; transform:translateX(12px); pointer-events:none; transition:opacity 180ms ease,transform 350ms cubic-bezier(.4,0,.2,1); }
+.meeting-expanded .meeting-panel { opacity:1; transform:translateX(0); pointer-events:auto; transition-delay:160ms; }
+.meeting-panel-heading { display:flex; align-items:center; gap:7px; }
+.meeting-panel-heading strong { color:#dbe7df; font-size:13px; font-weight:550; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.meeting-panel time { font-size:10px; margin-left:auto; font-variant-numeric:tabular-nums; color:var(--active); }
+.meeting-dot { width:5px; height:5px; flex-shrink:0; background:var(--active); border-radius:50%; }
+.meeting-panel p { margin:6px 0 8px 12px; font-size:10px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.meeting-panel-actions { display:flex; align-items:center; gap:5px; margin-left:12px; }
+.meeting-panel-actions button { width:auto; padding:0 9px; height:25px; border-radius:8px; font-size:10px; background:#ffffff0c; white-space:nowrap; }
+.meeting-panel-actions .meeting-accept { background:#a7e7c8; color:#153e2a; width:36px; }
+.meeting-panel-actions .meeting-stop { color:#f0b0a6; }
+.meeting-panel-actions button[hidden] { display:none; }
+.meeting-panel-actions button:disabled { opacity:.4; cursor:wait; }
+.meeting-panel-actions .meeting-source { margin-left:auto; background:transparent; padding:0 3px; }
+#meeting-error { color:#eda28f; }
+body[data-theme=light] .meeting-panel-heading strong,body[data-theme=static-white] .meeting-panel-heading strong { color:#20382c; }
+body[data-theme=light] .meeting-panel-actions button,body[data-theme=static-white] .meeting-panel-actions button { background:#102d2010; }
+body[data-theme=light] .meeting-panel-actions .meeting-accept,body[data-theme=static-white] .meeting-panel-actions .meeting-accept { background:#a7e7c8; }
 @keyframes recording-wave { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(.9); } }
 @keyframes star-orbit { to { rotate: 90deg; } }
 @keyframes star-breath { 0%, 100% { scale: .88; opacity: .7; } 50% { scale: 1.08; opacity: 1; } }

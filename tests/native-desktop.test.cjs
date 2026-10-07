@@ -7,6 +7,10 @@ const { performance } = require('node:perf_hooks');
 const directory = fs.mkdtempSync(path.resolve('runtime/native-check-'));
 const profile = path.join(directory, 'profile');
 fs.mkdirSync(profile);
+if(process.argv.includes('--meetings')) {
+  const fixture=spawnSync(process.execPath,[path.resolve('tests/meeting-note-fixture.mjs'),profile],{windowsHide:true,encoding:'utf8'});
+  assert.equal(fixture.status,0,fixture.stderr||fixture.stdout);
+}
 fs.mkdirSync(path.join(profile, 'niwa/workspace'), { recursive: true });
 fs.writeFileSync(path.join(profile, 'niwa/projects.json'), JSON.stringify({
   folders: [{ id: 'motion-project', label: '開発 العربية', cwd: path.join(profile, 'niwa/workspace') }],
@@ -40,6 +44,14 @@ async function run() {
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
     await assert.rejects(()=>page.evaluate(()=>window.localflow.setAppearance('__proto__')),/Unknown appearance/);
     for(const theme of ['light','static-white','dark','static-black','dark'])assert.equal(await page.evaluate(theme=>window.localflow.setAppearance(theme),theme),theme);
+    if(process.argv.includes('--edge-only') || process.argv.includes('--meetings')) {
+      await require(process.argv.includes('--meetings') ? './native-meetings.cjs' : './native-edge.cjs')(page,browser,processHandle.pid,directory);
+      assert(!logs.includes('\n[ui]'),'Edge UI must not report an uncaught execution error.');
+      await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'application-quit',args:[]}));
+      for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));
+      assert.equal(processHandle.exitCode,0,'Edge test must shut down gracefully.');
+      return;
+    }
     if(process.argv.includes('--glass')) {
       for(const theme of ['dark','light','static-black','static-white']) {
         await page.evaluate(async theme=>{document.documentElement.dataset.theme=await window.localflow.setAppearance(theme);},theme);
@@ -129,7 +141,7 @@ async function run() {
     });assert(recorded>0,'Native microphone permission and MediaRecorder work with the synthetic test device.');
     await require('./native-voice-check.cjs')(page);
     const oldClipboard=spawnSync('powershell.exe',['-NoProfile','-Command','[Console]::Write([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw))))'],{windowsHide:true,encoding:'utf8'});
-    await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-action',args:['notes']}));
+    await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-action',args:['transcribe']}));
     await page.waitForTimeout(300);
     await page.evaluate(()=>{const input=document.createElement('textarea');input.id='native-paste-proof';input.style.cssText='position:fixed;top:40px;left:350px;z-index:99999;width:500px;height:60px';document.body.append(input);});
     await page.locator('#native-paste-proof').click();
@@ -166,7 +178,7 @@ async function run() {
     }
     await edge.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-hover',args:[1]}));
     await edge.waitForFunction(()=>!document.body.classList.contains('collapsed'));
-    await edge.locator('[data-action="notes"]').click();
+    await edge.locator('.controls [data-action="transcribe"]').click();
     await assert.rejects(()=>edge.evaluate(()=>window.__TAURI__.core.invoke('host_call',{method:'notes-list',args:[]})),/main window/);
     await page.evaluate(async()=>{await window.localflow.setEdgeSettings({enabled:false,autoHide:true});await window.__TAURI__.core.invoke('native_call',{method:'window-hide',args:[]});});
     await page.waitForTimeout(200);
@@ -179,7 +191,8 @@ async function run() {
     if(process.argv.includes('--glass'))checkShape('recording','recording');
     await overlay.locator('button').click();
     await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'overlay-state',args:[{recording:false,starting:false}]}));
-    await edge.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-action',args:['notes']}));
+    await edge.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'edge-action',args:['transcribe']}));
+    await page.locator('[data-section="notes"]').click();
     await page.screenshot({path:path.join(directory,'notes.png')});
     if(process.argv.includes('--inference')){
       const result=await page.evaluate(file=>window.localflow.transcribeFile({path:file,options:{cleanup:false,cleanupLevel:'none'}}),path.resolve('tests/fixtures/dictation.wav'));
@@ -193,5 +206,5 @@ async function run() {
     console.log(JSON.stringify({result:'NATIVE_DESKTOP_OK',version:require('../package.json').version,usableMs:+usableMs.toFixed(1),profile,checks:['real WebView2 UI','rich note save','stale revision rejected','binary audio','audio traversal rejected','native PDF','asset protocol and traversal refusal','native screen capture','hidden WebRTC transport','edge hover/navigation','auxiliary-window permissions','background recording overlay','graceful flush and exit']}));
   } finally { await browser.close(); }
 }
-const timeout=setTimeout(()=>{console.error('Native integration check timed out',logs.slice(-6000));process.exitCode=1;spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});},process.argv.includes('--inference')?180000:process.argv.includes('--glass')?90000:55000);
+const timeout=setTimeout(()=>{console.error('Native integration check timed out',logs.slice(-6000));process.exitCode=1;spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});},process.argv.includes('--inference')?180000:process.argv.includes('--glass')||process.argv.includes('--meetings')?90000:55000);
 run().catch(error=>{console.error(error,logs.slice(-6000));process.exitCode=1;}).finally(()=>{clearTimeout(timeout);spawnSync('taskkill.exe',['/PID',String(processHandle.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});fs.writeFileSync(path.join(directory,'host.log'),logs);});

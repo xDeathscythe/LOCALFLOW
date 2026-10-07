@@ -1,6 +1,6 @@
 [package]
 name = "localflow-desktop"
-version = "0.2.5"
+version = "0.3.1"
 edition = "2021"
 license = "MIT"
 
@@ -27,7 +27,8 @@ dunce = "1"
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm", "Win32_System_LibraryLoader", "Win32_System_JobObjects", "Win32_System_Threading"] }
+windows-core = "0.62"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm", "Win32_System_LibraryLoader", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_Performance", "Win32_System_Diagnostics_ToolHelp", "Win32_Devices_FunctionDiscovery", "Win32_UI_Shell_PropertiesSystem"] }
 webview2-com = "0.39"
 
 [profile.release]

@@ -10,6 +10,7 @@ import { patchDatabase } from './notes/database-patch.mjs';
 import { openNotesDatabase } from './notes/sqlite-store.mjs';
 import { storedPage, storedRow } from './notes/stored-page.mjs';
 import { validatePresentation } from './notes/presentation.mjs';
+import { createNotesSync } from './remote/notes-sync-store.mjs';
 
 export function createNotesStore(directory, changed = () => {}) {
   const root = join(directory, 'notes');
@@ -206,7 +207,8 @@ export function createNotesStore(directory, changed = () => {}) {
       state.items.push(...save(bundle.items)); state.imports ||= {}; state.imports[bundle.sourceId] = new Date().toISOString(); commit(); return list();
     },
   };
-  const reads = new Set(['list','read','trash','history','databaseRead','databasePage','databaseRow','databaseOptions','databaseExport','databaseQuery']);
+  Object.assign(methods, createNotesSync(storage, methods));
+  const reads = new Set(['list','read','trash','history','databaseRead','databasePage','databaseRow','databaseOptions','databaseExport','databaseQuery','syncSnapshot','syncChanges','syncRead']);
   return { ...Object.fromEntries(Object.entries(methods).map(([name,method]) => [name, (...args) => {
     if (reads.has(name)) return storage.transaction(() => method.apply(methods,args),false);
     try { const value=storage.transaction(() => method.apply(methods,args)); for(const event of events)changed(event);events=[];return value; }

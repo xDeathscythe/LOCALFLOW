@@ -24,7 +24,7 @@ export function RecordingOverlay({ startedAt, seconds, section, ...state }: Omit
   useEffect(() => {
     const changed = previousSection.current !== section;
     previousSection.current = section;
-    const selected = section === 'niwa' ? 'agent' : section === 'notes' ? 'notes' : section === 'transcribe' ? 'microphone' : undefined;
+    const selected = section === 'niwa' ? 'agent' : section === 'meetings' ? 'transcribe' : section === 'transcribe' ? 'microphone' : undefined;
     window.localflow.setRecordingOverlayState({ recording, starting, agentListening, recordingTarget, elapsedSeconds, selected: changed ? selected : undefined });
   }, [recording, starting, agentListening, recordingTarget, elapsedSeconds, section]);
   return null;

@@ -30,6 +30,12 @@ async function main() {
     const recovered = await worker.send("transcribe", {}, "current");
     assert.equal(recovered.pid, first.pid, 'Cancellation keeps the model process alive');
     assert(events.some((event) => event.id === "current" && event.action === "transcribe"));
+    const meeting = worker.send('transcribe', { delay: 30 }, 'meeting-job', { owner: 'meeting' });
+    const dictation = assert.rejects(worker.send('transcribe', { delay: 30 }, 'dictation-job'), /cancelled/);
+    worker.cancel(); await dictation;
+    assert.equal((await meeting).pid, first.pid, 'Cancelling dictation preserves a concurrent meeting job');
+    const scoped = assert.rejects(worker.send('transcribe', { delay: 1000 }, 'meeting-cancel', { owner: 'meeting' }), /cancelled/);
+    worker.cancel('meeting-cancel'); await scoped;
     await assert.rejects(worker.send("exit"), /exited/);
     await worker.send("warmup");
     await assert.rejects(timed.send("transcribe", { delay: 2000 }), /timed out/);

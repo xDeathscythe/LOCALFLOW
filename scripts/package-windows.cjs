@@ -12,7 +12,7 @@ function copy(from,to=from){
   console.log('WINDOWS_PAYLOAD',to);
 }
 copy('src-tauri/target/release/localflow-desktop.exe','LocalFlow.exe');
-for(const directory of ['desktop','host','backend','tts','licenses'])copy(directory);
+for(const directory of ['desktop','host','backend','tts','licenses','extensions'])copy(directory);
 for(const file of fs.readdirSync(path.join(root,'assets')).filter(file=>fs.statSync(path.join(root,'assets',file)).isFile()))copy('assets/'+file);
 copy('assets/tts/README.md');
 copy('runtime/print-math','assets/print-math');

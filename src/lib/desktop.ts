@@ -12,6 +12,7 @@ function subscribe<T>(event: string, callback: (value: T) => void) {
   return () => { active = false; void listener.then(stop => stop()); };
 }
 const hostMethods = {
+  meetingCall:'meeting-call', accountCall:'account-call',
   transcribeFile:'transcribe-file', cancelTranscription:'cancel-transcription', setWhisperModel:'set-whisper-model', setWhisperLanguage:'set-whisper-language',
   getCleanupAuthStatus:'cleanup-auth-status',getCleanupModels:'get-cleanup-models',setCleanupModel:'set-cleanup-model',connectCleanupWithCodex:'cleanup-auth-connect-codex',connectCleanupWithApiKey:'cleanup-auth-connect-api-key',disconnectCleanup:'cleanup-auth-disconnect',cancelCleanupConnection:'cleanup-auth-cancel',openCleanupAuthBrowser:'cleanup-auth-open-browser',
   getVoiceOutputConfig:'get-voice-output-config',setVoiceOutputModel:'set-voice-output-model',exportText:'export-text',getShortcuts:'get-shortcuts',setShortcutCapture:'set-shortcut-capture',setShortcut:'set-shortcut',pasteText:'paste-text',
@@ -25,7 +26,7 @@ window.localflow = {
   saveAudioBuffer: ({ buffer, extension = '.webm' }: { buffer: ArrayBuffer; extension?: string }) => invoke<string>('save_audio_buffer', buffer, { headers: { 'x-audio-extension': extension } }),
   notesUploadAssets: uploadAssets,
   setRecordingOverlayState: (value: RecordingOverlayState) => { void native('overlay-state', value).catch(console.error); if (value.starting) void host('recording-start').catch(console.error); },
-  ...Object.fromEntries(Object.entries({ onShortcutCaptured:'shortcut-captured',onEdgeAction:'edge-action',onNiwaEvent:'niwa-event',onWindowVisibility:'window-visibility',onRecordingOverlayStop:'recording-overlay-stop',onDictationHotkey:'dictation-hotkey',onWorkerProgress:'worker-progress',onCleanupAuthEvent:'cleanup-auth-event' }).map(([name, event]) => [name, (callback: (value: unknown) => void) => subscribe(event, callback)])),
+  ...Object.fromEntries(Object.entries({ onMeetingEvent:'meeting-event',onAccountState:'account-state',onShortcutCaptured:'shortcut-captured',onEdgeAction:'edge-action',onNiwaEvent:'niwa-event',onWindowVisibility:'window-visibility',onRecordingOverlayStop:'recording-overlay-stop',onDictationHotkey:'dictation-hotkey',onWorkerProgress:'worker-progress',onCleanupAuthEvent:'cleanup-auth-event' }).map(([name, event]) => [name, (callback: (value: unknown) => void) => subscribe(event, callback)])),
 } as Window['localflow'];
 
 const requests = listen<{ id: number; method: string; args: unknown }>('desktop-request', async ({ payload }) => {

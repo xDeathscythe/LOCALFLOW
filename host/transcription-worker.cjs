@@ -7,7 +7,7 @@ function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeo
   let worker = null;
   let sequence = 0;
   const pending = new Map();
-  let cleanupAbort;
+  const cleanups = new Map();
 
   function settle(id, error, data) {
     const request = pending.get(id);
@@ -19,7 +19,8 @@ function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeo
   }
 
   function stop(error = Object.assign(new Error("Transcription cancelled"), { code: "CANCELLED" })) {
-    cleanupAbort?.abort(); cleanupAbort = null;
+    for (const controller of cleanups.values()) controller.abort();
+    cleanups.clear();
     const previous = worker;
     worker = null;
     for (const id of pending.keys()) settle(id, error);
@@ -39,13 +40,14 @@ function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeo
       let payload;
       try { payload = JSON.parse(line); } catch { return; }
       if (payload.type === 'cleanup-request') {
-        const controller = cleanupAbort = new AbortController();
+        const controller = new AbortController();
+        cleanups.set(payload.jobId || payload.id, controller);
         Promise.resolve().then(() => {
           if (!cleanup) throw new Error('Live1 cleanup is unavailable.');
           return cleanup(payload, controller.signal);
         }).then(data => ({ ok: true, data }), error => ({ ok: false, error: error.message })).then(result => {
           if (worker === child && child.stdin.writable) child.stdin.write(JSON.stringify({ type: 'cleanup-result', id: payload.id, ...result }) + '\n');
-          if (cleanupAbort === controller) cleanupAbort = null;
+          cleanups.delete(payload.jobId || payload.id);
         });
         return;
       }
@@ -73,27 +75,31 @@ function createTranscriptionWorker({ python, script, cwd, notify, cleanup, timeo
     return child;
   }
 
-  function send(action, params = {}, requestId) {
+  function send(action, params = {}, requestId, { owner = 'dictation' } = {}) {
     const child = ensureWorker();
     const id = requestId || `worker-${++sequence}`;
     if (pending.has(id)) return Promise.reject(new Error("Duplicate transcription request"));
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => stop(new Error("Local transcription timed out")), timeoutMs);
-      pending.set(id, { resolve, reject, timer, action, worker: child });
+      const timer = setTimeout(() => {
+        if (action === 'transcribe') cancelRequest(id, new Error('Local transcription timed out'));
+        else stop(new Error('Local transcription timed out'));
+      }, timeoutMs);
+      pending.set(id, { resolve, reject, timer, action, owner, worker: child });
       child.stdin.write(`${JSON.stringify({ id, action, params })}\n`, "utf8", (error) => {
         if (error && worker === child) stop(error);
       });
     });
   }
 
-  function cancel() {
-    cleanupAbort?.abort(); cleanupAbort = null;
-    for (const [id, request] of pending) if (request.action === 'transcribe') {
-      if (worker?.stdin.writable) worker.stdin.write(JSON.stringify({ action: 'cancel', id }) + '\n');
-      settle(id, Object.assign(new Error('Transcription cancelled'), { code: 'CANCELLED' }));
-    }
+  function cancelRequest(id, error = Object.assign(new Error('Transcription cancelled'), { code: 'CANCELLED' })) {
+    cleanups.get(id)?.abort(); cleanups.delete(id);
+    if (worker?.stdin.writable) worker.stdin.write(JSON.stringify({ action: 'cancel', id }) + '\n');
+    settle(id, error);
   }
-  return { send, cancel, stop };
+  function cancel(requestId) {
+    for (const [id, request] of pending) if (request.action === 'transcribe' && (requestId ? id === requestId : request.owner === 'dictation')) cancelRequest(id);
+  }
+  return { send, cancel, stop, isBusy: (owner = 'dictation') => [...pending.values()].some(request => request.action === 'transcribe' && request.owner === owner) };
 }
 
 module.exports = { createTranscriptionWorker };

@@ -24,7 +24,7 @@ window.edge.onState(state => {
   document.body.dataset.theme = state.theme;
   document.body.classList.toggle('collapsed', !state.expanded);
   const capturing = state.recording || state.starting;
-  activeTarget = state.agentListening ? 'agent' : capturing ? state.recordingTarget : null;
+  activeTarget = state.meeting?.active || state.meeting?.offer ? 'transcribe' : state.agentListening ? 'agent' : capturing ? state.recordingTarget : null;
   document.body.classList.toggle('recording', capturing && state.recordingTarget === 'microphone');
   document.body.classList.toggle('listening', state.agentListening);
   document.body.classList.toggle('busy', state.busy);
@@ -35,4 +35,5 @@ window.edge.onState(state => {
   microphone.title = label; microphone.setAttribute('aria-label', label);
   const seconds = Math.floor(state.elapsedSeconds || 0);
   document.querySelector('output').textContent = state.starting ? '•••' : state.recording ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : '';
+  window.dispatchEvent(new CustomEvent('meeting-edge-state', {detail:state}));
 });

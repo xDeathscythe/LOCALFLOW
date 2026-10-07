@@ -29,11 +29,13 @@ const native = (method, ...args) => new Promise((resolve, reject) => {
   const timer = setTimeout(() => { nativePending.delete(nativeId); reject(new Error('Desktop operation timed out.')); }, 180_000);
   nativePending.set(nativeId, { resolve, reject, timer }); send({ native: method, nativeId, args });
 });
-let notes, notesReady, agent, agentReady, hotkey, capture = false, voice, duplex;
+let notes, notesReady, agent, agentReady, hotkey, capture = false, voice, duplex, meetings, meetingsReady, account, accountReady;
 async function getNotes() {
   if (!notesReady) notesReady = (async () => {
     const { createNotesService } = await import('../host/notes-service.mjs');
-    notes = createNotesService(directory, change => notify('niwa-event', { type: 'notes-changed', ...change }));
+    notes = createNotesService(directory, change => {
+      notify('niwa-event', { type: 'notes-changed', ...change });
+    });
     return notes;
   })().catch(error => { notesReady = null; throw error; });
   return notesReady;
@@ -51,6 +53,38 @@ async function getAgent() {
   return agentReady;
 }
 function report(error) { notify('host-error', error.message); }
+async function getMeetings() {
+  if (!meetingsReady) meetingsReady = (async () => {
+    const { createMeetingService } = await import('../host/meetings/session.mjs');
+    meetings = await createMeetingService({ directory, notes:await getNotes(), transcription, native,
+      binary:runtime.resolveNiwaCodexBinary, getSettings:async () => (await getAgent()).snapshot().settings,
+      notify:value => {
+        notify('meeting-event', value);
+        if (value.type === 'meeting-state') void native('meeting-state', value).catch(report);
+      },
+    });
+    return meetings;
+  })().catch(error => { meetingsReady = null; throw error; });
+  return meetingsReady;
+}
+async function getAccount() {
+  if (!accountReady) accountReady = (async () => {
+    const { createAccountService } = await import('../host/account/service.mjs');
+    account = await createAccountService({ directory, notes:await getNotes(), openBrowser:url => native('open-url', url),
+      notify:value => {
+        notify('account-state', value);
+        void updateMeetingCalendar(value.upcoming).catch(report);
+      } });
+    return account;
+  })().catch(error => { accountReady = null; throw error; });
+  return accountReady;
+}
+async function updateMeetingCalendar(events) {
+  if (closing) return;
+  const { meetingCalendarEvents } = await import('../host/meetings/calendar-events.mjs');
+  const service = await getMeetings();
+  if (!closing) await service.call('calendar-events', { events:meetingCalendarEvents(events) });
+}
 const auth = createCleanupAuthManager({ codexBin: runtime.resolveCodexBinary, userDataPath: directory,
   notify: value => notify('cleanup-auth-event', value), openBrowser: url => native('open-url', url) });
 function getVoice() {
@@ -91,12 +125,23 @@ function startHotkey() {
 const paste = createPasteHandler({ clipboard: { writeText: text => native('copy-text', text) }, getWorker: startHotkey });
 const configure = async (key, value, params) => { await transcription.send('configure', params); process.env[key] = value; runtime.persistDotEnvValue(key, value); };
 const handlers = {
-  'desktop-ready': () => { if (!process.env.LOCALFLOW_TEST_NO_INPUT) startHotkey(); if (!process.env.LOCALFLOW_TEST_NO_WARMUP) void transcription.send('warmup').catch(report); return true; },
+  'desktop-ready': () => {
+    if (!process.env.LOCALFLOW_TEST_NO_INPUT) startHotkey();
+    if (!process.env.LOCALFLOW_TEST_NO_WARMUP) void transcription.send('warmup').catch(report);
+    void getMeetings().catch(report);
+    void getAccount().catch(report);
+    return true;
+  },
+  'meeting-call': async (method, value) => method === 'browser-folder'
+    ? native('reveal-path', path.join(runtime.resourcesRoot(),'extensions/meeting-detection'))
+    : (await getMeetings()).call(method, value ?? {}),
+  'meeting-native-event': async value => (await getMeetings()).nativeEvent(value),
+  'account-call': async (method, value) => (await getAccount()).call(method, value),
   'transcribe-file': async value => {
     if (!value || typeof value.path !== 'string' || !path.isAbsolute(value.path) || !fs.statSync(value.path).isFile()) throw new Error('Choose an existing audio file.');
     return transcription.send('transcribe', value, value.requestId);
   },
-  'cancel-transcription': () => transcription.cancel(),
+  'cancel-transcription': requestId => transcription.cancel(requestId),
   'set-whisper-model': async model => {
     if (!['base','small','large-v3-turbo',...runtime.BUNDLED_WHISPER_MODELS,'nemo-parakeet-tdt-0.6b-v3','nemo-canary-1b-v2'].includes(model)) throw new Error('Unsupported STT model.');
     if (!(await transcription.send('model-status', { model })).available) {
@@ -151,7 +196,7 @@ const handlers = {
   'niwa-select-files': () => native('open-dialog', { title:'Add files to chat', multiple:true }),
   'niwa-add-project': async () => { const files = await native('open-dialog', { title:'Choose a project', directory:true }); return files.length ? (await getAgent()).addProject({ path:files[0] }) : null; },
   'niwa-connect-browser': async () => require('../host/chrome-connection.cjs').connectChrome(await getAgent()),
-  close: async () => { closing = true; await agent?.close(); await notes?.close(); transcription.stop(); duplex?.close(); terminateProcess(hotkey); hotkey = null; voice?.stop(); auth.close(); return true; },
+  close: async () => { closing = true; await Promise.allSettled([meetingsReady,accountReady]); await account?.close(); await meetings?.close(); await agent?.close(); await notes?.close(); transcription.stop(); duplex?.close(); terminateProcess(hotkey); hotkey = null; voice?.stop(); auth.close(); return true; },
 };
 const agentMethods = {'projects':'projects','open-folder':'openFolder','new-chat':'newChat','select-chat':'selectChat','rename-chat':'renameChat','manage-project':'manageProject','undo-changes':'undoChanges','snapshot':'snapshot','connect':'connect','send':'send','start-voice':'startVoice','disconnect-browser':'disconnectBrowser','stop-voice':'stopVoice','interrupt':'interrupt','configure':'configure','save-connector':'saveConnector','forget':'forget','respond':'respond'};
 for (const [channel, method] of Object.entries(agentMethods)) handlers['niwa-'+channel] = async (...args) => (await getAgent())[method](...args);
@@ -161,7 +206,7 @@ createInterface({ input: process.stdin }).on('line', line => {
   let packet; try { packet = JSON.parse(line); } catch { return; }
   if(process.env.LOCALFLOW_DEBUG_BRIDGE)console.error('[host] request',packet.id,packet.method);
   if (packet.nativeId) { const request = nativePending.get(packet.nativeId); if (!request) return; nativePending.delete(packet.nativeId); clearTimeout(request.timer); packet.error ? request.reject(new Error(packet.error)) : request.resolve(packet.value); return; }
-  Promise.resolve().then(() => { if (closing && packet.method !== 'close') throw new Error('LocalFlow is closing.'); const handler = handlers[packet.method]; if (typeof handler !== 'function' || !Array.isArray(packet.args)) throw new Error('Unknown LocalFlow operation.'); return handler(...packet.args); })
+  Promise.resolve().then(() => { if (closing && !['close','meeting-native-event'].includes(packet.method)) throw new Error('LocalFlow is closing.'); const handler = handlers[packet.method]; if (typeof handler !== 'function' || !Array.isArray(packet.args)) throw new Error('Unknown LocalFlow operation.'); return handler(...packet.args); })
     .then(value => send({ id:packet.id, value:value ?? null }), error => send({ id:packet.id, error:error.message }));
 });
 process.stdin.on('end', () => { void handlers.close().finally(() => process.exit()); });

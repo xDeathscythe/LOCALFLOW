@@ -1,5 +1,6 @@
 import {
   FileAudio,
+  AudioLines,
   FolderOpen,
   History,
   Info,
@@ -41,11 +42,13 @@ import type {
 } from "./types";
 
 type RunState = "idle" | "starting" | "recording" | "saving" | "ready" | "processing" | "done" | "error";
-type NavSection = "transcribe" | "notes" | "niwa" | "files" | "history" | "settings" | "shortcuts" | "about";
+type NavSection = "transcribe" | "meetings" | "notes" | "niwa" | "files" | "history" | "settings" | "shortcuts" | "about";
 type WhisperModelId = "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2";
 type HotkeyMode = "hold" | "press";
 type RecordingMode = "manual" | "paste" | "notes" | "niwa";
 const NotesPage = lazy(() => import('./components/NotesPage').then(module => ({ default: module.NotesPage })));
+const MeetingsPage = lazy(() => import('./components/MeetingsPage').then(module => ({ default: module.MeetingsPage })));
+const AccountSettings = lazy(() => import('./components/AccountSettings').then(module => ({ default: module.AccountSettings })));
 const CLEANUP_LEVEL_STORAGE_KEY = "localflow.cleanup-level.v1";
 const HOTKEY_MODE_STORAGE_KEY = "localflow.hotkey-mode.v1";
 const cleanupLevels = new Set<CleanupLevel>(["none", "light", "medium", "high"]);
@@ -202,6 +205,7 @@ const cleanupLevelOptions: Array<{
 
 const navItems = [
   { id: "transcribe", label: "Transcribe", icon: Mic },
+  { id: "meetings", label: "Meetings", icon: AudioLines },
   { id: "notes", label: "Notes", icon: NotebookPen },
   { id: "niwa", label: "Brainstorm space", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
@@ -243,6 +247,7 @@ export function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [activeSection, setActiveSection] = useState<NavSection>("niwa");
   const [notesOpened, setNotesOpened] = useState(false);
+  const [openMeetingNote, setOpenMeetingNote] = useState<{id:string;request:number} | null>(null);
   const [exportedPath, setExportedPath] = useState("");
   const [error, setError] = useState("");
   const [switchingModel, setSwitchingModel] = useState(false);
@@ -285,6 +290,11 @@ export function App() {
     return () => window.removeEventListener('localflow-host-error', failed);
   }, []);
   useEffect(() => { if (activeSection === 'notes') setNotesOpened(true); }, [activeSection]);
+  useEffect(() => window.localflow.onMeetingEvent(event => {
+    if (event.type !== 'meeting-open-note') return;
+    setOpenMeetingNote({id:event.noteId,request:Date.now()});
+    setNotesOpened(true); setActiveSection('notes');
+  }), []);
   useEffect(() => window.localflow.onNiwaEvent(event => {
     if (event.type === 'approval') setActiveSection('niwa');
   }), []);
@@ -433,7 +443,7 @@ export function App() {
   }, []);
 
   useEffect(() => window.localflow.onEdgeAction(action => {
-    if (action === 'notes') { setActiveSection('notes'); return; }
+    if (action === 'transcribe') { setActiveSection('meetings'); return; }
     if (action === 'agent') { setActiveSection('niwa'); return; }
     if (stateRef.current === 'starting') { reset(); return; }
     if (stateRef.current === 'recording') { stopRecording(); return; }
@@ -862,6 +872,7 @@ export function App() {
           <div className="settingsList">
             <AppearanceSettings />
             <EdgeSettings />
+            <Suspense fallback={null}><AccountSettings call={window.localflow.accountCall} onState={window.localflow.onAccountState} /></Suspense>
             <div className="settingsGroup cleanupAuthGroup">
               <div className="settingsGroupHeading">
                 <strong>Cleanup access</strong>
@@ -1155,12 +1166,13 @@ export function App() {
           onMode={mode => { niwaModeRef.current = mode; }}
           onLocalRecord={() => state === 'recording' && recordingModeRef.current === 'niwa' ? stopRecording() : void startRecording('niwa')} />
         {(notesOpened || activeSection === 'notes' || notesCapture) && <Suspense fallback={null}><NotesPage sidebar={notesSidebar} header={notesHeader} visible={activeSection === "notes"} onOpen={() => setActiveSection("notes")}
+          openRequest={openMeetingNote} onOpenRequestHandled={() => setOpenMeetingNote(null)}
           capture={notesCapture} onCaptureHandled={() => setNotesCapture(null)} onStatus={setStatus}
           recording={state === "recording" && recordingModeRef.current === "notes"}
           recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
           onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
         /></Suspense>}
-        {activeSection === "transcribe" ? <TranscribePage
+        {activeSection === 'meetings' ? <Suspense fallback={<div className="meetingEmpty">Loading meetings…</div>}><MeetingsPage /></Suspense> : activeSection === "transcribe" ? <TranscribePage
           result={result} name={audioName} state={state} status={status} error={error}
           seconds={recordingSeconds} startedAt={state === 'recording' ? startedAtRef.current : 0} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
           model={config.whisperModel} language={config.language as TranscriptionLanguage} cleanup={options.cleanupLevel}

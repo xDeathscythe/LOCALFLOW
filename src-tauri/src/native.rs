@@ -313,6 +313,14 @@ pub async fn dispatch(app: &tauri::AppHandle, method: &str, args: Value) -> Resu
             Ok(Value::Null)
         }
         "recording-stop" => {
+            let stop_meeting = {
+                let desktop = app.state::<crate::Desktop>();
+                let state = desktop.edge.lock().unwrap();
+                state["recording"] != true && state["starting"] != true && state["meeting"]["active"].is_object()
+            };
+            if stop_meeting {
+                return app.state::<crate::Desktop>().bridge.call(app, "meeting-call", json!(["stop", {}])).await;
+            }
             tauri::Emitter::emit_to(app, "main", "recording-overlay-stop", ())
                 .map_err(|e| e.to_string())?;
             Ok(Value::Null)
@@ -321,8 +329,17 @@ pub async fn dispatch(app: &tauri::AppHandle, method: &str, args: Value) -> Resu
             crate::edge::ready(app, "recording")?;
             Ok(Value::Null)
         }
+        "meeting-call" => crate::meeting::dispatch(app, first.clone()).await,
+        "edge-meeting-action" => {
+            let action = first["action"].as_str().ok_or("Choose a meeting action.")?;
+            if !["accept", "decline", "pause", "resume", "stop", "open-note", "mute"].contains(&action) {
+                return Err("Unknown meeting action.".into());
+            }
+            if action == "open-note" { crate::show(app); }
+            app.state::<crate::Desktop>().bridge.call(app, "meeting-call", json!([action, first])).await
+        }
         "get-edge-settings" | "set-edge-settings" | "edge-ready" | "edge-hover" | "edge-action"
-        | "overlay-state" | "agent-state" => crate::edge::dispatch(app, method, first),
+        | "overlay-state" | "agent-state" | "meeting-state" | "edge-region" => crate::edge::dispatch(app, method, first),
         _ => Err("Unknown desktop operation.".into()),
     }
 }

@@ -3,6 +3,8 @@ mod assets;
 mod bridge;
 mod capture;
 mod edge;
+mod edge_region;
+mod meeting;
 mod native;
 mod paths;
 mod pdf;
@@ -55,7 +57,7 @@ async fn native_call(
 ) -> Result<Value, String> {
     if window.label() != "main"
         && !(window.label() == "edge"
-            && matches!(method.as_str(), "edge-hover" | "edge-action" | "edge-ready"))
+            && matches!(method.as_str(), "edge-hover" | "edge-action" | "edge-ready" | "edge-region" | "edge-meeting-action"))
         && !(window.label() == "recording"
             && matches!(method.as_str(), "recording-stop" | "recording-ready"))
     {

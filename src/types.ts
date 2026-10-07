@@ -42,7 +42,7 @@ export type WorkerProgress = {
 };
 
 export type RecordingOverlayState = {
-  selected?: 'agent' | 'microphone' | 'notes';
+  selected?: 'agent' | 'microphone' | 'transcribe';
   recordingTarget?: 'agent' | 'microphone';
   agentListening?: boolean;
   recording: boolean;
@@ -97,7 +97,11 @@ declare global {
       selectAudioFile: () => Promise<string | null>;
       saveAudioBuffer: (payload: { buffer: ArrayBuffer; extension?: string }) => Promise<string>;
       transcribeFile: (payload: { path: string; options: PolishOptions; requestId?: string }) => Promise<TranscriptResult>;
-      cancelTranscription: () => Promise<void>;
+      cancelTranscription: (requestId?: string) => Promise<void>;
+      meetingCall: <T = import('./lib/meetings').MeetingState>(method: string, value?: unknown) => Promise<T>;
+      onMeetingEvent: (callback: (event: import('./lib/meetings').MeetingEvent) => void) => () => void;
+      accountCall: <T = unknown>(method: string, value?: unknown) => Promise<T>;
+      onAccountState: <T = unknown>(callback: (value: T) => void) => () => void;
       setWhisperModel: (model: "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2") => Promise<{ whisperModel: string; whisperDownloadRoot?: string } | null>;
       setWhisperLanguage: (language: TranscriptionLanguage) => Promise<{ language: TranscriptionLanguage; outputLanguage: string }>;
       getCleanupAuthStatus: () => Promise<CleanupAuthStatus>;
@@ -120,7 +124,7 @@ declare global {
       pasteText: (text: string) => Promise<boolean>;
       getEdgeSettings: () => Promise<{ enabled: boolean; autoHide: boolean }>;
       setEdgeSettings: (value: { enabled: boolean; autoHide: boolean }) => Promise<{ enabled: boolean; autoHide: boolean }>;
-      onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'notes') => void) => () => void;
+      onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'transcribe') => void) => () => void;
       notesList: () => Promise<NotesIndex>;
       notesTrash: () => Promise<{id:string;label:string;kind:string;deletedAt:string}[]>;
       notesRestore: (id:string) => Promise<NotesIndex>;

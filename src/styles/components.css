@@ -805,7 +805,10 @@
 
 .noteTitleInput {
   display: block;
-  width: min(420px, 100%);
+  width: 100%;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
   padding: 0;
   border: 0;
   border-bottom: 1px solid transparent;

@@ -65,7 +65,7 @@ def next_command():
 
 def clean_with_host(prompt, timeout):
     request_id = str(uuid4())
-    print(json.dumps({'type': 'cleanup-request', 'id': request_id, 'prompt': prompt, 'timeout': timeout}, ensure_ascii=False), flush=True)
+    print(json.dumps({'type': 'cleanup-request', 'id': request_id, 'jobId': active_job, 'prompt': prompt, 'timeout': timeout}, ensure_ascii=False), flush=True)
     while True:
         check_cancelled()
         try:

@@ -232,12 +232,14 @@ def warmup_model(request_id: str) -> None:
     emit({"id": request_id, "type": "result", "ok": True, "data": {"ready": True}})
 
 
-def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
+def transcribe_audio(request_id: str, audio_path: str, language: str | None = None) -> dict[str, Any]:
     path = Path(audio_path)
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
 
-    language = configured_language()
+    language = language or configured_language()
+    if language not in ALLOWED_LANGUAGES:
+        raise ValueError("Unsupported transcription language")
     model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
     if is_onnx_stt_model(model_name):
         emit(
@@ -443,7 +445,8 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
     audio_path = str(params.get("path") or "")
     options = params.get("options") if isinstance(params.get("options"), dict) else {}
 
-    result = transcribe_audio(request_id, audio_path)
+    transcript_only = options.get("transcriptOnly") is True
+    result = transcribe_audio(request_id, audio_path, str(options.get("language") or "auto")) if transcript_only else transcribe_audio(request_id, audio_path)
     check_cancelled(request_id)
     emit(
         {
@@ -458,7 +461,8 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
             },
         }
     )
-    polished = polish_transcript(request_id, result["text"], options, result["language"])
+    # Meeting evidence must neither be rewritten nor enter the dictation context.
+    polished = "" if transcript_only else polish_transcript(request_id, result["text"], options, result["language"])
     check_cancelled(request_id)
     emit(
         {

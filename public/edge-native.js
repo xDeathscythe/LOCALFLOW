@@ -6,6 +6,8 @@ let hovered = false;
 window.edge = {
   hover: value => { const next = value !== null; if (next === hovered) return; hovered = next; void call('edge-hover', value); },
   action: value => { void call('edge-action', value); },
+  meeting: value => call('edge-meeting-action', value),
+  region: value => call('edge-region', value),
   onState: callback => { void listen('edge-state', event => callback(event.payload)).then(() => call('edge-ready', null)); },
 };
 })();

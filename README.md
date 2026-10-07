@@ -1,6 +1,6 @@
 # LocalFlow
 
-**0.2.5 · Windows x64 · MIT**
+**0.3.1 · Windows x64 · MIT**
 
 Local dictation, rich notes and the Niwa voice agent. The desktop shell uses
 Rust/Tauri 2 and Windows WebView2. Electron is no longer an application dependency.
@@ -14,7 +14,7 @@ computer tools, MCP connectors and voice-output engines remain available.
 
 ## Windows package
 
-Open `release/LocalFlow-0.2.5-Windows-x64/LocalFlow.exe`. Keep the whole directory
+Open `release/LocalFlow-0.3.1-Windows-x64/LocalFlow.exe`. Keep the whole directory
 together: it contains Python, Node, Codex, CUDA/cuDNN, large-v3 and browser tools.
 The executable alone is not the complete application. Microsoft WebView2 and the
 Visual C++ x64 runtime are required; the latter is included under
@@ -28,6 +28,34 @@ external editing rather than editing those retired files.
 Optional STT/TTS engines download only after selection and confirmation. Agent
 and realtime services require the account and internet access used by those
 services. A mobile client is not included in this release.
+
+## Meetings and connected devices
+
+The side notch opens the Meetings recorder. Choose a call application (or all
+computer audio), confirm recording, and LocalFlow saves microphone and remote
+audio in independent recoverable chunks. Transcripts are processed locally and
+saved in **Notes / Meetings**. Codex can summarize transcript text into a title,
+key points, decisions, actions and open questions; failed processing can be retried.
+Meeting notes open with an action checklist and topic-based summary. Numbered
+sources open the corresponding passage in the separate, searchable full transcript.
+The original editable note remains available under **Edit note**.
+Use headphones when the microphone does not provide echo cancellation.
+
+Optional [browser call detection](extensions/meeting-detection/README.md) offers
+recording for supported browser WebRTC calls after pairing the bundled extension.
+Native app audio activity alone does not trigger recording or an automatic offer.
+The recorder can be started manually for Zoom, WhatsApp, Viber and other apps.
+Process audio capture requires Windows build 20348 or later; all-computer loopback
+is available when process capture is unsupported. Browser application capture
+can include other tabs.
+
+Google sign-in and Calendar use a separate LocalFlow account service. The desktop
+contains account settings and the remote Notes host; the deployable service is in
+`services/account`. Production Clerk/Google and managed tunnel credentials must be
+provisioned before sign-in and access over the internet can work. These credentials
+are never bundled in the desktop package. A mobile app is outside this release.
+See [account setup](docs/account-and-remote-setup.md) and
+[meeting release verification](docs/meetings-0.3.1.md).
 
 ## Develop
 
@@ -62,6 +90,9 @@ links; changing a build source cannot change an already packaged runtime.
 
 ```powershell
 npm run test:native
+npm run test:native:meetings
+npm run test:meetings
+npm run test:account
 npm run test:native:inference
 npm run test:native:glass
 npm run test:native -- --notion-media
