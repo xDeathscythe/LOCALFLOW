@@ -58,7 +58,15 @@ try:
         expect(type="hotkey", event="pressed", action="dictation")
         button(1, False)
         expect(type="hotkey", event="released", action="dictation")
-    print("Native mouse capture and dictation press/release passed")
+    for key in (0x71, 0x72):
+        ctypes.windll.user32.keybd_event(key, 0, 0, 0)
+    expect(type="hotkey", event="pressed", action="select-copy")
+    ctypes.windll.user32.keybd_event(0x72, 0, 2, 0)
+    expect(type="hotkey", event="released", action="select-copy")
+    ctypes.windll.user32.keybd_event(0x71, 0, 2, 0)
+    capture(True)
+    capture(False)
+    print("Native mouse capture, dictation and F2 + F3 press/release passed")
 finally:
     child.terminate()
     child.wait(timeout=10)

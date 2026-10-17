@@ -32,6 +32,7 @@ MODIFIER_SIDES = {
     VK_MENU: {0xA4, 0xA5},
 }
 DEFAULT_SHORTCUTS = {
+    "select-copy": {"keys": [0x71, 0x72], "label": "F2 + F3"},
     "dictation": {"keys": [0x11, 0x10], "label": "Ctrl + Shift"},
     "import-audio": {"keys": [0x11, 0x4F], "label": "Ctrl + O"},
     "reset-session": {"keys": [0x11, 0x52], "label": "Ctrl + R"},
@@ -136,6 +137,9 @@ def main() -> None:
     shortcuts = load_shortcuts()
     physical_keys: set[int] = set()
     active: tuple[str, str, tuple[int, ...]] | None = None
+    deferred_copy_keys: set[int] = set()
+    copy_chord_used = False
+    text_menu_pressed = False
     capture_mode = threading.Event()
     if os.environ.get("LOCALFLOW_SHORTCUT_CAPTURE") == "1":
         capture_mode.set()
@@ -185,19 +189,45 @@ def main() -> None:
 
     @HOOK_CALLBACK
     def keyboard_hook(code: int, message: int, data_pointer: int) -> int:
+        nonlocal copy_chord_used
         if code >= 0:
             data = ctypes.cast(data_pointer, ctypes.POINTER(KeyboardHookData)).contents
             if data.extra_info != LOCALFLOW_INJECTED_MARKER:
+                # Defer bare F2/F3 until release so the chord never renames/searches in the source app.
+                copy_key = not capture_mode.is_set() and data.vk_code in (0x71, 0x72) and any(action == "select-copy" and set(keys) == {0x71, 0x72} for action, _, keys in shortcuts)
                 if message in (WM_KEYDOWN, WM_SYSKEYDOWN):
+                    if copy_key:
+                        deferred_copy_keys.add(data.vk_code)
                     physical_keys.add(data.vk_code)
                     update_active()
+                    if copy_key and {0x71, 0x72}.issubset(physical_keys):
+                        copy_chord_used = True
                 elif message in (WM_KEYUP, WM_SYSKEYUP):
                     physical_keys.discard(data.vk_code)
                     update_active()
+                    if data.vk_code in deferred_copy_keys:
+                        deferred_copy_keys.discard(data.vk_code)
+                        if not copy_chord_used:
+                            tap_key(data.vk_code)
+                        if not deferred_copy_keys:
+                            copy_chord_used = False
+                        return 1
+                if copy_key:
+                    return 1
         return user32.CallNextHookEx(None, code, message, data_pointer)
 
     @HOOK_CALLBACK
     def mouse_hook(code: int, message: int, data_pointer: int) -> int:
+        nonlocal text_menu_pressed
+        if code >= 0 and message in (0x0204, 0x0205):
+            if message == 0x0204 and not capture_mode.is_set() and 0x11 in effective_down_keys(physical_keys):
+                text_menu_pressed = True
+                data = ctypes.cast(data_pointer, ctypes.POINTER(MouseHookData)).contents
+                output.put({"type": "text-selection", "x": data.point.x, "y": data.point.y})
+                return 1
+            if message == 0x0205 and text_menu_pressed:
+                text_menu_pressed = False
+                return 1
         if code >= 0 and message in (WM_XBUTTONDOWN, WM_XBUTTONUP):
             data = ctypes.cast(data_pointer, ctypes.POINTER(MouseHookData)).contents
             key = VK_XBUTTON1 if (data.mouse_data >> 16) & 0xFFFF == 1 else VK_XBUTTON2
@@ -246,10 +276,10 @@ if __name__ == "__main__":
             "dictation": {"keys": [5], "label": "Mouse Back"},
             "niwa-agent": {"keys": [0x11, VK_CAPITAL], "label": "Ctrl + Caps Lock"},
         })
-        assert configured[0] == ("dictation", "Mouse Back", (5,))
+        assert configured[1] == ("dictation", "Mouse Back", (5,))
         assert configured[-1] == ("niwa-agent", "Ctrl + Caps Lock", (0x11, VK_CAPITAL))
         assert effective_down_keys({0xA2, 0xA0}) >= {VK_CONTROL, VK_SHIFT}
-        assert current_action(configured, {VK_XBUTTON1}) == configured[0]
+        assert current_action(configured, {VK_XBUTTON1}) == configured[1]
         print("hotkey watcher config check passed")
     else:
         main()

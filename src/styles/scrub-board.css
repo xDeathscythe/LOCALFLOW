@@ -1,0 +1,10 @@
+.scrubBoardPage{display:flex;flex:1;flex-direction:column;min-height:0;color:var(--color-text)}
+.scrubBoardPage .noteDocumentScroll{flex:1;min-height:0;overflow:auto}
+.scrubHint{max-width:850px;margin:0 auto 18px;padding:0 48px;font-size:12px;color:var(--color-text-soft)}
+.scrubFooter{flex-shrink:0;padding:14px 24px 18px;border-top:1px solid var(--color-border);background:var(--workspace-bg)}
+.scrubFooter form{display:flex;gap:8px;max-width:850px;margin:0 auto 10px}
+.scrubFooter input{flex:1;min-width:0;border:1px solid var(--color-border);background:transparent;color:var(--color-text);border-radius:6px;padding:9px 12px;font:inherit;font-size:13px}
+.scrubFooter button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--color-border);border-radius:6px;background:var(--niwa-control-hover);color:var(--color-text);padding:8px 12px;font-size:12px}
+.scrubFooter button:disabled{opacity:.45;cursor:default}
+.scrubFooterActions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.scrubFooterActions [role=status]{flex:1;color:var(--color-text-soft);font-size:12px}

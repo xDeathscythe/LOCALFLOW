@@ -9,6 +9,9 @@ mod native;
 mod paths;
 mod pdf;
 mod uploads;
+mod text_tools;
+mod screen_text;
+mod text_context;
 
 use serde_json::{json, Value};
 use std::{
@@ -56,12 +59,17 @@ async fn native_call(
     args: Value,
 ) -> Result<Value, String> {
     if window.label() != "main"
+        && !(text_tools::is_window(window.label()) && matches!(method.as_str(), "text-tools-close" | "text-tools-open" | "text-tools-run" | "text-tools-copy" | "text-tools-recognize"))
         && !(window.label() == "edge"
             && matches!(method.as_str(), "edge-hover" | "edge-action" | "edge-ready" | "edge-region" | "edge-meeting-action"))
         && !(window.label() == "recording"
             && matches!(method.as_str(), "recording-stop" | "recording-ready"))
     {
         return Err("This operation belongs to the main window.".into());
+    }
+    let mut args = args;
+    if method == "text-tools-run" {
+        args.get_mut(0).and_then(Value::as_object_mut).ok_or("Invalid text request")?.insert("owner".into(),json!(window.label()));
     }
     native::dispatch(&app, &method, args).await
 }
@@ -265,6 +273,7 @@ fn main() {
                 .background_color(tauri::window::Color(0, 0, 0, 0)).build()?;
             native::appearance(&window, &theme)?;
             native::microphone(&window)?;
+            text_context::install(&window)?;
             let show_item = MenuItem::with_id(app, "show", "Show LocalFlow", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
@@ -273,6 +282,10 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if text_tools::is_window(window.label()) && matches!(event,tauri::WindowEvent::Destroyed) {
+                let app=window.app_handle().clone(); let owner=window.label().to_owned();
+                tauri::async_runtime::spawn(async move { let _=app.state::<Desktop>().bridge.call(&app,"text-tools-cancel",json!([owner])).await; });
+            }
             if window.label() == "main" {
                 if matches!(event,tauri::WindowEvent::Moved(_) | tauri::WindowEvent::ScaleFactorChanged { .. }) {
                     let _ = edge::update(window.app_handle(), json!({}));

@@ -1,9 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 
-const SHORTCUT_ACTIONS = new Set(["dictation", "import-audio", "reset-session", "niwa-agent"]);
+const SHORTCUT_ACTIONS = new Set(["dictation", "import-audio", "reset-session", "niwa-agent", "select-copy"]);
 const FORBIDDEN_SHORTCUT_KEYS = new Set([0x01, 0x02, 0x04]);
 const DEFAULT_SHORTCUTS = Object.freeze({
+  "select-copy": { keys: [0x71, 0x72], label: "F2 + F3" },
   "niwa-agent": { keys: [0x11, 0x14], label: "Ctrl + Caps Lock" },
   dictation: { keys: [0x11, 0x10], label: "Ctrl + Shift" },
   "import-audio": { keys: [0x11, 0x4f], label: "Ctrl + O" },

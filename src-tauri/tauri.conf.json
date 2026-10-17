@@ -21,7 +21,10 @@
             "main",
             "edge",
             "cleanup",
-            "recording"
+            "recording",
+            "text-menu",
+            "text-capture",
+            "text-toast"
           ],
           "permissions": [
             "core:event:default",

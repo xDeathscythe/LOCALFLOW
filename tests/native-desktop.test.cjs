@@ -42,6 +42,13 @@ async function run() {
     await page.waitForSelector('.navList',{timeout:30000});
     const usableMs = performance.now()-launch;
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
+    if(process.argv.includes('--text-tools')) {
+      await require('./native-text-tools.cjs')(page,browser,directory);
+      assert(!logs.includes('\n[ui]'),'Text tools must not cause main UI errors.');
+      await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'application-quit',args:[]}));
+      for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));
+      assert.equal(processHandle.exitCode,0);return;
+    }
     if(process.argv.includes('--account')) {
       await require('./native-account.cjs')(page,directory);
       assert(!logs.includes('\n[ui]'),'Account UI must not report an uncaught execution error.');

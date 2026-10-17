@@ -50,7 +50,7 @@ export type RecordingOverlayState = {
   elapsedSeconds: number;
 };
 
-export type ShortcutAction = 'dictation' | 'import-audio' | 'reset-session' | 'niwa-agent';
+export type ShortcutAction = 'dictation' | 'import-audio' | 'reset-session' | 'niwa-agent' | 'select-copy';
 
 export type ShortcutBinding = {
   keys: number[];

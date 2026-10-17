@@ -128,6 +128,7 @@ pub fn microphone(window: &WebviewWindow) -> Result<(), String> {
 pub async fn dispatch(app: &tauri::AppHandle, method: &str, args: Value) -> Result<Value, String> {
     let first = &args[0];
     match method {
+        "text-tools-selection" | "text-tools-open" | "text-tools-close" | "text-tools-run" | "text-tools-copy" | "text-tools-recognize" => crate::text_tools::dispatch(app, method, first.clone()).await,
         "get-appearance" => Ok(json!(theme()?)),
         "set-appearance" => {
             let theme = text(first)?;

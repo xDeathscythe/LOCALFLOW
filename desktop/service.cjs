@@ -116,6 +116,8 @@ function startHotkey() {
   createInterface({ input: child.stdout }).on('line', line => {
     let value; try { value = JSON.parse(line); } catch { return; }
     if (value.type === 'paste-result') child.emit('paste-result', value);
+    else if (value.type === 'text-selection' && !capture) void native('text-tools-selection', value).catch(report);
+    else if (value.type === 'hotkey' && value.action === 'select-copy' && !capture) { if (value.event === 'pressed') void native('text-tools-open', { mode:'capture' }).catch(report); }
     else if (value.type === 'shortcut-captured' && capture) notify('shortcut-captured', value.binding);
     else if (value.type === 'hotkey' && !capture) notify('dictation-hotkey', value);
   });
@@ -126,7 +128,16 @@ function startHotkey() {
 }
 const paste = createPasteHandler({ clipboard: { writeText: text => native('copy-text', text) }, getWorker: startHotkey });
 const configure = async (key, value, params) => { await transcription.send('configure', params); process.env[key] = value; runtime.persistDotEnvValue(key, value); };
+const textRequests = new Map();
 const handlers = {
+  'text-tools-run': async value => {
+    const owner = value?.owner || 'main';
+    if (textRequests.has(owner)) throw Error('A text request is already running.');
+    const controller = new AbortController(); textRequests.set(owner,controller);
+    try { return await require('../host/text-tools.cjs').runTextTool({ directory, binary:runtime.resolveNiwaCodexBinary }, value, undefined, controller.signal); }
+    finally { textRequests.delete(owner); }
+  },
+  'text-tools-cancel': owner => { textRequests.get(owner)?.abort(); },
   'desktop-ready': () => {
     if (!process.env.LOCALFLOW_TEST_NO_INPUT) startHotkey();
     if (!process.env.LOCALFLOW_TEST_NO_WARMUP) void transcription.send('warmup').catch(report);
