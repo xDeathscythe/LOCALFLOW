@@ -5,6 +5,8 @@
   "description": "Native Windows dictation, rich notes and Niwa agent with local PC inference.",
   "type": "module",
   "scripts": {
+    "test:brainstorm": "node tests/brainstorm.test.mjs",
+    "test:native:brainstorm": "npm run test:native -- --brainstorm",
     "dev": "vite --host 127.0.0.1",
     "desktop:dev": "tauri dev",
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File start-localflow-desktop.ps1",

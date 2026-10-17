@@ -12,7 +12,7 @@ function subscribe<T>(event: string, callback: (value: T) => void) {
   return () => { active = false; void listener.then(stop => stop()); };
 }
 const hostMethods = {
-  meetingCall:'meeting-call', accountCall:'account-call',
+  meetingCall:'meeting-call', accountCall:'account-call', brainstormCall:'brainstorm-call',
   transcribeFile:'transcribe-file', cancelTranscription:'cancel-transcription', setWhisperModel:'set-whisper-model', setWhisperLanguage:'set-whisper-language',
   getCleanupAuthStatus:'cleanup-auth-status',getCleanupModels:'get-cleanup-models',setCleanupModel:'set-cleanup-model',connectCleanupWithCodex:'cleanup-auth-connect-codex',connectCleanupWithApiKey:'cleanup-auth-connect-api-key',disconnectCleanup:'cleanup-auth-disconnect',cancelCleanupConnection:'cleanup-auth-cancel',openCleanupAuthBrowser:'cleanup-auth-open-browser',
   getVoiceOutputConfig:'get-voice-output-config',setVoiceOutputModel:'set-voice-output-model',exportText:'export-text',getShortcuts:'get-shortcuts',setShortcutCapture:'set-shortcut-capture',setShortcut:'set-shortcut',pasteText:'paste-text',

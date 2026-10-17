@@ -169,6 +169,7 @@ declare global {
       niwaConnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;
       niwaDisconnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;
       niwaSend: (text: string) => Promise<void>;
+      brainstormCall: (action: string, value?: Record<string, unknown>) => Promise<import('./lib/brainstorm').BrainstormState>;
       niwaStartVoice: (sdp: string) => Promise<void>;
       niwaStopVoice: () => Promise<void>;
       niwaInterrupt: () => Promise<void>;

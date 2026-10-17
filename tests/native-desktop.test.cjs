@@ -17,6 +17,7 @@ fs.writeFileSync(path.join(profile, 'niwa/projects.json'), JSON.stringify({
   chats: ['日本語', 'Српски', 'العربية'].map((label, index) => ({ id: `motion-${index}`, folderId: 'motion-project', label })), activeId: 'niwa',
 }));
 const port = 19223;
+if(process.argv.includes('--brainstorm')) require('./brainstorm-fixture.cjs')(profile);
 const launch = performance.now();
 const environment={...process.env,LOCALFLOW_APP_ROOT:path.resolve('.'),LOCALFLOW_DEBUG_BRIDGE:'1',LOCALFLOW_USER_DATA:profile,LOCALFLOW_PACKAGED:'1',LOCALFLOW_TEST_NO_INPUT:'1',LOCALFLOW_TEST_NO_WARMUP:'1',WEBVIEW2_USER_DATA_FOLDER:path.join(directory,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port} --use-fake-device-for-media-stream --autoplay-policy=no-user-gesture-required`};
 delete environment.WEBVIEW2_USER_DATA_FOLDER; // Exercise native per-window profile selection.
@@ -49,8 +50,8 @@ async function run() {
       for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));
       assert.equal(processHandle.exitCode,0);return;
     }
-    if(process.argv.includes('--account')) {
-      await require('./native-account.cjs')(page,directory);
+    if(process.argv.includes('--account') || process.argv.includes('--brainstorm')) {
+      await require(process.argv.includes('--brainstorm') ? './native-brainstorm.cjs' : './native-account.cjs')(page,directory);
       assert(!logs.includes('\n[ui]'),'Account UI must not report an uncaught execution error.');
       await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'application-quit',args:[]}));
       for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));

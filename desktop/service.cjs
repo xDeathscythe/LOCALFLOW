@@ -53,6 +53,17 @@ async function getAgent() {
   return agentReady;
 }
 function report(error) { notify('host-error', error.message); }
+let brainstormReady;
+async function getBrainstorm() {
+  if (!brainstormReady) brainstormReady = (async () => {
+    const { createBrainstorm } = await import('../host/brainstorm.mjs');
+    return createBrainstorm({ directory, notes: await getNotes(),
+      context: async () => (await getAgent()).brainstormContext(),
+      generate: async value => require('../host/notes/skills.cjs').runNoteSkill({ directory, binary: runtime.resolveNiwaCodexBinary, settings: (await getAgent()).snapshot().settings }, value),
+    });
+  })().catch(error => { brainstormReady = null; throw error; });
+  return brainstormReady;
+}
 async function getMeetings() {
   if (!meetingsReady) meetingsReady = (async () => {
     const { createMeetingService } = await import('../host/meetings/session.mjs');
@@ -150,6 +161,7 @@ const handlers = {
     : (await getMeetings()).call(method, value ?? {}),
   'meeting-native-event': async value => (await getMeetings()).nativeEvent(value),
   'account-call': async (method, value) => (await getAccount()).call(method, value),
+  'brainstorm-call': async (method, value) => (await getBrainstorm()).call(method, value),
   'transcribe-file': async value => {
     if (!value || typeof value.path !== 'string' || !path.isAbsolute(value.path) || !fs.statSync(value.path).isFile()) throw new Error('Choose an existing audio file.');
     return transcription.send('transcribe', value, value.requestId);

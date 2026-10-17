@@ -10,6 +10,7 @@ export function createNiwaHistory(dataDir) {
     CREATE TRIGGER IF NOT EXISTS history_insert AFTER INSERT ON messages BEGIN INSERT INTO history_fts(rowid, content) VALUES(new.rowid,new.content); END;
     CREATE TRIGGER IF NOT EXISTS history_delete AFTER DELETE ON messages BEGIN INSERT INTO history_fts(history_fts,rowid,content) VALUES('delete',old.rowid,old.content); END;
     CREATE INDEX IF NOT EXISTS history_session ON messages(session);
+    CREATE INDEX IF NOT EXISTS history_timestamp ON messages(timestamp);
     CREATE TABLE IF NOT EXISTS user_model(id TEXT PRIMARY KEY, dimension TEXT, observation TEXT, evidence TEXT, confidence REAL, updated INTEGER);`);
   const insert = db.prepare("INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?)");
   const indexed = new Map();
@@ -34,6 +35,7 @@ export function createNiwaHistory(dataDir) {
   };
   return {
     sync, search,
+    recent: () => db.prepare('SELECT id,session,role,substr(content,1,1800) AS content,timestamp FROM messages ORDER BY timestamp DESC LIMIT 24').all().reverse(),
     conversations: onError => createConversationStore(db, dataDir, onError),
     read: (session, offset = 0, limit = 20) => db.prepare("SELECT * FROM messages WHERE session=? ORDER BY rowid LIMIT ? OFFSET ?").all(session, Math.min(50, limit), Math.max(0, offset)),
     forget: (session) => { indexed.delete(session); db.prepare("DELETE FROM messages WHERE session=?").run(session); db.prepare("DELETE FROM user_model WHERE EXISTS (SELECT 1 FROM json_each(user_model.evidence) WHERE value LIKE ?)").run(`${session}:%`); },
