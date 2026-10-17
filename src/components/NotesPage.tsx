@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, FilePlus2, Folder, FolderPlus, Mic, Square, X, Database, ArrowLeft, MoreHorizontal, Upload, Plus } from 'lucide-react';
+import { Check, FilePlus2, FolderPlus, Mic, Square, X, Database, ArrowLeft, MoreHorizontal, Upload, Plus } from 'lucide-react';
+import Riffle from './ui/hairline-riffle';
 import { RowProperties } from './notes/RowProperties';
 import { PageDesign } from './notes/PageDesign';
 import { MeetingNoteView } from './notes/MeetingNoteView';
@@ -144,6 +145,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, openRequest, onOpe
     }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
   }, [visible, pending, selectedId, tabs]);
   const selected = find(items, selectedId), menuNode = menu ? find(items, menu.id) : undefined;
+  const folderItems = selected ? selected.children || [] : items;
   const automaticWide = useMemo(() => {
     const hasColumns = (node: import('@tiptap/core').JSONContent): boolean => node.type === 'columns' || Boolean(node.content?.some(hasColumns));
     return note?.document ? hasColumns(note.document) : Boolean(note?.html && new DOMParser().parseFromString(note.html, 'text/html').querySelector('[data-type="columns"],.column-list'));
@@ -249,7 +251,11 @@ export function NotesPage({ sidebar, header, visible, onOpen, openRequest, onOpe
           <Suspense fallback={<div className="noteFolderState">Loading editor…</div>}>{visited && <NoteEditor key={note.id} noteId={note.id} loadVersion={loadVersion} blockTarget={blockTarget} editable={!note.presentation?.locked && !presenting} historyTarget={historyTarget} content={note.content} document={note.document} html={note.html} onOpenNote={id => select(id)} onChange={editorChanged} />}</Suspense>
         </MeetingNoteView>
         {selected?.children?.length ? <details className="noteChildPages"><summary>Pages inside · {selected.children.length}</summary><nav className="noteSubpages">{selected.children.map(child => <button key={child.id} onClick={event => select(child.id, event.ctrlKey || event.metaKey)} onContextMenu={event => { event.preventDefault(); showMenu(child.id, event.clientX, event.clientY); }}>{child.kind === 'database' ? <Database size={15} /> : <FilePlus2 size={15} />}{child.label}</button>)}</nav></details> : null}
-      </div> : <div className="noteFolderState"><Folder size={30} /><strong>{selected?.label || 'Notes'}</strong><div className="notesFolderChildren">{selected?.children?.map(child => <button key={child.id} onClick={event => select(child.id, event.ctrlKey || event.metaKey)} onContextMenu={event => { event.preventDefault(); showMenu(child.id, event.clientX, event.clientY); }}>{child.kind === 'database' ? <Database size={15} /> : child.kind === 'folder' ? <Folder size={15} /> : <FilePlus2 size={15} />}{child.label}</button>)}</div><button disabled={!ready} onClick={() => beginCreate('note', parentId)}><FilePlus2 size={16} /> New note</button></div>}
+      </div> : <div className="notesFolderView">
+        <header className="notesFolderHeading"><div><h2 dir="auto">{selected?.label || 'Notes'}</h2><p>{folderItems.length} items</p></div><button disabled={!ready || pending} onClick={() => beginCreate('note', parentId)}><FilePlus2 size={16} />New note</button></header>
+        <Riffle key={selectedId} label={selected?.label || 'Notes'} items={folderItems} disabled={!ready || pending} open={select} menu={showMenu} />
+        {!folderItems.length && <p className="notesFolderEmpty">Add a note to this folder to get started.</p>}
+      </div>}
     </section>
     {menu && menuNode && <PageMenu node={menu.id===note?.id?note:menuNode} x={menu.x} y={menu.y} close={() => setMenu(null)} action={action => command(menu.id, action)} words={menu.id===note?.id?words:undefined} appearance={{...appearances[menu.id],...menuNode.presentation,...(menu.id===note?.id?appearance:{})}} changeAppearance={patch => updateAppearance(menu.id,patch)} />}
     <input ref={importInput} hidden type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" aria-label="Import page file" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void run(async()=>{if(file.size>2_000_000)throw new Error('Page files must be at most 2 MB.');await flush();const value=await window.localflow.notesCreate({label:file.name.replace(/\.[^.]+$/,'').slice(0,300)||'Imported page',content:await file.text(),parentId:importParent.current});const tree=await list();await open(value.id,true,tree);});}}/>

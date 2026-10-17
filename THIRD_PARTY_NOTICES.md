@@ -18,6 +18,13 @@ Systematic debugging also credits [obra/superpowers](https://github.com/obra/sup
 The upstream MIT notices are included. The remaining bundled skills are Niwa originals.
 Neither Hermes' runtime nor Niwa Code's Pi execution loop is included.
 
+## Hairline Riffle
+
+The Notes folder illustration adapts [Hairline](https://github.com/lucasmarkes/hairline)
+revision `846d9a32dfa0167da57b59ecd236b13457ae5195`, copyright 2026 Lucas Marques.
+Its SVG geometry and animation core retain the [MIT license](licenses/hairline.txt).
+LocalFlow adds real folder entries, captions, navigation and multiple trays.
+
 ## Manrope
 
 The Manrope fonts in `src/assets/fonts` and the design prototype retain the
