@@ -31,3 +31,4 @@ auth.json
 prototypes/niwa-localflow/localflow-niwa.html
 src-tauri/target/
 src-tauri/gen/
+docs/images/meetings-0.3.0-*.png
