@@ -42,6 +42,13 @@ async function run() {
     await page.waitForSelector('.navList',{timeout:30000});
     const usableMs = performance.now()-launch;
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
+    if(process.argv.includes('--account')) {
+      await require('./native-account.cjs')(page,directory);
+      assert(!logs.includes('\n[ui]'),'Account UI must not report an uncaught execution error.');
+      await page.evaluate(()=>window.__TAURI__.core.invoke('native_call',{method:'application-quit',args:[]}));
+      for(let i=0;i<100&&processHandle.exitCode===null;i++)await new Promise(resolve=>setTimeout(resolve,100));
+      assert.equal(processHandle.exitCode,0,'Account test must shut down gracefully.');return;
+    }
     await assert.rejects(()=>page.evaluate(()=>window.localflow.setAppearance('__proto__')),/Unknown appearance/);
     for(const theme of ['light','static-white','dark','static-black','dark'])assert.equal(await page.evaluate(theme=>window.localflow.setAppearance(theme),theme),theme);
     if(process.argv.includes('--edge-only') || process.argv.includes('--meetings')) {

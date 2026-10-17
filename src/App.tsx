@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Settings,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -42,7 +43,7 @@ import type {
 } from "./types";
 
 type RunState = "idle" | "starting" | "recording" | "saving" | "ready" | "processing" | "done" | "error";
-type NavSection = "transcribe" | "meetings" | "notes" | "niwa" | "files" | "history" | "settings" | "shortcuts" | "about";
+type NavSection = "transcribe" | "meetings" | "notes" | "niwa" | "files" | "history" | "account" | "settings" | "shortcuts" | "about";
 type WhisperModelId = "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2";
 type HotkeyMode = "hold" | "press";
 type RecordingMode = "manual" | "paste" | "notes" | "niwa";
@@ -210,6 +211,7 @@ const navItems = [
   { id: "niwa", label: "Brainstorm space", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
   { id: "history", label: "History", icon: History },
+  { id: "account", label: "Account & connections", icon: UserRound },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
@@ -802,6 +804,7 @@ export function App() {
 
   const renderUtilityView = () => {
     if (activeSection === 'niwa') return null;
+    if (activeSection === 'account') return <section className="utilityPanel"><Suspense fallback={<p>Loading account…</p>}><AccountSettings call={window.localflow.accountCall} onState={window.localflow.onAccountState} /></Suspense></section>;
 
     if (activeSection === "files") {
       return (
@@ -872,7 +875,7 @@ export function App() {
           <div className="settingsList">
             <AppearanceSettings />
             <EdgeSettings />
-            <Suspense fallback={null}><AccountSettings call={window.localflow.accountCall} onState={window.localflow.onAccountState} /></Suspense>
+            <button className="settingsGroup" onClick={() => setActiveSection('account')}><UserRound size={18} /> Account, Google Calendar & devices</button>
             <div className="settingsGroup cleanupAuthGroup">
               <div className="settingsGroupHeading">
                 <strong>Cleanup access</strong>
@@ -1146,7 +1149,7 @@ export function App() {
         <nav className="navList" aria-label="Workspace">{["niwa", "notes"].map(id => renderNavItem(navItems.find(item => item.id === id)!))}</nav>
         <div className="sidebarNotes" ref={setNotesSidebar} />
         <div className="sidebarBottom">
-          <ProfileMenu version={APP_VERSION}>{navItems.filter(item => !["niwa", "notes"].includes(item.id)).map(renderNavItem)}</ProfileMenu>
+          <ProfileMenu version={APP_VERSION} onAccount={() => setActiveSection('account')}>{navItems.filter(item => !["niwa", "notes"].includes(item.id)).map(renderNavItem)}</ProfileMenu>
         </div>
       </aside>
       <section className="workspace">
