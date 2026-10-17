@@ -13,6 +13,9 @@ import { createRemoteKey, openRemote, sealRemote } from '../host/remote/envelope
 import { storeUploads } from '../host/notes/uploads.mjs';
 import { connectRemoteNotes } from '../host/remote/client.mjs';
 import { request as rawHttpRequest } from 'node:http';
+import { startNativeLogin, completeNativeLogin } from '../host/account/native-login.mjs';
+import { accountClient } from '../host/account/connected-notes.mjs';
+import { nativeRedirects } from '../services/account/callbacks.mjs';
 
 const directory = mkdtempSync(join(tmpdir(), 'localflow-account-test-'));
 const origin = 'https://accounts.localflow-test.invalid';
@@ -21,7 +24,8 @@ const provider = {
   async authenticate(request) { const key = request.headers.get('authorization')?.replace('Bearer browser-', ''); if (!profiles[key]) throw Object.assign(new Error('Invalid browser session.'), { status: 401 }); return profiles[key]; },
   async calendar(owner, resource) { return resource === 'list' ? { items: [{ id: `${owner}-primary`, primary: true, summary: 'Primary' }] } : { items: [{ id: 'event-1', summary: 'Team conversation', start: { dateTime: new Date().toISOString() }, end: { dateTime: new Date(Date.now() + 600_000).toISOString() } }], nextSyncToken: 'sync-1' }; },
 };
-const broker = await createAccountBroker({ directory: join(directory, 'broker'), origin, provider, publishableKey: 'pk_test_' + Buffer.from('fixture.clerk.accounts.dev$').toString('base64'), provisionTunnel: async ({ hostId }) => ({ tunnelId: 'fixture-tunnel', endpoint: `https://${hostId}.remote.invalid`, token: 'fixture-private-tunnel-token' }) });
+const mobileCallback = 'com.localflow.mobile:/oauth/callback';
+const broker = await createAccountBroker({ directory: join(directory, 'broker'), origin, provider, mobileRedirectUris: [mobileCallback], publishableKey: 'pk_test_' + Buffer.from('fixture.clerk.accounts.dev$').toString('base64'), provisionTunnel: async ({ hostId }) => ({ tunnelId: 'fixture-tunnel', endpoint: `https://${hostId}.remote.invalid`, token: 'fixture-private-tunnel-token' }) });
 await new Promise(resolve => broker.server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${broker.server.address().port}`;
 const http = async (endpoint, path, body, token, expected = 200) => {
@@ -64,11 +68,30 @@ const remoteHttp = async (endpoint, path, body, token, expected = 200) => {
 };
 let remote, account;
 try {
+  assert.throws(() => nativeRedirects(['javascript:alert(1)']));
+  assert.throws(() => nativeRedirects(['https://mobile.invalid/callback?redirect=other']));
+  const nativeFetch = (url, options) => fetch(String(url).replace(origin, base), options);
+  await assert.rejects(startNativeLogin({ origin, redirectUri: 'com.other.mobile:/oauth/callback', name: 'Phone', fetchImpl: nativeFetch }), /not registered/);
+  const mobileAttempt = await startNativeLogin({ origin, redirectUri: mobileCallback, name: 'Телефон 日本語', fetchImpl: nativeFetch });
+  const mobileApproved = await api('/v1/login/complete', { requestId: mobileAttempt.requestId }, 'browser-alice');
+  assert.ok(mobileApproved.redirectUri.startsWith(mobileCallback));
+  await assert.rejects(completeNativeLogin(mobileAttempt, mobileApproved.redirectUri.replace('state=', 'state=wrong'), { fetchImpl: nativeFetch }), /Invalid/);
+  await assert.rejects(completeNativeLogin(mobileAttempt, mobileApproved.redirectUri.replace('com.localflow.mobile:', 'com.other.mobile:'), { fetchImpl: nativeFetch }), /Invalid/);
+  await assert.rejects(completeNativeLogin({ ...mobileAttempt, expiresAt: 0 }, mobileApproved.redirectUri, { fetchImpl: nativeFetch }), /expired/);
+  const nativeMobile = await completeNativeLogin(mobileAttempt, mobileApproved.redirectUri, { fetchImpl: nativeFetch });
+  await assert.rejects(completeNativeLogin(mobileAttempt, mobileApproved.redirectUri, { fetchImpl: nativeFetch }), /Invalid or expired/);
+  assert.equal((await accountClient({ origin, token: nativeMobile.token, fetchImpl: nativeFetch }).profile()).user.id, profiles.alice.id);
   await api('/v1/login/start', { name: 'Bad', state: randomBytes(32).toString('base64url'), challenge: randomBytes(32).toString('base64url'), redirectUri: 'https://attacker.invalid/callback' }, undefined, 400);
   const [desktop, mobile, wrongOwner] = await Promise.all([signIn('alice', 'Home PC'), signIn('alice', 'Phone'), signIn('bob')]);
   const identity = { hostId: randomUUID(), workspaceId: randomUUID() };
   await api('/v1/hosts/register', { ...identity, name: 'Home PC', encryptionKey: hostKeys.publicKey }, desktop.token);
   await api('/v1/hosts/register', { ...identity, name: 'Hijack' }, wrongOwner.token, 403);
+  await api('/v1/hosts/endpoint', { ...identity, endpoint: 'https://fixture.trycloudflare.com' }, wrongOwner.token, 403);
+  await api('/v1/hosts/endpoint', { ...identity, endpoint: 'https://fixture.trycloudflare.com' }, mobile.token, 403);
+  await api('/v1/hosts/endpoint', { ...identity, endpoint: 'http://127.0.0.1:8788' }, desktop.token, 400);
+  await api('/v1/hosts/endpoint', { ...identity, endpoint: 'https://fixture.trycloudflare.com.attacker.invalid' }, desktop.token, 400);
+  await api('/v1/hosts/endpoint', { ...identity, endpoint: 'https://fixture.trycloudflare.com' }, desktop.token);
+  assert.equal((await api('/v1/hosts', undefined, desktop.token)).hosts[0].endpoint, 'https://fixture.trycloudflare.com');
   await api('/v1/hosts/tunnel', { ...identity, port: 34567 }, desktop.token);
   await api('/v1/hosts/heartbeat', { ...identity, online: true }, desktop.token);
   assert.equal((await api('/v1/hosts', undefined, desktop.token)).hosts[0].online, true);
@@ -80,6 +103,13 @@ try {
   await api('/v1/tickets', { ...identity, workspaceId: randomUUID(), permission: 'write' }, mobile.token, 403);
   const configuration = await api('/v1/config');
   assert.ok(!JSON.stringify(configuration).includes('PRIVATE KEY'));
+  assert.equal(configuration.calendarAvailable, true);
+  provider.calendarEnabled = false;
+  assert.equal((await api('/v1/config')).calendarAvailable, false);
+  const profileOnly = await startNativeLogin({ origin, redirectUri: mobileCallback, name: 'Profile only', fetchImpl: nativeFetch });
+  const profilePage = await (await nativeFetch(profileOnly.authorizationUrl)).text();
+  assert.ok(profilePage.includes('id="calendar" type="checkbox" disabled'));
+  provider.calendarEnabled = true;
   let holdAuthorization = false, reachedCapacity;
   const held = [], atCapacity = new Promise(resolve => { reachedCapacity = resolve; });
   const brokerRequest = async (path, body) => {
@@ -89,6 +119,13 @@ try {
   };
   remote = await createRemoteNotesServer({ directory: join(directory, 'workspace'), notes, ...identity, ownerId: desktop.user.id, broker: brokerRequest, configuration, encryptionKey: hostKeys.privateKey });
   const endpoint = `http://127.0.0.1:${remote.port}`;
+  const nativeClient = accountClient({ origin, token: nativeMobile.token, fetchImpl: (url, options) => fetch(String(url).replace(origin, base).replace(`https://${identity.hostId}.remote.invalid`, endpoint), options) });
+  const nativeNotes = await nativeClient.connect();
+  assert.equal(nativeNotes.computer.id, identity.hostId);
+  assert.equal((await nativeNotes.request('snapshot')).status, 200);
+  await api('/v1/hosts/rename', { ...identity, name: 'Home 日本語' }, nativeMobile.token, 403);
+  await api('/v1/hosts/rename', { ...identity, name: 'Home 日本語' }, desktop.token);
+  assert.equal((await nativeClient.computers())[0].name, 'Home 日本語');
   await remoteHttp(endpoint, '/v1/notes/snapshot', undefined, undefined, 401);
   const ticket = (await api('/v1/tickets', { ...identity, permission: 'write', clientKey: clientKeys.publicKey }, mobile.token)).ticket;
   const session = await remoteHttp(endpoint, '/v1/session', { ticket });
@@ -153,13 +190,18 @@ try {
   account = createAccountService({ directory: join(directory, 'desktop'), notes, vault: { read: async () => cached, write: async value => { cached = value; } }, fetchImpl: (url, options) => { if (offline) throw new Error('Offline'); return fetch(String(url).replace(origin, base), options); }, openBrowser: async destination => {
     const requestId = new URL(destination).searchParams.get('request');
     const result = await api('/v1/login/complete', { requestId }, `browser-${browserUser}`);
-    const response = await fetch(result.redirectUri); assert.equal(response.status, browserUser === 'alice' ? 200 : 400);
+    const response = await fetch(result.redirectUri, { redirect: 'manual' }); assert.equal(response.status, browserUser === 'alice' ? 303 : 400);
+    if (browserUser === 'alice') assert.equal(response.headers.get('location'), origin + '/connected');
   } });
   await account.call('configure', { serviceUrl: origin });
   await account.call('login');
   await account.call('refresh');
   assert.equal(account.state().user.id, profiles.alice.id);
   assert.equal(account.state().calendar.selected.length, 1);
+  assert.equal(account.state().serviceVerified, true);
+  await account.call('configure', { name: 'Renamed desktop' });
+  await account.call('refresh');
+  assert.equal(account.state().computers.find(host => host.id === account.state().hostId).name, 'Renamed desktop');
   assert.ok(!JSON.stringify(account.state()).includes(cached.token));
   assert.equal(account.calendarEvents()[0].id, 'event-1');
   offline = true; await account.call('logout');
@@ -170,11 +212,16 @@ try {
   await account.close(); account = null;
   let announce, releaseStart, opened = false;
   const reachedStart = new Promise(resolve => { announce = resolve; });
-  account = createAccountService({ directory: join(directory, 'cancelled'), notes, vault: { read: async () => null, write: async () => {} }, openBrowser: async () => { opened = true; }, fetchImpl: async () => { announce(); return new Promise(resolve => { releaseStart = resolve; }); } });
+  account = createAccountService({ directory: join(directory, 'cancelled'), notes, vault: { read: async () => null, write: async () => {} }, openBrowser: async () => { opened = true; }, fetchImpl: async url => { if (String(url).endsWith('/v1/config')) return new Response(JSON.stringify(configuration)); announce(); return new Promise(resolve => { releaseStart = resolve; }); } });
   await account.call('configure', { serviceUrl: origin });
   const pendingLogin = account.call('login'); await reachedStart; await account.call('cancelLogin');
-  releaseStart(new Response(JSON.stringify({ requestId: randomUUID(), authorizationUrl: origin + '/connect?request=fixture' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  releaseStart(new Response(JSON.stringify({ requestId: 'fixture', authorizationUrl: origin + '/connect?request=fixture' }), { status: 200, headers: { 'content-type': 'application/json' } }));
   await pendingLogin; assert.equal(opened, false); assert.equal(account.state().status, 'signed-out'); await account.close(); account = null;
+  account = createAccountService({ directory: join(directory, 'defaults'), notes, defaultServiceUrl: origin, vault: { read: async () => null, write: async () => {} }, fetchImpl: nativeFetch });
+  await account.ready;
+  assert.equal(account.state().serviceUrl, origin);
+  await account.call('checkConnection'); assert.equal(account.state().serviceVerified, true);
+  await account.close(); account = null;
 
   let expired = false, requests = [];
   const calendar = createCalendarCache({ directory: join(directory, 'calendar'), request: async (path, query) => {
@@ -202,7 +249,7 @@ try {
     assert.ok(!readFileSync(join(directory, 'dpapi', 'account', 'credentials.json'), 'utf8').includes('secret-only-for-dpapi-test'));
     assert.equal((await vault.read()).token, 'secret-only-for-dpapi-test'); await vault.write(null); assert.equal(await vault.read(), null);
   }
-  console.log('ACCOUNT_REMOTE_OK: PKCE, ownership, one-use tickets, JWE encryption/replay, revocation, Notes conflict/retry/tombstones/restart, encrypted attachment resume, Calendar reset, DPAPI.');
+  console.log('ACCOUNT_REMOTE_OK: desktop/mobile PKCE, callback/state/replay, profile restore, computer selection/rename, ownership, one-use tickets, JWE encryption/replay, revocation, Notes conflict/retry/tombstones/restart, encrypted attachment resume, Calendar reset, DPAPI.');
 } finally {
   await account?.close(); await remote?.close(); await notes.close(); await broker.close();
   if (!resolve(directory).startsWith(resolve(tmpdir()) + sep)) throw new Error('Unsafe test cleanup path.');

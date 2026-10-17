@@ -49,11 +49,12 @@ Process audio capture requires Windows build 20348 or later; all-computer loopba
 is available when process capture is unsupported. Browser application capture
 can include other tabs.
 
-Google sign-in and Calendar use a separate LocalFlow account service. The desktop
-contains account settings and the remote Notes host; the deployable service is in
-`services/account`. Production Clerk/Google and managed tunnel credentials must be
-provisioned before sign-in and access over the internet can work. These credentials
-are never bundled in the desktop package. A mobile app is outside this release.
+Google sign-in and Calendar connect to the hosted LocalFlow account service already
+configured in the package. Remote Notes uses an outbound Cloudflare tunnel and
+encrypted requests between signed-in devices and the computer. Service credentials
+are never bundled in the desktop. The current Google project is in Testing for the
+registered owner accounts; public onboarding needs Google verification and production
+Clerk configuration. The mobile protocol is ready; an Android/iOS app is outside this release.
 See [account setup](docs/account-and-remote-setup.md) and
 [meeting release verification](docs/meetings-0.3.1.md).
 

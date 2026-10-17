@@ -70,7 +70,9 @@ async function getMeetings() {
 async function getAccount() {
   if (!accountReady) accountReady = (async () => {
     const { createAccountService } = await import('../host/account/service.mjs');
-    account = await createAccountService({ directory, notes:await getNotes(), openBrowser:url => native('open-url', url),
+    const deploymentFile = path.join(runtime.resourcesRoot(), 'account-service.json');
+    const deployment = fs.existsSync(deploymentFile) ? JSON.parse(fs.readFileSync(deploymentFile, 'utf8')) : {};
+    account = await createAccountService({ directory, allowLoopback:process.env.LOCALFLOW_ACCOUNT_DEVELOPMENT === '1', defaultServiceUrl:process.env.LOCALFLOW_ACCOUNT_SERVICE_URL || deployment.serviceUrl || '', notes:await getNotes(), openBrowser:url => native('open-url', url),
       notify:value => {
         notify('account-state', value);
         void updateMeetingCalendar(value.upcoming).catch(report);

@@ -6,6 +6,13 @@ execFileSync(process.execPath,[path.join(root,'scripts/stage-dependency-notices.
 const output=path.join(root,'release',`LocalFlow-${version}-Windows-x64`);
 if(fs.existsSync(output))throw Error('Use a fresh release directory; never overwrite an open application.');
 fs.mkdirSync(output,{recursive:true});
+const accountConfig=path.join(root,'account-service.json');
+const accountOrigin=process.env.LOCALFLOW_ACCOUNT_SERVICE_URL || (fs.existsSync(accountConfig)?JSON.parse(fs.readFileSync(accountConfig,'utf8')).serviceUrl:'');
+if(accountOrigin){
+  const url=new URL(accountOrigin);
+  if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||url.pathname!=='/')throw Error('Package a valid HTTPS LocalFlow account service origin.');
+  fs.writeFileSync(path.join(output,'account-service.json'),JSON.stringify({serviceUrl:url.origin},null,2));
+}
 function copy(from,to=from){
   const source=path.join(root,from);if(!fs.existsSync(source))throw Error('Missing Windows payload: '+from);
   fs.cpSync(source,path.join(output,to),{recursive:true,filter:file=>!['__pycache__','.cache'].includes(path.basename(file))&&!file.endsWith('.pyc')});

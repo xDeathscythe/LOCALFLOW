@@ -1,11 +1,9 @@
-import { promisify } from 'node:util';
-import { generateKeyPair } from 'node:crypto';
-import { CompactEncrypt, compactDecrypt, importJWK } from 'jose';
+import { CompactEncrypt, compactDecrypt, importJWK, generateKeyPair, exportJWK } from 'jose';
 import { publicEncryptionKey } from '../account/protocol.mjs';
 export { publicEncryptionKey } from '../account/protocol.mjs';
 export async function createRemoteKey() {
-  const pair = await promisify(generateKeyPair)('rsa', { modulusLength: 2048 });
-  return { publicKey: pair.publicKey.export({ format: 'jwk' }), privateKey: pair.privateKey.export({ format: 'jwk' }) };
+  const pair = await generateKeyPair('RSA-OAEP-256', { modulusLength: 2048, extractable: true });
+  return { publicKey: await exportJWK(pair.publicKey), privateKey: await exportJWK(pair.privateKey) };
 }
 export async function sealRemote(value, publicKey) {
   return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(value))).setProtectedHeader({ alg: 'RSA-OAEP-256', enc: 'A256GCM', typ: 'localflow+json' }).encrypt(await importJWK(publicEncryptionKey(publicKey), 'RSA-OAEP-256'));

@@ -1,9 +1,10 @@
 import { createClerkClient } from '@clerk/backend';
 
-export function createClerkProvider({ secretKey, publishableKey, origin, fetchImpl = fetch }) {
+export function createClerkProvider({ secretKey, publishableKey, origin, fetchImpl = fetch, calendarEnabled = false }) {
   if (!secretKey || !publishableKey) throw new Error('Configure the LocalFlow Clerk keys on the account service.');
   const clerk = createClerkClient({ secretKey, publishableKey });
   return {
+    calendarEnabled,
     async authenticate(request) {
       const result = await clerk.authenticateRequest(request, { authorizedParties: [origin], acceptsToken: 'session_token' });
       const auth = result.toAuth();
@@ -15,6 +16,7 @@ export function createClerkProvider({ secretKey, publishableKey, origin, fetchIm
       return { id: user.id, name: [user.firstName, user.lastName].filter(Boolean).join(' '), email: user.emailAddresses.find(item => item.id === user.primaryEmailAddressId)?.emailAddress || '' };
     },
     async calendar(userId, resource, query) {
+      if (!calendarEnabled) throw Object.assign(new Error('Google Calendar is not configured on this LocalFlow service. The operator must configure a custom Google OAuth client and Calendar permissions.'), { status: 503 });
       const { data } = await clerk.users.getUserOauthAccessToken(userId, 'google');
       const grant = data[0];
       const required = resource === 'list' ? 'https://www.googleapis.com/auth/calendar.calendarlist.readonly' : 'https://www.googleapis.com/auth/calendar.events.readonly';
@@ -25,8 +27,8 @@ export function createClerkProvider({ secretKey, publishableKey, origin, fetchIm
       for (const key of resource === 'list' ? ['pageToken'] : ['syncToken', 'pageToken']) if (query[key]) url.searchParams.set(key, query[key]);
       if (resource !== 'list') { url.searchParams.set('singleEvents', 'true'); url.searchParams.set('showDeleted', 'true'); }
       if (resource !== 'list' && !query.syncToken) { url.searchParams.set('timeMin', query.timeMin); url.searchParams.set('timeMax', query.timeMax); }
-      const response = await fetchImpl(url, { headers: { authorization: `Bearer ${grant.token}` }, signal: AbortSignal.timeout(20_000), redirect: 'error' });
-      if (!response.ok) throw Object.assign(new Error(response.status === 410 ? 'Calendar sync needs a fresh snapshot.' : response.status === 401 || response.status === 403 ? 'Google Calendar access needs to be renewed.' : 'Google Calendar is temporarily unavailable.'), { status: response.status });
+      const response = await fetchImpl(url, { headers: { authorization: `Bearer ${grant.token}` }, signal: AbortSignal.timeout(20_000), redirect: 'manual' });
+      if (!response.ok) throw Object.assign(new Error(response.status === 410 ? 'Calendar sync needs a fresh snapshot.' : response.status === 401 || response.status === 403 ? 'Google Calendar access needs to be renewed.' : 'Google Calendar is temporarily unavailable.'), { status: response.status >= 300 && response.status < 400 ? 502 : response.status });
       const value = await response.json();
       // Provider tokens and unrelated Google profile fields never reach desktop clients.
       const items = (value.items || []).map(item => resource === 'list'

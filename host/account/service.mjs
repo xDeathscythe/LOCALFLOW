@@ -1,18 +1,20 @@
 import { createServer } from 'node:http';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { createAccountVault } from './secure-store.mjs';
 import { jsonRequest, serviceUrl } from './http.mjs';
 import { createCalendarCache } from './calendar.mjs';
 import { createRemoteNotesServer } from '../remote/server.mjs';
-import { startManagedTunnel } from '../remote/tunnel.mjs';
+import { startTunnel } from '../remote/tunnel.mjs';
 import { createRemoteKey, publicEncryptionKey } from '../remote/envelope.mjs';
 import { readJsonFile, writeJsonFile } from '../niwa/host/niwa-store.mjs';
+import { startNativeLogin, completeNativeLogin } from './native-login.mjs';
 
-export function createAccountService({ directory, notes, openBrowser, notify = () => {}, vault = createAccountVault(directory), fetchImpl = fetch, allowLoopback = false }) {
+export function createAccountService({ directory, notes, openBrowser, notify = () => {}, vault = createAccountVault(directory), fetchImpl = fetch, allowLoopback = false, defaultServiceUrl = process.env.LOCALFLOW_ACCOUNT_SERVICE_URL || '' }) {
   const file = join(directory, 'account', 'config.json');
-  let settings = readJsonFile(file, { serviceUrl: process.env.LOCALFLOW_ACCOUNT_SERVICE_URL || '', hostId: randomUUID(), workspaceId: randomUUID(), name: hostname(), remoteEnabled: false });
+  let settings = readJsonFile(file, { serviceUrl: '', hostId: randomUUID(), workspaceId: randomUUID(), name: hostname(), remoteEnabled: false });
+  if (!settings.serviceUrl && !settings.ownerId) settings.serviceUrl = defaultServiceUrl;
   let credentials, configuration, devices = [], hosts = [], phase = settings.serviceUrl ? 'signed-out' : 'unconfigured', error = '', closed = false;
   let login, remoteServer, tunnel, remoteStatus = 'disabled', remoteError = '', remotePending, refreshing, generation = 0;
   const save = () => writeJsonFile(file, settings);
@@ -22,12 +24,20 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
   };
   const calendar = createCalendarCache({ directory, request, changed: () => emit() });
   function state() {
-    return { status: phase, error, serviceUrl: settings.serviceUrl, configured: Boolean(settings.serviceUrl), user: credentials?.user || null, deviceId: credentials?.deviceId || null, hostId: settings.hostId, workspaceId: settings.workspaceId, name: settings.name, devices, computers: hosts, calendar: calendar.state(), upcoming: calendar.events(), remote: { enabled: settings.remoteEnabled, status: remoteStatus, error: remoteError, endpoint: hosts.find(host => host.id === settings.hostId)?.endpoint || '', managedAvailable: Boolean(configuration?.managedTunnels), cloudflaredPath: settings.cloudflaredPath || '' } };
+    return { status: phase, error, serviceUrl: settings.serviceUrl, configured: Boolean(settings.serviceUrl), serviceVerified: Boolean(configuration), canReopenLogin: Boolean(login?.attempt), user: credentials?.user || null, deviceId: credentials?.deviceId || null, hostId: settings.hostId, workspaceId: settings.workspaceId, name: settings.name, devices, computers: hosts, calendar: { ...calendar.state(), available: configuration?.calendarAvailable !== false }, upcoming: configuration?.calendarAvailable === false ? [] : calendar.events(), remote: { enabled: settings.remoteEnabled, status: remoteStatus, error: remoteError, endpoint: hosts.find(host => host.id === settings.hostId)?.endpoint || '', available: Boolean(configuration?.managedTunnels || configuration?.quickTunnels), cloudflaredPath: settings.cloudflaredPath || '' } };
   }
   function emit() { if (!closed) notify(state()); }
+  async function checkConnection() {
+    const origin = settings.serviceUrl;
+    const result = await request('/v1/config');
+    if (origin !== settings.serviceUrl) throw new Error('Connection settings changed. Try again.');
+    if (result.protocol !== 1 || result.issuer !== origin || !Array.isArray(result.jwks?.keys) || !result.jwks.keys.length) throw new Error('This address is not a compatible LocalFlow account service.');
+    configuration = result;
+    return result;
+  }
   const hostBody = () => ({ hostId: settings.hostId, workspaceId: settings.workspaceId });
   const cancelLogin = () => { if (login) { clearTimeout(login.timer); login.server.close(); login.server.closeIdleConnections(); login = null; } };
-  const stopRemote = async () => { tunnel?.close(); tunnel = null; await remoteServer?.close(); remoteServer = null; remoteStatus = 'disabled'; };
+  const stopRemote = async () => { await tunnel?.close(); tunnel = null; await remoteServer?.close(); remoteServer = null; remoteStatus = 'disabled'; };
   const startRemote = () => {
     if (remotePending) return remotePending;
     remotePending = (async () => {
@@ -36,13 +46,13 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
       if (remoteServer && tunnel) return;
       remoteStatus = 'starting'; remoteError = ''; emit();
       try {
-        configuration ||= await request('/v1/config');
+        if (!configuration) await checkConnection();
         if (closed || credentials !== active || !settings.remoteEnabled) return;
-        if (!configuration.managedTunnels) throw new Error('The account service needs managed tunnel configuration before remote Notes can be enabled.');
+        if (!configuration.managedTunnels && !configuration.quickTunnels) throw new Error('Remote Notes is unavailable on this account service.');
         remoteServer = await createRemoteNotesServer({ directory, notes, ...hostBody(), ownerId: credentials.user.id, broker: request, configuration, encryptionKey: credentials.encryptionKey });
-        const provisioned = await request('/v1/hosts/tunnel', { ...hostBody(), port: remoteServer.port });
+        const provisioned = configuration.managedTunnels ? await request('/v1/hosts/tunnel', { ...hostBody(), port: remoteServer.port }) : {};
         if (closed || credentials !== active || !settings.remoteEnabled) { await stopRemote(); return; }
-        tunnel = await startManagedTunnel({ token: provisioned.token, command: settings.cloudflaredPath, changed: update => { remoteStatus = update.status; remoteError = update.error; emit(); } });
+        tunnel = await startTunnel({ token: provisioned.token, localPort: remoteServer.port, command: settings.cloudflaredPath, publishEndpoint: endpoint => request('/v1/hosts/endpoint', { ...hostBody(), endpoint }), changed: update => { remoteStatus = update.status; remoteError = update.error; emit(); if (update.status === 'online') void refresh(); } });
         remoteStatus = 'connecting';
       } catch (failure) { await stopRemote(); remoteStatus = 'error'; remoteError = failure.message; }
       emit();
@@ -55,7 +65,7 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
       if (!credentials || closed) return;
       const active = credentials, epoch = generation;
       try {
-        configuration = await request('/v1/config');
+        await checkConnection();
         const [deviceList, hostList] = await Promise.all([request('/v1/devices'), request('/v1/hosts')]);
         if (closed || credentials !== active || epoch !== generation) return;
         devices = deviceList.devices; hosts = hostList.hosts; phase = 'connected'; error = '';
@@ -63,7 +73,7 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
         await request('/v1/hosts/heartbeat', { ...hostBody(), online: Boolean(tunnel?.online()) });
         if (closed || credentials !== active || epoch !== generation) return;
         if (settings.remoteEnabled && !tunnel) await startRemote();
-        if (!calendar.state().lastSync || Date.now() - Date.parse(calendar.state().lastSync) > 120_000) await calendar.sync();
+        if (configuration.calendarAvailable !== false && (!calendar.state().lastSync || Date.now() - Date.parse(calendar.state().lastSync) > 120_000)) await calendar.sync();
       } catch (failure) {
         if (closed || credentials !== active || epoch !== generation) return;
         phase = failure.status === 401 || failure.status === 403 ? 'sign-in-required' : 'offline'; error = failure.message;
@@ -85,16 +95,16 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
   const timer = setInterval(() => { void ready.then(refresh); }, 30_000); timer.unref?.();
 
   async function signIn() {
+    if (!settings.serviceUrl) throw new Error('The LocalFlow account service has not been configured for this build.');
     const epoch = ++generation;
     cancelLogin(); phase = 'connecting'; error = ''; emit();
-    const verifier = randomBytes(32).toString('base64url'), stateValue = randomBytes(32).toString('base64url');
     const server = createServer(async (requestObject, response) => {
       const url = new URL(requestObject.url, 'http://127.0.0.1');
-      if (requestObject.method !== 'GET' || url.pathname !== '/callback' || url.searchParams.get('state') !== stateValue || !login || login.server !== server) { response.writeHead(400); response.end('Invalid sign-in callback.'); return; }
+      if (requestObject.method !== 'GET' || url.pathname !== '/callback' || !login?.attempt || url.searchParams.get('state') !== login.attempt.state || login.server !== server) { response.writeHead(400); response.end('Invalid sign-in callback.'); return; }
       const attempt = login;
       if (attempt.exchanging) { response.writeHead(409); response.end('Sign-in is already completing.'); return; } attempt.exchanging = true;
       try {
-        const result = await request('/v1/login/exchange', { requestId: attempt.requestId, code: url.searchParams.get('code'), verifier }, undefined);
+        const result = await completeNativeLogin(attempt.attempt, new URL(requestObject.url, attempt.attempt.redirectUri).href, { fetchImpl });
         if (closed || login !== attempt || generation !== epoch) { await request('/v1/devices/revoke', { deviceId: result.deviceId }, result.token); throw new Error('Sign-in was cancelled.'); }
         if (settings.ownerId && (settings.ownerId !== result.user.id || settings.ownerIssuer !== settings.serviceUrl)) {
           await request('/v1/devices/revoke', { deviceId: result.deviceId }, result.token);
@@ -110,7 +120,7 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
         if (closed || login !== attempt || generation !== epoch) { if (credentials === result) { credentials = null; await vault.write(null); } throw new Error('Sign-in was cancelled.'); }
         settings = { ...settings, ownerId: result.user.id, ownerIssuer: settings.serviceUrl }; save();
         calendar.bind(result.user.id); phase = 'connected'; error = '';
-        response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' }); response.end('LocalFlow is connected. You can return to the app.');
+        response.writeHead(303, { location: settings.serviceUrl + '/connected', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' }); response.end();
         cancelLogin(); emit(); void refresh();
       } catch (failure) { if (!closed && generation === epoch) { phase = 'error'; error = failure.message; cancelLogin(); emit(); } if (!response.destroyed) { response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' }); response.end('LocalFlow could not complete sign-in. Return to the app for details.'); } }
     });
@@ -118,10 +128,11 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
     if (closed || generation !== epoch) { server.close(); return; }
     login = { server, requestId: null, timer: setTimeout(() => { cancelLogin(); phase = credentials ? 'connected' : 'signed-out'; error = 'Sign-in expired. Please try again.'; emit(); }, 10 * 60_000) };
     try {
-      const started = await request('/v1/login/start', { challenge: createHash('sha256').update(verifier).digest('base64url'), state: stateValue, redirectUri: `http://127.0.0.1:${server.address().port}/callback`, name: settings.name }, undefined);
+      await checkConnection();
       if (closed || generation !== epoch || login?.server !== server) return;
-      if (new URL(started.authorizationUrl).origin !== settings.serviceUrl) throw new Error('Account service returned an invalid sign-in destination.');
-      login.requestId = started.requestId; await openBrowser(started.authorizationUrl);
+      const started = await startNativeLogin({ origin: settings.serviceUrl, redirectUri: `http://127.0.0.1:${server.address().port}/callback`, name: settings.name, fetchImpl, allowLoopback });
+      if (closed || generation !== epoch || login?.server !== server) return;
+      login.attempt = started; emit(); await openBrowser(started.authorizationUrl);
     } catch (failure) { if (!closed && generation === epoch) { cancelLogin(); phase = 'error'; error = failure.message; emit(); } throw failure; }
   }
 
@@ -137,9 +148,11 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
         if (credentials && value.serviceUrl !== undefined && value.serviceUrl !== settings.serviceUrl) throw new Error('Sign out before changing the account service.');
         if (value.serviceUrl !== undefined) settings.serviceUrl = value.serviceUrl ? serviceUrl(value.serviceUrl, allowLoopback) : '';
         if (value.cloudflaredPath !== undefined) { if (typeof value.cloudflaredPath !== 'string' || value.cloudflaredPath.length > 1000) throw new Error('Invalid cloudflared path.'); settings.cloudflaredPath = value.cloudflaredPath; }
-        if (value.name !== undefined) { if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 150) throw new Error('Enter a computer name.'); settings.name = value.name.trim(); }
+        if (value.name !== undefined) { if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 150) throw new Error('Enter a computer name.'); if (credentials && value.name.trim() !== settings.name) { await request('/v1/hosts/rename', { ...hostBody(), name: value.name.trim() }); hosts = hosts.map(host => host.id === settings.hostId ? { ...host, name: value.name.trim() } : host); } settings.name = value.name.trim(); }
         configuration = null; save(); phase = credentials ? phase : settings.serviceUrl ? 'signed-out' : 'unconfigured'; error = ''; emit();
       } else if (action === 'login') await signIn();
+      else if (action === 'openLogin') { if (!login?.attempt) throw new Error('Start sign-in first.'); await openBrowser(login.attempt.authorizationUrl); }
+      else if (action === 'checkConnection') { error = ''; try { await checkConnection(); } catch (failure) { configuration = null; error = failure.message; } emit(); }
       else if (action === 'cancelLogin') { ++generation; cancelLogin(); phase = credentials ? 'connected' : 'signed-out'; error = ''; emit(); }
       else if (action === 'logout') {
         ++generation;
@@ -151,7 +164,7 @@ export function createAccountService({ directory, notes, openBrowser, notify = (
       else if (action === 'calendarSync') await calendar.sync();
       else if (action === 'calendarSelect') await calendar.select(value.ids);
       else if (action === 'calendarEnable') await calendar.enable(value.enabled);
-      else if (action === 'remoteEnable') { if (!credentials) throw new Error('Sign in before enabling remote Notes.'); settings.remoteEnabled = true; save(); await startRemote(); }
+      else if (action === 'remoteEnable') { if (!credentials) throw new Error('Sign in before enabling remote Notes.'); if (!configuration) await checkConnection(); if (!configuration.managedTunnels && !configuration.quickTunnels) throw new Error('Remote Notes is not configured on the LocalFlow account service yet.'); settings.remoteEnabled = true; save(); await startRemote(); }
       else if (action === 'remoteDisable') { settings.remoteEnabled = false; save(); await stopRemote(); if (credentials) await request('/v1/hosts/disable', hostBody()); emit(); }
       else if (action === 'revokeDevice') { if (value.deviceId === credentials?.deviceId) return this.call('logout'); await request('/v1/devices/revoke', { deviceId: value.deviceId }); await refresh(); }
       else throw new Error('Unknown account action.');

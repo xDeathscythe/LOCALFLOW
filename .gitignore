@@ -13,6 +13,8 @@ runtime/
 
 # Local credentials, recordings, test captures and model payloads.
 .env.*
+.dev.vars*
+.wrangler/
 !.env.example
 .playwright-cli/
 output/

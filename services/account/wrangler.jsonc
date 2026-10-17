@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "localflow-accounts",
+  "account_id": "122f22dfee302b83f37309bb5db47f9e",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ACCOUNTS",
+        "class_name": "LocalFlowAccounts"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "LocalFlowAccounts"
+      ]
+    }
+  ],
+  "vars": {
+    "LOCALFLOW_GOOGLE_CALENDAR_ENABLED": "true",
+    "LOCALFLOW_MOBILE_REDIRECT_URIS": "[\"app.localflow.mobile:/oauth/callback\"]",
+    "LOCALFLOW_ACCOUNT_ORIGIN": "https://localflow-accounts.alnen96.workers.dev"
+  }
+}
