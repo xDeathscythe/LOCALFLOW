@@ -1,6 +1,5 @@
 import {
   FileAudio,
-  AudioLines,
   FolderOpen,
   History,
   Info,
@@ -19,6 +18,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { version as APP_VERSION } from '../package.json';
 import { WindowControls } from './components/WindowControls';
+import { MeetingIcon } from './components/MeetingIcon';
 import { ProfileMenu } from "./components/ProfileMenu";
 import { PanelResize } from "./components/PanelResize";
 import { RecordingOverlay } from './components/RecordingStatus';
@@ -206,7 +206,7 @@ const cleanupLevelOptions: Array<{
 
 const navItems = [
   { id: "transcribe", label: "Transcribe", icon: Mic },
-  { id: "meetings", label: "Meetings", icon: AudioLines },
+  { id: "meetings", label: "Meetings", icon: MeetingIcon },
   { id: "notes", label: "Notes", icon: NotebookPen },
   { id: "niwa", label: "Brainstorm space", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
@@ -1175,7 +1175,7 @@ export function App() {
           recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
           onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
         /></Suspense>}
-        {activeSection === 'meetings' ? <Suspense fallback={<div className="meetingEmpty">Loading meetings…</div>}><MeetingsPage /></Suspense> : activeSection === "transcribe" ? <TranscribePage
+        {activeSection === 'meetings' ? <Suspense fallback={<div className="meetingEmpty">Loading meetings…</div>}><MeetingsPage onAccount={() => setActiveSection('account')} /></Suspense> : activeSection === "transcribe" ? <TranscribePage
           result={result} name={audioName} state={state} status={status} error={error}
           seconds={recordingSeconds} startedAt={state === 'recording' ? startedAtRef.current : 0} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
           model={config.whisperModel} language={config.language as TranscriptionLanguage} cleanup={options.cleanupLevel}

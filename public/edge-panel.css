@@ -15,6 +15,9 @@ button:focus-visible { outline: 1px solid currentColor; }
 .controls[data-target=agent] [data-action=agent], .controls[data-target=microphone] [data-action=microphone], .controls[data-target=transcribe] [data-action=transcribe] { color: #18372b; }
 button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: center; }
 button[data-action=agent] svg { stroke-width: 3.2; }
+.notes-icon { mask-image: linear-gradient(to bottom, transparent, #000 20% 80%, transparent); }
+.notes-lines { animation: notes-scroll 4s linear infinite; }
+.collapsed .notes-lines { animation-play-state: paused; }
 .mic { transition: opacity 200ms; }
 .levels { position: absolute; top: 5px; left: 5px; right: 5px; height: 10px; display: flex; align-items: center; justify-content: space-between; opacity: 0; transition: opacity 200ms; }
 .levels i { width: 1.8px; height: 100%; border-radius: 2px; background: currentColor; transform: scaleY(.25); }
@@ -56,6 +59,7 @@ body[data-theme=light] .meeting-panel-heading strong,body[data-theme=static-whit
 body[data-theme=light] .meeting-panel-actions button,body[data-theme=static-white] .meeting-panel-actions button { background:#102d2010; }
 body[data-theme=light] .meeting-panel-actions .meeting-accept,body[data-theme=static-white] .meeting-panel-actions .meeting-accept { background:#a7e7c8; }
 @keyframes recording-wave { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(.9); } }
+@keyframes notes-scroll { to { transform: translateY(-20px); } }
 @keyframes star-orbit { to { rotate: 90deg; } }
 @keyframes star-breath { 0%, 100% { scale: .88; opacity: .7; } 50% { scale: 1.08; opacity: 1; } }
 @keyframes star-listen { 0%, 100% { scale: .8; opacity: .65; } 50% { scale: 1; opacity: 1; } }
