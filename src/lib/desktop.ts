@@ -26,7 +26,7 @@ window.localflow = {
   saveAudioBuffer: ({ buffer, extension = '.webm' }: { buffer: ArrayBuffer; extension?: string }) => invoke<string>('save_audio_buffer', buffer, { headers: { 'x-audio-extension': extension } }),
   notesUploadAssets: uploadAssets,
   setRecordingOverlayState: (value: RecordingOverlayState) => { void native('overlay-state', value).catch(console.error); if (value.starting) void host('recording-start').catch(console.error); },
-  ...Object.fromEntries(Object.entries({ onMeetingEvent:'meeting-event',onAccountState:'account-state',onShortcutCaptured:'shortcut-captured',onEdgeAction:'edge-action',onNiwaEvent:'niwa-event',onWindowVisibility:'window-visibility',onRecordingOverlayStop:'recording-overlay-stop',onDictationHotkey:'dictation-hotkey',onWorkerProgress:'worker-progress',onCleanupAuthEvent:'cleanup-auth-event' }).map(([name, event]) => [name, (callback: (value: unknown) => void) => subscribe(event, callback)])),
+  ...Object.fromEntries(Object.entries({ onMeetingEvent:'meeting-event',onAccountState:'account-state',onBrainstormState:'brainstorm-state',onShortcutCaptured:'shortcut-captured',onEdgeAction:'edge-action',onNiwaEvent:'niwa-event',onWindowVisibility:'window-visibility',onRecordingOverlayStop:'recording-overlay-stop',onDictationHotkey:'dictation-hotkey',onWorkerProgress:'worker-progress',onCleanupAuthEvent:'cleanup-auth-event' }).map(([name, event]) => [name, (callback: (value: unknown) => void) => subscribe(event, callback)])),
 } as Window['localflow'];
 
 const requests = listen<{ id: number; method: string; args: unknown }>('desktop-request', async ({ payload }) => {

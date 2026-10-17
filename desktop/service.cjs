@@ -53,11 +53,11 @@ async function getAgent() {
   return agentReady;
 }
 function report(error) { notify('host-error', error.message); }
-let brainstormReady;
+let brainstormReady, brainstormScheduled = false;
 async function getBrainstorm() {
   if (!brainstormReady) brainstormReady = (async () => {
     const { createBrainstorm } = await import('../host/brainstorm.mjs');
-    return createBrainstorm({ directory, notes: await getNotes(),
+    return createBrainstorm({ directory, notes: await getNotes(), notify: value => notify('brainstorm-state', value),
       context: async () => (await getAgent()).brainstormContext(),
       generate: async value => require('../host/notes/skills.cjs').runNoteSkill({ directory, binary: runtime.resolveNiwaCodexBinary, settings: (await getAgent()).snapshot().settings }, value),
     });
@@ -154,6 +154,12 @@ const handlers = {
     if (!process.env.LOCALFLOW_TEST_NO_WARMUP) void transcription.send('warmup').catch(report);
     void getMeetings().catch(report);
     void getAccount().catch(report);
+    if (!process.env.LOCALFLOW_TEST_NO_WARMUP && !brainstormScheduled) {
+      brainstormScheduled = true;
+      // Brainstorm modules are prepared after startup settles, then kept fresh in the background.
+      const prepare = () => void getBrainstorm().then(brainstorm => brainstorm.prepareAll()).catch(report);
+      setTimeout(prepare, 20_000).unref?.(); setInterval(prepare, 30 * 60_000).unref?.();
+    }
     return true;
   },
   'meeting-call': async (method, value) => method === 'browser-folder'

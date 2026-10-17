@@ -1,6 +1,6 @@
 {
   "name": "localflow",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "private": true,
   "description": "Native Windows dictation, rich notes and Niwa agent with local PC inference.",
   "type": "module",

@@ -102,6 +102,7 @@ declare global {
       onMeetingEvent: (callback: (event: import('./lib/meetings').MeetingEvent) => void) => () => void;
       accountCall: <T = unknown>(method: string, value?: unknown) => Promise<T>;
       onAccountState: <T = unknown>(callback: (value: T) => void) => () => void;
+      onBrainstormState: (callback: (value: unknown) => void) => () => void;
       setWhisperModel: (model: "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2") => Promise<{ whisperModel: string; whisperDownloadRoot?: string } | null>;
       setWhisperLanguage: (language: TranscriptionLanguage) => Promise<{ language: TranscriptionLanguage; outputLanguage: string }>;
       getCleanupAuthStatus: () => Promise<CleanupAuthStatus>;

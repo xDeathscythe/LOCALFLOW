@@ -21,7 +21,7 @@ async function runNoteSkill({ directory, binary, settings }, value, Client = Cod
   try {
     return await new Promise((resolve, reject) => {
       const finish = (error, text) => { if (settled) return; settled = true; clearTimeout(timer); error ? reject(error) : resolve(text); };
-      timer = setTimeout(() => finish(new Error('Writing request timed out. Try again.')), 120000);
+      timer = setTimeout(() => finish(new Error('Writing request timed out. Try again.')), Math.min(300000, Number(value.timeoutMs) || 120000));
       client.on('closed', error => finish(error));
       client.on('request', packet => client.reject(packet.id, 'Writing skills do not execute tools.'));
       client.on('notification', ({ method, params: p }) => {

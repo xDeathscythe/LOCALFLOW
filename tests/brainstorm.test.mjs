@@ -11,19 +11,50 @@ const notes = createNotesStore(directory);
 const source = notes.create({ label: '日本語 العربية', content: 'A writer tries a different point of view.' });
 let fail = false, timestamp = 1000000, calls = [];
 const context = async () => ({ history: [{ id: 'chat-1', role: 'user', content: 'My earlier story' }], memory: { documents: {} } });
+const idea = { title: '日本語 العربية Српски', body: 'Explore another perspective', sources: [source.id, 'chat-1', 'invented-id'] };
+const branches = Array.from({ length: 5 }, (_, i) => ({ title: `方向 ${i}`, body: `الرواية ${i}` }));
+const prepared = {
+  idea: { idea, origin: 'From a note', whyNow: 'It is recent', opening: 'Shall we start?' },
+  seeds: { seeds: [0, 1, 2].map(() => ({ ...idea, branches })) },
+  chapters: { chapters: [0, 1, 2].map(i => ({ title: `Chapter ${i}`, when: 'Earlier', body: 'Evidence', sources: ['chat-1'] })), patterns: [{ title: 'A pattern', body: 'Tentative' }, { title: 'Another', body: 'Tentative' }], continuations: [0, 1, 2].map(i => ({ title: `Next ${i}`, body: 'Possible', question: 'What fits?' })) },
+  suggestions: { wins: [idea], struggles: [], suggestions: [0, 1, 2].map(i => ({ title: `Challenge ${i}`, why: 'Fits', firstStep: 'One paragraph', opening: 'How does this sound?' })) },
+  pins: { title: 'Starter board', question: 'What links these?', pins: [idea, idea, idea], links: [{ from: 0, to: 1, label: 'Same theme' }, { from: 2, to: 2, label: 'Self' }, { from: 0, to: 5, label: 'Missing' }] },
+  thoughts: { thoughts: [0, 1, 2].map(() => ({ ...idea, opening: 'A first reply' })) },
+};
 const generate = async value => {
   calls.push(value); if (fail) throw new Error('Offline');
-  if (value.outputSchema?.properties.present) {
-    const idea = { title: '日本語 العربية Српски', body: 'Explore another perspective', sources: [source.id, 'chat-1'] };
-    return JSON.stringify({ present: idea, ideas: [idea, idea, idea], thoughts: [idea, idea, idea] });
-  }
-  if (value.outputSchema) return JSON.stringify({ branches: Array.from({ length: 5 }, (_, i) => ({ title: `方向 ${i}`, body: `الرواية ${i}` })) });
+  const key = Object.keys(prepared).find(name => value.outputSchema?.properties[name]);
+  if (key) return JSON.stringify(prepared[key]);
+  if (value.outputSchema) return JSON.stringify({ branches });
   return 'What changed for you today? Consider another point of view if it feels useful.';
 };
 const open = () => createBrainstorm({ directory, notes, context, generate, now: () => timestamp });
 let service = open();
 try {
-  assert.equal((await service.call('home')).home.thoughts.length, 3);
+  await service.prepareAll();
+  let ready = service.snapshot();
+  assert.deepEqual(Object.keys(ready.prepared).sort(), ['board', 'challenges', 'paths', 'present', 'story', 'thoughts']);
+  assert.deepEqual(ready.prepared.present.data.idea.sources, [source.id, 'chat-1'], 'Unknown citations are dropped');
+  assert.equal(ready.prepared.present.sources[source.id].label, '日本語 العربية');
+  assert.equal(ready.prepared.board.data.links.length, 1, 'Self and missing board links are dropped');
+  assert(calls.every(call => call.timeoutMs === 240000));
+  const count = calls.length;
+  await service.prepareAll();
+  assert.equal(calls.length, count, 'Fresh modules are not regenerated');
+  for (const [mode, index] of [['present', 0], ['paths', 1], ['story', 2], ['challenges', 0], ['board', 0], ['thoughts', 2]]) {
+    ready = await service.call('open', { mode, index, generatedAt: service.snapshot().prepared[mode].generatedAt });
+    const opened = ready.sessions.find(s => s.id === ready.openedId);
+    assert.equal(opened.mode, mode);
+    if (mode === 'paths') assert.equal(opened.nodes.length, 6);
+    else if (mode === 'board') assert.equal(opened.edges.length, 1);
+    else assert.equal(opened.messages[0].role, 'assistant');
+  }
+  assert.equal(calls.length, count, 'Opening a prepared module never waits for a model turn');
+  const thoughtsAt = service.snapshot().prepared.thoughts.generatedAt;
+  assert.equal((await service.call('open', { mode: 'thoughts', index: 2, generatedAt: thoughtsAt })).sessions.length, 6, 'Reopening a suggestion returns its page');
+  await assert.rejects(() => service.call('open', { mode: 'thoughts', index: 4, generatedAt: thoughtsAt }), /no longer available/);
+  await assert.rejects(() => service.call('open', { mode: 'thoughts', index: 0, generatedAt: 1 }), /refreshed/);
+  assert(service.snapshot().seq > ready.seq, 'Every snapshot is ordered');
   let state = await service.call('create', { mode: 'paths', title: 'قصة جديدة', seed: '日本語' });
   const id = state.sessions.at(-1).id;
   state = await service.call('branch', { id, title: 'البدء', body: 'Почетак' });
@@ -63,7 +94,7 @@ try {
   assert(JSON.parse(calls.at(-1).text).context.feedback.some(f => f.rating === -1));
   const before = service.snapshot(); fail = true;
   await assert.rejects(() => service.call('chat', { id: challenge, text: 'Keep this draft' }), /Offline/);
-  assert.deepEqual(service.snapshot(), before, 'A failed generation must not erase or partially commit a conversation');
+  assert.deepEqual({ ...service.snapshot(), seq: 0 }, { ...before, seq: 0 }, 'A failed generation must not erase or partially commit a conversation');
   assert.equal(open().snapshot().sessions.at(-1).messages.length, 4);
   fail = false;
   const [image] = await storeUploads(join(directory, 'notes'), [{ name: 'pixel.png', data: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=', 'base64') }]);
@@ -72,10 +103,17 @@ try {
   assert(calls.at(-1).images[0].url.startsWith('data:image/png;base64,'), 'Pinned image pixels must reach the model');
   let release;
   const delay = new Promise(resolve => { release = resolve; });
-  service = createBrainstorm({ directory, notes, context, now: () => timestamp, generate: async value => { if (value.outputSchema?.properties.present) await delay; return generate(value); } });
-  const background = service.call('home');
+  service = createBrainstorm({ directory, notes, context, now: () => timestamp, generate: async value => { if (value.outputSchema?.properties.idea) await delay; return generate(value); } });
+  const background = service.call('prepare', { mode: 'present' });
+  assert.deepEqual(service.snapshot().preparing, ['present']);
   await service.call('create', { mode: 'story', title: 'Continue while ideas load' });
   release(); await background;
-  assert.equal(open().snapshot().sessions.at(-1).title, 'Continue while ideas load', 'Background suggestions must merge without losing concurrent work');
-  console.log('BRAINSTORM_OK: branches, custom directions, notes conflicts, board links, Unicode, check-ins, feedback, recovery');
+  assert.equal(open().snapshot().sessions.at(-1).title, 'Continue while ideas load', 'Background preparation must merge without losing concurrent work');
+  assert.equal(open().snapshot().prepared.present.generatedAt, timestamp);
+  fail = true;
+  await assert.rejects(() => service.call('prepare', { mode: 'thoughts' }), /Offline/);
+  assert.equal(service.snapshot().failures.thoughts, 'Offline');
+  assert(service.snapshot().prepared.thoughts, 'A failed refresh keeps the previous module');
+  fail = false;
+  console.log('BRAINSTORM_OK: prepared modules, instant open, branches, custom directions, notes conflicts, board links, Unicode, check-ins, feedback, recovery');
 } finally { notes.close(); }
