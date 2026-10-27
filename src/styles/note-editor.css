@@ -23,6 +23,8 @@
 .noteDatabaseChoices { width: 100%; max-height: 260px; overflow: auto; border-top: 1px solid var(--color-border); padding-top: 8px; }.noteDatabaseChoices button { display: block; text-align: left; width: 100%; background: transparent; }.noteDatabaseChoices button:hover { background: var(--niwa-control-hover); }
 .noteEditorError { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; color: #dd9696; font-size: 12px; }.noteEditorError button { color: inherit; background: transparent; }
 .contextualNoteEditor .noteProse { padding-top: 14px; }
+/* Page and attachment links open on a single click, so they show the link cursor inside the editable text. */
+.noteProse a[href^="localflow-note:"], .noteProse a[href^="localflow-asset:"] { cursor: pointer; }
 .contextualNoteEditor .noteProse ol { padding-left: 3em; }
 .contextualNoteEditor .noteProse .tableWrapper { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--color-text-soft) transparent; }
 .contextualNoteEditor .noteProse table { table-layout: fixed; min-width: 100%; }
