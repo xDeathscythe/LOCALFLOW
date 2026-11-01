@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+module.exports = async (page, directory) => {
+  await page.getByRole('button', { name: 'Open profile menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Account & connections', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Account and connections', exact: true });
+  await panel.waitFor();
+  const initial = await page.evaluate(() => window.localflow.accountCall('status'));
+  assert.equal(initial.serviceUrl, 'https://localflow-accounts.alnen96.workers.dev');
+  assert.equal(await panel.getByRole('button', { name: 'Continue with Google', exact: true }).isEnabled(), true);
+  await panel.getByText('Connection setup', { exact: true }).click();
+  await panel.getByLabel('Account service', { exact: true }).fill('');
+  await panel.getByRole('button', { name: 'Save connection settings' }).click();
+  await page.waitForFunction(async () => !(await window.localflow.accountCall('status')).configured);
+  assert.equal(await panel.getByRole('button', { name: 'Continue with Google', exact: true }).isDisabled(), true);
+  await panel.getByLabel('Account service', { exact: true }).fill('http://untrusted.invalid');
+  await panel.getByRole('button', { name: 'Save connection settings' }).click();
+  await page.getByRole('alert').filter({ hasText: 'HTTPS origin' }).waitFor();
+  await panel.getByLabel('Account service', { exact: true }).fill('https://accounts.example.invalid');
+  await panel.getByRole('button', { name: 'Save connection settings' }).click();
+  await page.waitForFunction(async () => (await window.localflow.accountCall('status')).configured);
+  assert.equal(await panel.getByRole('button', { name: 'Continue with Google', exact: true }).isEnabled(), true);
+  await page.screenshot({ path: path.join(directory, 'account.png') });
+  await page.getByRole('button', { name: 'Open profile menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Meetings', exact: true }).click();
+  const calendar = page.getByRole('region', { name: 'Google Calendar' });
+  await calendar.getByRole('button', { name: 'Connect Google' }).click();
+  await panel.waitFor();
+  assert.equal((await page.evaluate(() => window.localflow.accountCall('status'))).serviceUrl, 'https://accounts.example.invalid');
+  console.log('NATIVE_ACCOUNT_OK: profile navigation, service validation/persistence, Google entry, meeting calendar navigation.');
+};

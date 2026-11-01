@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
-const { parseCleanup } = require('../electron/duplex-cleanup.cjs');
-const { LIVE_MODEL, LIVE_VOICES } = require('../electron/realtime-config.cjs');
-const { createTranscriptionWorker } = require('../electron/transcription-worker.cjs');
+const { parseCleanup } = require('../host/duplex-cleanup.cjs');
+const { LIVE_MODEL, LIVE_VOICES } = require('../host/realtime-config.cjs');
+const { createTranscriptionWorker } = require('../host/transcription-worker.cjs');
 const { mkdtempSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');

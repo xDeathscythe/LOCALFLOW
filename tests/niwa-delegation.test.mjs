@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import runtime from '../electron/runtime-config.cjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
+import runtime from '../host/runtime-config.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
 const directory = resolve('runtime/niwa-delegation', String(Date.now()));
 mkdirSync(directory, { recursive: true });
 const events = [];

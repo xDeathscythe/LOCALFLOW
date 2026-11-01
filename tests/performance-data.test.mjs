@@ -3,10 +3,10 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { queryRows } from '../electron/notes/database-engine.mjs';
-import { createNotesService } from '../electron/notes-service.mjs';
+import { queryRows } from '../host/notes/database-engine.mjs';
+import { createNotesService } from '../host/notes-service.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { createConversationStore } from '../electron/conversation-store.mjs';
+import { createConversationStore } from '../host/conversation-store.mjs';
 
 const root = await mkdtemp(join(tmpdir(), 'localflow-performance-'));
 const changes = [], notes = createNotesService(root, change => changes.push(change));
@@ -20,7 +20,7 @@ try {
   assert.match(writes[1].reason.message, /changed elsewhere/);
   assert.equal((await notes.read(original.id)).content, 'Winner');
   await notes.close();
-  assert.equal(await readFile(original.path, 'utf8'), 'Winner');
+  const reopened=createNotesService(root,()=>{});assert.equal((await reopened.read(original.id)).content,'Winner');await reopened.close();
   assert(changes.some(change => change.tree === false && change.ids.includes(original.id)));
   await assert.rejects(notes.list(), /closed/);
 } finally { await notes.close(); }
@@ -35,12 +35,13 @@ conversation.transcript[42].work.diff = '+updated';
 conversation.transcript.push({id: 'new', content:'日本語', work:{diff:'+new'}});
 writer.write(file, conversation, [conversation.transcript[42]]); writer.flush();
 assert.equal(database.prepare('SELECT total_changes() AS count').get().count - beforeChanges, 3, 'one metadata, one new and one edited message, not 10001 messages');
-assert.deepEqual(writer.read(file), conversation);
+const page=writer.read(file);assert.equal(page.messageOffset,9901);assert.deepEqual(page.transcript,conversation.transcript.slice(-100));
+assert.deepEqual(writer.range(file,0,100),conversation.transcript.slice(0,100));
 database.exec("CREATE TRIGGER block_write BEFORE UPDATE ON conversations BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;");
 conversation.transcript[4].work.diff = '+retry'; writer.write(file, conversation, [conversation.transcript[4]]);
 assert.throws(() => writer.flush(), /fixture failure/); assert.equal(writer.read(file).transcript[4].work.diff, '+retry');
 database.exec('DROP TRIGGER block_write'); writer.flush();
-assert.equal(writer.read(file).transcript[4].work.diff, '+retry');
+assert.equal(writer.range(file,4,1)[0].work.diff, '+retry');
 database.close();
 
 function benchmark(label, run) {

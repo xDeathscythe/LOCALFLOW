@@ -13,6 +13,8 @@ runtime/
 
 # Local credentials, recordings, test captures and model payloads.
 .env.*
+.dev.vars*
+.wrangler/
 !.env.example
 .playwright-cli/
 output/
@@ -27,3 +29,6 @@ models/**
 *.key
 auth.json
 prototypes/niwa-localflow/localflow-niwa.html
+src-tauri/target/
+src-tauri/gen/
+docs/images/meetings-0.3.0-*.png

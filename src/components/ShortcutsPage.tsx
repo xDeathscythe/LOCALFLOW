@@ -3,6 +3,7 @@ import { ShortcutEditor, type ShortcutRow } from "./ShortcutEditor";
 import type { ShortcutConfig } from "@/types";
 
 const fixedRows: ShortcutRow[] = [
+  { action: 'select-copy', title: 'Select Copy', description: 'Select an area of the screen and copy its text. Press Esc to cancel.' },
   { action: 'niwa-agent', title: 'Talk to Niwa', description: 'Toggle duplex voice, or record with the selected local voice mode.' },
   { action: "dictation", title: "Quick dictation", description: "Start and stop dictation using the recording mode selected in Settings." },
   { action: "import-audio", title: "Import audio", description: "Open the local audio file picker." },

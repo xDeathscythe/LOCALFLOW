@@ -3,7 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { mock } = require("node:test");
-const { createTranscriptionWorker } = require("../electron/transcription-worker.cjs");
+const { createTranscriptionWorker } = require("../host/transcription-worker.cjs");
 
 async function main() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "localflow-worker-"));
@@ -12,6 +12,7 @@ async function main() {
     require('readline').createInterface({input: process.stdin}).on('line', line => {
       const {id, action, params} = JSON.parse(line);
       if(action === 'exit') process.exit(7);
+      if(action === 'cancel') return;
       console.log(JSON.stringify({id, type:'progress', stage:'started'}));
       setTimeout(() => console.log(JSON.stringify({id, type:'result', ok:true, data:{pid:process.pid, ...params}})), params.delay || 0);
     });
@@ -24,11 +25,17 @@ async function main() {
     const first = await worker.send("warmup");
     assert.equal((await worker.send("configure", { language: "en" })).pid, first.pid);
     const cancelled = assert.rejects(worker.send("transcribe", { delay: 1000 }, "cancelled"), /cancelled/);
-    worker.stop();
+    worker.cancel();
     await cancelled;
     const recovered = await worker.send("transcribe", {}, "current");
-    assert.notEqual(recovered.pid, first.pid);
+    assert.equal(recovered.pid, first.pid, 'Cancellation keeps the model process alive');
     assert(events.some((event) => event.id === "current" && event.action === "transcribe"));
+    const meeting = worker.send('transcribe', { delay: 30 }, 'meeting-job', { owner: 'meeting' });
+    const dictation = assert.rejects(worker.send('transcribe', { delay: 30 }, 'dictation-job'), /cancelled/);
+    worker.cancel(); await dictation;
+    assert.equal((await meeting).pid, first.pid, 'Cancelling dictation preserves a concurrent meeting job');
+    const scoped = assert.rejects(worker.send('transcribe', { delay: 1000 }, 'meeting-cancel', { owner: 'meeting' }), /cancelled/);
+    worker.cancel('meeting-cancel'); await scoped;
     await assert.rejects(worker.send("exit"), /exited/);
     await worker.send("warmup");
     await assert.rejects(timed.send("transcribe", { delay: 2000 }), /timed out/);

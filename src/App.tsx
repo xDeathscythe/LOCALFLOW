@@ -12,10 +12,14 @@ import {
   NotebookPen,
   Settings,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { version as APP_VERSION } from '../package.json';
+import { WindowControls } from './components/WindowControls';
+import { TextTools } from './components/TextTools';
+import { MeetingIcon } from './components/MeetingIcon';
 import { ProfileMenu } from "./components/ProfileMenu";
 import { PanelResize } from "./components/PanelResize";
 import { RecordingOverlay } from './components/RecordingStatus';
@@ -40,11 +44,14 @@ import type {
 } from "./types";
 
 type RunState = "idle" | "starting" | "recording" | "saving" | "ready" | "processing" | "done" | "error";
-type NavSection = "transcribe" | "notes" | "niwa" | "files" | "history" | "settings" | "shortcuts" | "about";
+type NavSection = "transcribe" | "meetings" | "notes" | "scrub" | "niwa" | "files" | "history" | "account" | "settings" | "shortcuts" | "about";
 type WhisperModelId = "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2";
 type HotkeyMode = "hold" | "press";
 type RecordingMode = "manual" | "paste" | "notes" | "niwa";
 const NotesPage = lazy(() => import('./components/NotesPage').then(module => ({ default: module.NotesPage })));
+const MeetingsPage = lazy(() => import('./components/MeetingsPage').then(module => ({ default: module.MeetingsPage })));
+const AccountSettings = lazy(() => import('./components/AccountSettings').then(module => ({ default: module.AccountSettings })));
+const ScrubBoard = lazy(() => import('./components/ScrubBoard').then(module => ({default:module.ScrubBoard})));
 const CLEANUP_LEVEL_STORAGE_KEY = "localflow.cleanup-level.v1";
 const HOTKEY_MODE_STORAGE_KEY = "localflow.hotkey-mode.v1";
 const cleanupLevels = new Set<CleanupLevel>(["none", "light", "medium", "high"]);
@@ -201,10 +208,12 @@ const cleanupLevelOptions: Array<{
 
 const navItems = [
   { id: "transcribe", label: "Transcribe", icon: Mic },
+  { id: "meetings", label: "Meetings", icon: MeetingIcon },
   { id: "notes", label: "Notes", icon: NotebookPen },
   { id: "niwa", label: "Brainstorm space", icon: MessageCircle },
   { id: "files", label: "Files", icon: FolderOpen },
   { id: "history", label: "History", icon: History },
+  { id: "account", label: "Account & connections", icon: UserRound },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
@@ -241,7 +250,9 @@ export function App() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const [config, setConfig] = useState(defaultConfig);
   const [activeSection, setActiveSection] = useState<NavSection>("niwa");
+  const [scrubCapture,setScrubCapture]=useState<{id:string;text:string}|null>(null);
   const [notesOpened, setNotesOpened] = useState(false);
+  const [openMeetingNote, setOpenMeetingNote] = useState<{id:string;request:number} | null>(null);
   const [exportedPath, setExportedPath] = useState("");
   const [error, setError] = useState("");
   const [switchingModel, setSwitchingModel] = useState(false);
@@ -278,7 +289,17 @@ export function App() {
   const hotkeyModeRef = useRef<HotkeyMode>(hotkeyMode);
 
   useEffect(() => window.localflow.onWindowVisibility(setWindowVisible), []);
+  useEffect(() => {
+    const failed = (event: Event) => setError(String((event as CustomEvent).detail));
+    window.addEventListener('localflow-host-error', failed);
+    return () => window.removeEventListener('localflow-host-error', failed);
+  }, []);
   useEffect(() => { if (activeSection === 'notes') setNotesOpened(true); }, [activeSection]);
+  useEffect(() => window.localflow.onMeetingEvent(event => {
+    if (event.type !== 'meeting-open-note') return;
+    setOpenMeetingNote({id:event.noteId,request:Date.now()});
+    setNotesOpened(true); setActiveSection('notes');
+  }), []);
   useEffect(() => window.localflow.onNiwaEvent(event => {
     if (event.type === 'approval') setActiveSection('niwa');
   }), []);
@@ -427,7 +448,7 @@ export function App() {
   }, []);
 
   useEffect(() => window.localflow.onEdgeAction(action => {
-    if (action === 'notes') { setActiveSection('notes'); return; }
+    if (action === 'transcribe') { setActiveSection('meetings'); return; }
     if (action === 'agent') { setActiveSection('niwa'); return; }
     if (stateRef.current === 'starting') { reset(); return; }
     if (stateRef.current === 'recording') { stopRecording(); return; }
@@ -690,7 +711,7 @@ export function App() {
 
   const isBusy = niwaMicrophone || state === "starting" || state === "processing" || state === "saving" || switchingModel || switchingLanguage || switchingVoiceOutput;
   const activeNavItem = navItems.find((item) => item.id === activeSection) || navItems[0];
-  const pageTitle = activeNavItem.label;
+  const pageTitle = activeSection==='scrub'?'Scrub board':activeNavItem.label;
 
   const switchWhisperModel = async (model: WhisperModelId) => {
     if (model === config.whisperModel || state === "recording" || switchingModel) {
@@ -786,6 +807,7 @@ export function App() {
 
   const renderUtilityView = () => {
     if (activeSection === 'niwa') return null;
+    if (activeSection === 'account') return <section className="utilityPanel"><Suspense fallback={<p>Loading account…</p>}><AccountSettings call={window.localflow.accountCall} onState={window.localflow.onAccountState} /></Suspense></section>;
 
     if (activeSection === "files") {
       return (
@@ -856,6 +878,7 @@ export function App() {
           <div className="settingsList">
             <AppearanceSettings />
             <EdgeSettings />
+            <button className="settingsGroup" onClick={() => setActiveSection('account')}><UserRound size={18} /> Account, Google Calendar & devices</button>
             <div className="settingsGroup cleanupAuthGroup">
               <div className="settingsGroupHeading">
                 <strong>Cleanup access</strong>
@@ -1119,7 +1142,7 @@ export function App() {
         recording={state === 'recording'} starting={state === 'starting'}
         agentListening={niwaListening || (state === 'recording' && recordingModeRef.current === 'niwa')}
         recordingTarget={recordingModeRef.current === 'niwa' ? 'agent' : 'microphone'} />
-      <div className="windowDragRegion" aria-hidden="true" />
+      <WindowControls />
       <aside className="sidebar">
         <PanelResize label="Resize folders" property="--sidebar-width" edge="right" min={180} max={480} fraction={0.35} />
         <div className="brand">
@@ -1129,7 +1152,8 @@ export function App() {
         <nav className="navList" aria-label="Workspace">{["niwa", "notes"].map(id => renderNavItem(navItems.find(item => item.id === id)!))}</nav>
         <div className="sidebarNotes" ref={setNotesSidebar} />
         <div className="sidebarBottom">
-          <ProfileMenu version={APP_VERSION}>{navItems.filter(item => !["niwa", "notes"].includes(item.id)).map(renderNavItem)}</ProfileMenu>
+          <TextTools onBoard={text=>{setScrubCapture(text?{id:crypto.randomUUID(),text}:null);setActiveSection('scrub');}} />
+          <ProfileMenu version={APP_VERSION} onAccount={() => setActiveSection('account')}>{navItems.filter(item => !["niwa", "notes"].includes(item.id)).map(renderNavItem)}</ProfileMenu>
         </div>
       </aside>
       <section className="workspace">
@@ -1149,12 +1173,13 @@ export function App() {
           onMode={mode => { niwaModeRef.current = mode; }}
           onLocalRecord={() => state === 'recording' && recordingModeRef.current === 'niwa' ? stopRecording() : void startRecording('niwa')} />
         {(notesOpened || activeSection === 'notes' || notesCapture) && <Suspense fallback={null}><NotesPage sidebar={notesSidebar} header={notesHeader} visible={activeSection === "notes"} onOpen={() => setActiveSection("notes")}
+          openRequest={openMeetingNote} onOpenRequestHandled={() => setOpenMeetingNote(null)}
           capture={notesCapture} onCaptureHandled={() => setNotesCapture(null)} onStatus={setStatus}
           recording={state === "recording" && recordingModeRef.current === "notes"}
           recordDisabled={isBusy || (state === "recording" && recordingModeRef.current !== "notes")}
           onToggleRecording={() => state === "recording" && recordingModeRef.current === "notes" ? stopRecording() : void startRecording("notes")}
         /></Suspense>}
-        {activeSection === "transcribe" ? <TranscribePage
+        {activeSection === 'scrub' ? <Suspense fallback={null}><ScrubBoard capture={scrubCapture}/></Suspense> : activeSection === 'meetings' ? <Suspense fallback={<div className="meetingEmpty">Loading meetings…</div>}><MeetingsPage onAccount={() => setActiveSection('account')} /></Suspense> : activeSection === "transcribe" ? <TranscribePage
           result={result} name={audioName} state={state} status={status} error={error}
           seconds={recordingSeconds} startedAt={state === 'recording' ? startedAtRef.current : 0} stream={audioStream} visible={windowVisible} busy={isBusy} hasAudio={Boolean(audioPath)}
           model={config.whisperModel} language={config.language as TranscriptionLanguage} cleanup={options.cleanupLevel}

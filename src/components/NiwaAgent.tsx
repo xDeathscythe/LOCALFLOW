@@ -9,6 +9,7 @@ import { ProjectSidebar } from './ProjectSidebar';
 import { ChatMessage } from './ChatMessage';
 import type { AgentActivity } from '../lib/workspace';
 import { BrowserConnection } from './BrowserConnection';
+import { BrainstormSpace } from './brainstorm/BrainstormSpace';
 
 export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, microphoneBusy, claimMicrophone, releaseMicrophone, onLocalRecord, onVoiceActive, onListening, onMode }: {
   sidebar: HTMLElement | null; visible: boolean; shortcutLabel: string; recording: boolean; microphoneBusy: boolean; onLocalRecord: () => void; onVoiceActive: (active: boolean) => void; onMode: (mode: string) => void;
@@ -16,6 +17,7 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   onListening: (active: boolean) => void;
 }) {
   const [snapshot, setSnapshot] = useState<NiwaSnapshot | null>(null);
+  const [brainstorm, setBrainstorm] = useState(true);
   const { messages, receive: receiveMessage, replace: replaceMessages, prepend: prependMessages, clear: clearMessages } = useChatMessages();
   const [work, setWork] = useState<ChatWork | undefined>();
   const [draftKey, setDraftKey] = useState(0);
@@ -85,6 +87,7 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
       if (event.type === 'error') setError(event.message!);
       if (event.type === 'sdp') void act(() => voice.current!.answer(event.sdp!));
       if (event.type === 'voice') {
+        if (event.active) setBrainstorm(false);
         if (event.active && session.current === 'stopping') return;
         // A previous session may finish stopping while its replacement negotiates.
         // Failure to start the replacement is handled by its rejected start promise.
@@ -157,8 +160,12 @@ export function NiwaAgent({ sidebar, visible, shortcutLabel, recording, micropho
   const undoChanges = useCallback(async (patch: string) => { try { setError(''); await window.localflow.niwaUndoChanges(patch); } catch (error) { setError(String(error)); } }, []);
   const lastAssistantId = messages.filter(message => message.role === 'assistant').at(-1)?.id;
   const currentChat = snapshot?.projects?.chats.find(chat => chat.id === snapshot.projects?.activeId);
-  return <>{sidebar && visible && snapshot?.projects && <ProjectSidebar target={sidebar} projects={snapshot.projects} disabled={active || busy} run={act} />}<section className={`niwaPage ${showDiff ? 'withDiff' : ''}`} hidden={!visible}>
+  useEffect(() => { if (visible) setBrainstorm(true); }, [visible]);
+  return <>{sidebar && visible && snapshot?.projects && <ProjectSidebar target={sidebar} projects={snapshot.projects} disabled={active || busy} run={async work => { setBrainstorm(false); await act(work); }} />}
+    <BrainstormSpace snapshot={snapshot} visible={visible && brainstorm} configure={configure} connect={() => void act(async () => { const value = await window.localflow.niwaConnect(); setSnapshot(current => current && { ...current, ...value }); })} openChat={() => setBrainstorm(false)} />
+    <section className={`niwaPage ${showDiff ? 'withDiff' : ''}`} hidden={!visible || brainstorm}>
     <div className="niwaConversation">
+    <button className="backToBrainstorm" onClick={() => setBrainstorm(true)}>Brainstorm space</button>
     <header className="niwaToolbar"><div className="agentChatTab"><MessageCircle size={14} /><strong className="agentChatTitle">{currentChat?.label || 'Niwa'}</strong></div><button className="newChatButton" aria-label="New chat" title="New chat" disabled={active || busy} onClick={() => void act(async () => { if (currentChat) await window.localflow.niwaNewChat(currentChat.folderId); else { const folder = await window.localflow.niwaAddProject(); if (folder) await window.localflow.niwaOpenFolder(folder.id); } })}><Plus size={17} /></button><span className={`niwaPresence ${listening ? 'live' : ''}`}>{listening ? 'Listening' : busy ? 'Working' : starting ? 'Connecting…' : voiceActive ? 'Mic off' : ''}</span><button onClick={() => setShowDiff(current => !current)} aria-label="Toggle changes" aria-pressed={showDiff} title="Changes"><PanelRight size={17} /></button></header>
     <details className="niwaConfiguration"><summary aria-label="Agent settings" title="Agent settings"><Settings2 size={16} /></summary><div className="niwaConfigurationContent">
       <button onClick={() => void act(async () => { const value = await window.localflow.niwaConnect(); setSnapshot(current => current && { ...current, ...value }); })}>Connect Codex / refresh models</button>

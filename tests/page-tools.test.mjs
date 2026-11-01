@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createNotesStore } from '../electron/notes-store.mjs';
+import { createNotesStore } from '../host/notes-store.mjs';
 const directory=mkdtempSync(join(tmpdir(),'localflow-page-tools-'));
+const stores=[]; const open=()=>{const store=createNotesStore(directory);stores.push(store);return store;};
 try {
-  let store=createNotesStore(directory);
+  let store=open();
   const parent=store.create({kind:'database',label:'Pages'});
   let note=store.create({parentId:parent.id,label:'日本語',content:'Original'});
   const original=note.revision;
@@ -20,11 +21,11 @@ try {
   assert.equal(restored.content,'Original');
   assert(store.history(note.id).some(version=>version.preview==='Second'));
   store.remove(note.id); assert.equal(store.trash().length,1); assert.equal(store.databaseRead(parent.id).rows.length,0);
-  store=createNotesStore(directory);store.restore(note.id);
+  store=open();store.restore(note.id);
   assert.equal(store.read(note.id).content,'Original');assert.equal(store.databaseRead(parent.id).rows[0].pageId,note.id);
-  store.remove(parent.id);store=createNotesStore(directory);store.restore(parent.id);
+  store.remove(parent.id);store=open();store.restore(parent.id);
   assert.equal(store.read(note.id).content,'Original');assert.equal(store.trash().length,0);
   for(let i=0;i<24;i++)store.save({...store.read(note.id),content:`Version ${i}`});
   assert.equal(store.history(note.id).length,20);
   console.log('PAGE_TOOLS_STORE_OK: durable trash including database rows, version restore, lock enforcement, bounded history');
-} finally { rmSync(directory,{recursive:true,force:true}); }
+} finally { stores.forEach(store=>store.close()); rmSync(directory,{recursive:true,force:true}); }

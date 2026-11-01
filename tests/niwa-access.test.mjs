@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import codex from '../electron/codex-client.cjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
+import codex from '../host/codex-client.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
 
 const directory = mkdtempSync(resolve('runtime/niwa-access-'));
 const originalHome = process.env.CODEX_HOME, OriginalClient = codex.CodexClient;

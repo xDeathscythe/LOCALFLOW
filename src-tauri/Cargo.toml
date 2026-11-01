@@ -1,0 +1,37 @@
+[package]
+name = "localflow-desktop"
+version = "0.3.16"
+edition = "2021"
+license = "MIT"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["sync", "time"] }
+base64 = "0.22"
+percent-encoding = "2"
+dunce = "1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.62"
+windows = { version = "0.62", features = ["Media_Ocr", "Graphics_Imaging", "Storage_Streams", "Globalization", "Win32_UI_Accessibility", "Win32_Foundation", "Win32_Security", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm", "Win32_System_LibraryLoader", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_Performance", "Win32_System_Diagnostics_ToolHelp", "Win32_Devices_FunctionDiscovery", "Win32_UI_Shell_PropertiesSystem"] }
+webview2-com = "0.39"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1

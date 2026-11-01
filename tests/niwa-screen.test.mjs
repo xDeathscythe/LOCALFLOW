@@ -3,31 +3,14 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import codex from '../electron/codex-client.cjs';
-import { captureScreen } from '../electron/screen-capture.cjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
-import { screenVisionResult } from '../electron/niwa/screen-vision.mjs';
+import codex from '../host/codex-client.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
+import { screenVisionResult } from '../host/niwa/screen-vision.mjs';
 
-const displays = [{ id: 1, bounds: { x: -1920, y: 0, width: 1920, height: 1080 } }, { id: 2, bounds: { x: 0, y: 0, width: 1920, height: 1080 } }];
-let captures = 0, empty = false;
-const native = {
-  screen: { getCursorScreenPoint: () => ({ x: 100, y: 100 }), getDisplayNearestPoint: ({ x }) => displays[x < 0 ? 0 : 1], getAllDisplays: () => displays },
-  desktopCapturer: { getSources: async options => {
-    captures++; assert.deepEqual(options.types, ['screen']);
-    return displays.map(display => ({ display_id: String(display.id), thumbnail: { isEmpty: () => empty, getSize: () => ({ width: 1920, height: 1080 }), toJPEG: () => Buffer.from(`frame-${display.id}-${captures}`) } }));
-  } },
-};
-const first = await captureScreen(native);
-assert.equal(JSON.parse(first.content[0].text).display, 2);
-assert.equal(Buffer.from(first.content[1].data, 'base64').toString(), 'frame-2-1');
-const second = await captureScreen(native, { x: -10, y: 10 });
-assert.equal(JSON.parse(second.content[0].text).display, 1);
-assert.notEqual(first.content[1].data, second.content[1].data, 'Each request captures a new frame');
-empty = true;
-await assert.rejects(captureScreen(native), /unavailable/);
-empty = false;
-await assert.rejects(captureScreen(native, {}, AbortSignal.abort()), /abort/i);
-assert.equal(captures, 3, 'Cancelled requests never capture');
+let captures=0;
+const captureScreen=async (_native,params={},signal)=>{signal?.throwIfAborted();return {content:[{type:'text',text:JSON.stringify({capturedAt:Date.now()})},{type:'image',mimeType:'image/jpeg',data:Buffer.from('fixture-'+(++captures)).toString('base64')}]};};
+const native={};
+const first=await captureScreen(native);
 
 const catalog = [
   { model: 'text-model', inputModalities: ['text'], defaultReasoningEffort: 'medium', supportedReasoningEfforts: [{ reasoningEffort: 'medium' }] },
@@ -105,7 +88,7 @@ try {
   await assert.rejects(pending, /cancelled/);
   assert(client.calls.some(call => call.method === 'turn/interrupt'));
   assert.equal(client.listenerCount('notification'), 1, 'Cancelled vision listener removed; owner listener retained');
-  console.log('NIWA_SCREEN_OK: fresh multi-display capture, cancellation, empty capture, realtime vision routing, text-only delegation, resumed sessions, voice preserved, no input-control grant');
+  console.log('NIWA_SCREEN_OK: realtime vision routing, text-only delegation, resumed sessions, cancellation, voice preserved, no input-control grant; native frame capture checked by test:native');
 } finally {
   await agent?.close(); codex.CodexClient = originalClient;
 }

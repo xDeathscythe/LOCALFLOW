@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { DatabaseRow, Property } from '../../lib/database';
-import { displayValue } from '../../../electron/notes/database-engine.mjs';
+import { displayValue } from '../../../host/notes/database-engine.mjs';
 const rowHeight = 40, viewportHeight = 480;
 export function TimelineView({ rows, title, dateProperty, open, month: controlledMonth, onMonthChange, earliestDate }: { rows: DatabaseRow[]; title: Property; dateProperty?: Property; open: (id: string) => void; month?: Date; onMonthChange?: (month: Date) => void; earliestDate?: string }) {
   const [localMonth, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));

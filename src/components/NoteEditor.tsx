@@ -11,7 +11,6 @@ import { TablePicker } from './notes/TablePicker';
 import { DatabasePicker } from './notes/DatabasePicker';
 import { currentBlock, insertAfterBlock } from './notes/block-actions';
 import { BlockActionDialog, BlockPresentation } from './notes/BlockActionDialog';
-import 'katex/dist/katex.min.css';
 import '../styles/note-editor.css';
 
 type Position = { x: number; y: number };
@@ -51,7 +50,7 @@ export function NoteEditor({ content, document: noteDocument, html, loadVersion,
       },
       handleDrop: (view, event) => { if (!view.editable) return true; const files = [...(event.dataTransfer?.files || [])]; if (!files.length) return false; event.preventDefault(); const position = view.posAtCoords({ left: event.clientX, top: event.clientY }); if (position) editor?.commands.setTextSelection(position.pos); void uploadFiles(files); return true; },
       handleDOMEvents: {
-        contextmenu: (view, event) => { if (!view.editable) return false; event.preventDefault(); if (view.state.selection.empty) { const position = view.posAtCoords({ left: event.clientX, top: event.clientY }); if (position) editor?.commands.setTextSelection(position.pos); } setMenu({ x: event.clientX, y: event.clientY, mode: 'block' }); return true; },
+        contextmenu: (view, event) => { if (!view.editable) return false; if (!view.state.selection.empty && !(view.state.selection instanceof NodeSelection)) { setMenu(null); return false; } event.preventDefault(); if (view.state.selection.empty) { const position = view.posAtCoords({ left: event.clientX, top: event.clientY }); if (position) editor?.commands.setTextSelection(position.pos); } setMenu({ x: event.clientX, y: event.clientY, mode: 'block' }); return true; },
         click: (_view, event) => { const href = (event.target as HTMLElement).closest('a')?.getAttribute('href'); if (href?.startsWith('localflow-note:')) { event.preventDefault(); onOpenNote?.(href.replace(/^localflow-note:\/\//, '')); return true; } if (href?.startsWith('localflow-asset:')) { event.preventDefault(); void window.localflow.notesOpenAsset(href); return true; } return false; },
       },
     },
@@ -122,7 +121,7 @@ export function NoteEditor({ content, document: noteDocument, html, loadVersion,
         const left = (element.matches('li') ? element.parentElement! : element).getBoundingClientRect().left;
         const x = left - parent.left - 42, y = rect.top - parent.top;
         setHandle(previous => previous?.from === block!.from && previous.x === x && previous.y === y ? previous : { from: block!.from, x, y });
-      }} onMouseUp={event => { if (editor.isEditable && !editor.state.selection.empty && !(editor.state.selection instanceof NodeSelection) && !editor.isActive('table')) setMenu({ x: event.clientX, y: event.clientY + 12, mode: 'format' }); }} onKeyDown={event => { if (editor.isEditable && event.key === '/' && editor.state.selection.$from.parent.content.size === 0) { event.preventDefault(); const coords = editor.view.coordsAtPos(editor.state.selection.from); setMenu({ x: coords.left, y: coords.bottom + 8, mode: 'insert' }); } }} />
+      }} onMouseUp={event => { if (event.button === 0 && editor.isEditable && !editor.state.selection.empty && !(editor.state.selection instanceof NodeSelection) && !editor.isActive('table')) setMenu({ x: event.clientX, y: event.clientY + 12, mode: 'format' }); }} onKeyDown={event => { if (editor.isEditable && event.key === '/' && editor.state.selection.$from.parent.content.size === 0) { event.preventDefault(); const coords = editor.view.coordsAtPos(editor.state.selection.from); setMenu({ x: coords.left, y: coords.bottom + 8, mode: 'insert' }); } }} />
       {handle && <div className="noteBlockHandle" style={{ left: Math.max(2, handle.x), top: handle.y }}>
         <button title="Insert block below" aria-label="Insert block below" onMouseDown={e => e.preventDefault()} onClick={event => { selectHandle(); openMenu(event, 'insert'); }}><Plus size={14} /></button>
         <button title="Drag to move · Click for block actions" aria-label="Block actions" draggable onMouseDown={e => e.preventDefault()} onClick={event => { selectHandle(); openMenu(event, 'block'); }} onDragStart={event => {

@@ -1,6 +1,6 @@
 const assert = require("assert/strict");
 const path = require("path");
-const { createVoiceOutputManager } = require("../electron/voice-output.cjs");
+const { createVoiceOutputManager } = require("../host/voice-output.cjs");
 
 async function main() {
   const root = path.resolve(__dirname, "..");

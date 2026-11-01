@@ -1,27 +1,30 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, FilePlus2, Folder, FolderPlus, Mic, Square, X, Database, ArrowLeft, MoreHorizontal, Upload, Plus } from 'lucide-react';
+import { Check, FilePlus2, FolderPlus, Mic, Square, X, Database, ArrowLeft, MoreHorizontal, Upload, Plus } from 'lucide-react';
+import Riffle from './ui/hairline-riffle';
 import { RowProperties } from './notes/RowProperties';
 import { PageDesign } from './notes/PageDesign';
+import { MeetingNoteView } from './notes/MeetingNoteView';
 import { PageTabs } from './notes/PageTabs';
 import { NotesTree } from './notes/NotesTree';
 import { WikiContents } from './notes/WikiContents';
 import { PageTools, type PageTool } from './notes/PageTools';
 import { PageMenu, type PageAction, type PageAppearance } from './notes/PageMenu';
 import { loadNotes, loadPageSession, savePageSession } from '../lib/notes';
+import { assetUrl } from '../lib/asset-url';
 import type { NoteNode, MarkdownNote } from '../lib/workspace';
 import '../styles/note-pages.css';
 import '../styles/note-layout.css';
 const DatabasePage = lazy(() => import('./notes/DatabasePage').then(module => ({ default: module.DatabasePage })));
 const NoteEditor = lazy(() => import('./NoteEditor').then(module => ({ default: module.NoteEditor })));
 
-type Props = { sidebar: HTMLElement | null; header: HTMLElement | null; visible: boolean; onOpen: () => void; capture: { id: number; text: string } | null; onCaptureHandled: () => void; onStatus: (message: string) => void; recording: boolean; recordDisabled: boolean; onToggleRecording: () => void };
+type Props = { sidebar: HTMLElement | null; header: HTMLElement | null; visible: boolean; onOpen: () => void; openRequest?: {id:string;request:number} | null; onOpenRequestHandled?: () => void; capture: { id: number; text: string } | null; onCaptureHandled: () => void; onStatus: (message: string) => void; recording: boolean; recordDisabled: boolean; onToggleRecording: () => void };
 const find = (items: NoteNode[], id: string): NoteNode | undefined => items.reduce<NoteNode | undefined>((found, item) => found || (item.id === id ? item : find(item.children || [], id)), undefined);
 const firstNote = (items: NoteNode[]): string | undefined => items.reduce<string | undefined>((found, item) => found || (item.kind === 'note' ? item.id : firstNote(item.children || [])), undefined);
 const parentOf = (items: NoteNode[], id: string): string | undefined => items.reduce<string | undefined>((found, item) => found || (item.children?.some(child => child.id === id) ? item.id : parentOf(item.children || [], id)), undefined);
 const allNodes = (values: NoteNode[]): NoteNode[] => values.flatMap(value => [value, ...allNodes(value.children || [])]);
 
-export function NotesPage({ sidebar, header, visible, onOpen, capture, onCaptureHandled, onStatus, recording, recordDisabled, onToggleRecording }: Props) {
+export function NotesPage({ sidebar, header, visible, onOpen, openRequest, onOpenRequestHandled, capture, onCaptureHandled, onStatus, recording, recordDisabled, onToggleRecording }: Props) {
   const [historyTarget,setHistoryTarget]=useState<HTMLSpanElement|null>(null);
   const [items, setItems] = useState<NoteNode[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -33,6 +36,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [loadVersion, setLoadVersion] = useState(0);
   const handledCapture = useRef<number | null>(null);
+  const handledOpen = useRef<number | null>(null);
   const [saved, setSaved] = useState(true), [ready, setReady] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState(false);
   const [visited, setVisited] = useState(visible);
   const [creating, setCreating] = useState<{ kind: 'folder' | 'note' | 'database'; parentId?: string } | null>(null);
@@ -45,6 +49,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
   const [blockTarget, setBlockTarget] = useState('');
   const [tool, setTool] = useState<{kind:PageTool;note:MarkdownNote|null}|null>(null);
   const [presenting,setPresenting] = useState(false);
+  const [meetingEditorRequest,setMeetingEditorRequest] = useState<{id:string;sequence:number}|null>(null);
   const importInput = useRef<HTMLInputElement>(null), importParent = useRef<string|undefined>(undefined);
   const choose = (value: MarkdownNote | null) => { clearTimeout(saveTimer.current); editorDraft.current = null; draft.current = value; dirty.current = false; setNote(value); setSaved(true); setLoadVersion(current => current + 1); };
   const materialize = () => { if (editorDraft.current && draft.current) { draft.current = { ...draft.current, ...editorDraft.current(), html: undefined }; editorDraft.current = null; } };
@@ -113,6 +118,11 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
     return () => { mounted = false; off(); };
   }, []);
   useEffect(() => { if (ready) savePageSession(window.localStorage, { tabs, active: selectedId, appearances }); }, [tabs, selectedId, appearances, ready]);
+  useEffect(() => {
+    if (!ready || !openRequest || handledOpen.current === openRequest.request) return;
+    handledOpen.current = openRequest.request;
+    void run(async () => { await open(openRequest.id, true, await list()); onOpenRequestHandled?.(); });
+  }, [ready, openRequest?.request]);
   useEffect(() => { if (visible) setVisited(true); }, [visible]);
   useEffect(() => { if (!saved && !error) scheduleSave(); }, [note, saved, error]);
   useEffect(() => () => clearTimeout(saveTimer.current), []);
@@ -135,6 +145,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
     }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
   }, [visible, pending, selectedId, tabs]);
   const selected = find(items, selectedId), menuNode = menu ? find(items, menu.id) : undefined;
+  const folderItems = selected ? selected.children || [] : items;
   const automaticWide = useMemo(() => {
     const hasColumns = (node: import('@tiptap/core').JSONContent): boolean => node.type === 'columns' || Boolean(node.content?.some(hasColumns));
     return note?.document ? hasColumns(note.document) : Boolean(note?.html && new DOMParser().parseFromString(note.html, 'text/html').querySelector('[data-type="columns"],.column-list'));
@@ -165,6 +176,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
       if (action === 'copy') { await window.localflow.copyText(value.content); onStatus('Markdown copied'); }
       if (action === 'pdf') {
         if (id !== selectedId) await open(id, false);
+        setMeetingEditorRequest({id,sequence:Date.now()});
         // Wait for the target editor, including its lazy first mount, before capturing the page.
         let editor: HTMLElement | null = null;
         for (let attempt = 0; attempt < 100; attempt++) {
@@ -178,6 +190,7 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
           if(!editor?.querySelector('.databaseEmbedPlaceholder,.noteDatabaseEmbed .noteFolderState'))break;
           if(attempt===99)throw new Error('A database is still loading. Try exporting again.');
         }
+        await (await import('../lib/lazy-math')).mathReady();
         const html = editor?.querySelector('.noteProse')?.innerHTML;
         if (!html) throw new Error('Open this page and try exporting again.');
         const path = await window.localflow.notesExportPdf({ title: value.label, html }); if (path) onStatus(`PDF saved: ${path}`);
@@ -228,15 +241,21 @@ export function NotesPage({ sidebar, header, visible, onOpen, capture, onCapture
       </div>
       {error && <div className="errorBox" role="alert">{error}{note && <div><button onClick={() => void run(async () => { choose(await window.localflow.notesRead(note.id)); })}>Reload saved note</button><button onClick={() => void run(async () => { const item = await window.localflow.notesCreate({ label: `${note.label} (copy)`, content: note.content, document: note.document, html: note.html, parentId }); const tree = await list(); choose(null); await open(item.id, true, tree); })}>Save draft as copy</button></div>}</div>}
       {selected?.kind === 'database' ? <Suspense fallback={<div className="noteFolderState">Loading database…</div>}><DatabasePage key={selected.id} id={selected.id} label={selected.label} open={id => select(id)} /></Suspense> : note ? <div className="noteDocumentScroll">
-        {note.presentation?.cover && <img className="notePageCover" src={note.presentation.cover} style={{objectPosition:`center ${note.presentation.coverPosition ?? 50}%`}} alt=""/>}
-        {(note.presentation?.icon || note.presentation?.iconText) && <div className="notePageIcon" data-cover={Boolean(note.presentation.cover)}>{note.presentation.iconText ? <span>{note.presentation.iconText}</span> : <img src={note.presentation.icon} alt=""/>}</div>}
+        {note.presentation?.cover && <img className="notePageCover" src={assetUrl(note.presentation.cover)} style={{objectPosition:`center ${note.presentation.coverPosition ?? 50}%`}} alt=""/>}
+        {(note.presentation?.icon || note.presentation?.iconText) && <div className="notePageIcon" data-cover={Boolean(note.presentation.cover)}>{note.presentation.iconText ? <span>{note.presentation.iconText}</span> : <img src={assetUrl(note.presentation.icon)} alt=""/>}</div>}
         {!note.presentation?.locked && <PageDesign key={note.id} value={note.presentation} change={presentation => change({ presentation })}/>}
-        <header className="noteEditorHeader"><div><input className="noteTitleInput" readOnly={note.presentation?.locked || presenting} value={note.label} aria-label="Note title" onChange={event => change({ label: event.target.value })} /><span title={note.path}>{saved ? 'Saved' : 'Saving…'}</span></div><div className="noteEditorActions"><button className={recording ? 'recording' : ''} title={recording ? 'Stop transcription' : 'Transcribe to this page'} aria-label={recording ? 'Stop transcription' : 'Transcribe to this page'} disabled={recordDisabled || note.presentation?.locked} onClick={onToggleRecording}>{recording ? <Square size={15} /> : <Mic size={16} />}</button></div></header>
+        <header className="noteEditorHeader"><div><textarea className="noteTitleInput" rows={1} readOnly={note.presentation?.locked || presenting} value={note.label} aria-label="Note title" onChange={event => change({ label: event.target.value.replace(/[\r\n]+/g, ' ') })} /><span title={note.path}>{saved ? 'Saved' : 'Saving…'}</span></div><div className="noteEditorActions"><button className={recording ? 'recording' : ''} title={recording ? 'Stop transcription' : 'Transcribe to this page'} aria-label={recording ? 'Stop transcription' : 'Transcribe to this page'} disabled={recordDisabled || note.presentation?.locked} onClick={onToggleRecording}>{recording ? <Square size={15} /> : <Mic size={16} />}</button></div></header>
         {find(items, parentOf(items, note.id) || '')?.kind === 'database' && <RowProperties databaseId={parentOf(items, note.id)!} pageId={note.id} />}
         {note.presentation?.wiki && <WikiContents noteId={note.id} children={selected?.children || []} select={select}/> }
-        <Suspense fallback={<div className="noteFolderState">Loading editor…</div>}>{visited && <NoteEditor key={note.id} noteId={note.id} loadVersion={loadVersion} blockTarget={blockTarget} editable={!note.presentation?.locked && !presenting} historyTarget={historyTarget} content={note.content} document={note.document} html={note.html} onOpenNote={id => select(id)} onChange={editorChanged} />}</Suspense>
+        <MeetingNoteView key={`meeting-${note.id}`} noteId={note.id} revision={note.revision} visible={visible} editable={!note.presentation?.locked && !presenting} beforeChange={flush} editorRequest={meetingEditorRequest} blockTarget={blockTarget}>
+          <Suspense fallback={<div className="noteFolderState">Loading editor…</div>}>{visited && <NoteEditor key={note.id} noteId={note.id} loadVersion={loadVersion} blockTarget={blockTarget} editable={!note.presentation?.locked && !presenting} historyTarget={historyTarget} content={note.content} document={note.document} html={note.html} onOpenNote={id => select(id)} onChange={editorChanged} />}</Suspense>
+        </MeetingNoteView>
         {selected?.children?.length ? <details className="noteChildPages"><summary>Pages inside · {selected.children.length}</summary><nav className="noteSubpages">{selected.children.map(child => <button key={child.id} onClick={event => select(child.id, event.ctrlKey || event.metaKey)} onContextMenu={event => { event.preventDefault(); showMenu(child.id, event.clientX, event.clientY); }}>{child.kind === 'database' ? <Database size={15} /> : <FilePlus2 size={15} />}{child.label}</button>)}</nav></details> : null}
-      </div> : <div className="noteFolderState"><Folder size={30} /><strong>{selected?.label || 'Notes'}</strong><div className="notesFolderChildren">{selected?.children?.map(child => <button key={child.id} onClick={event => select(child.id, event.ctrlKey || event.metaKey)} onContextMenu={event => { event.preventDefault(); showMenu(child.id, event.clientX, event.clientY); }}>{child.kind === 'database' ? <Database size={15} /> : child.kind === 'folder' ? <Folder size={15} /> : <FilePlus2 size={15} />}{child.label}</button>)}</div><button disabled={!ready} onClick={() => beginCreate('note', parentId)}><FilePlus2 size={16} /> New note</button></div>}
+      </div> : <div className="notesFolderView">
+        <header className="notesFolderHeading"><div><h2 dir="auto">{selected?.label || 'Notes'}</h2><p>{folderItems.length} items</p></div><button disabled={!ready || pending} onClick={() => beginCreate('note', parentId)}><FilePlus2 size={16} />New note</button></header>
+        <Riffle key={selectedId} label={selected?.label || 'Notes'} items={folderItems} disabled={!ready || pending} open={select} menu={showMenu} />
+        {!folderItems.length && <p className="notesFolderEmpty">Add a note to this folder to get started.</p>}
+      </div>}
     </section>
     {menu && menuNode && <PageMenu node={menu.id===note?.id?note:menuNode} x={menu.x} y={menu.y} close={() => setMenu(null)} action={action => command(menu.id, action)} words={menu.id===note?.id?words:undefined} appearance={{...appearances[menu.id],...menuNode.presentation,...(menu.id===note?.id?appearance:{})}} changeAppearance={patch => updateAppearance(menu.id,patch)} />}
     <input ref={importInput} hidden type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" aria-label="Import page file" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void run(async()=>{if(file.size>2_000_000)throw new Error('Page files must be at most 2 MB.');await flush();const value=await window.localflow.notesCreate({label:file.name.replace(/\.[^.]+$/,'').slice(0,300)||'Imported page',content:await file.text(),parentId:importParent.current});const tree=await list();await open(value.id,true,tree);});}}/>

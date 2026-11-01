@@ -3,7 +3,7 @@ const { EventEmitter } = require('node:events');
 const { mkdtempSync, rmSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
-const { runNoteSkill } = require('../electron/notes/skills.cjs');
+const { runNoteSkill } = require('../host/notes/skills.cjs');
 class Client extends EventEmitter {
   static current;
   constructor() { super(); Client.current = this; this.calls = []; }

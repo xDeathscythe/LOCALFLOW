@@ -42,7 +42,7 @@ export type WorkerProgress = {
 };
 
 export type RecordingOverlayState = {
-  selected?: 'agent' | 'microphone' | 'notes';
+  selected?: 'agent' | 'microphone' | 'transcribe';
   recordingTarget?: 'agent' | 'microphone';
   agentListening?: boolean;
   recording: boolean;
@@ -50,7 +50,7 @@ export type RecordingOverlayState = {
   elapsedSeconds: number;
 };
 
-export type ShortcutAction = 'dictation' | 'import-audio' | 'reset-session' | 'niwa-agent';
+export type ShortcutAction = 'dictation' | 'import-audio' | 'reset-session' | 'niwa-agent' | 'select-copy';
 
 export type ShortcutBinding = {
   keys: number[];
@@ -97,7 +97,12 @@ declare global {
       selectAudioFile: () => Promise<string | null>;
       saveAudioBuffer: (payload: { buffer: ArrayBuffer; extension?: string }) => Promise<string>;
       transcribeFile: (payload: { path: string; options: PolishOptions; requestId?: string }) => Promise<TranscriptResult>;
-      cancelTranscription: () => Promise<void>;
+      cancelTranscription: (requestId?: string) => Promise<void>;
+      meetingCall: <T = import('./lib/meetings').MeetingState>(method: string, value?: unknown) => Promise<T>;
+      onMeetingEvent: (callback: (event: import('./lib/meetings').MeetingEvent) => void) => () => void;
+      accountCall: <T = unknown>(method: string, value?: unknown) => Promise<T>;
+      onAccountState: <T = unknown>(callback: (value: T) => void) => () => void;
+      onBrainstormState: (callback: (value: unknown) => void) => () => void;
       setWhisperModel: (model: "base" | "small" | "large-v3-turbo" | "large-v3" | "nemo-parakeet-tdt-0.6b-v3" | "nemo-canary-1b-v2") => Promise<{ whisperModel: string; whisperDownloadRoot?: string } | null>;
       setWhisperLanguage: (language: TranscriptionLanguage) => Promise<{ language: TranscriptionLanguage; outputLanguage: string }>;
       getCleanupAuthStatus: () => Promise<CleanupAuthStatus>;
@@ -120,7 +125,7 @@ declare global {
       pasteText: (text: string) => Promise<boolean>;
       getEdgeSettings: () => Promise<{ enabled: boolean; autoHide: boolean }>;
       setEdgeSettings: (value: { enabled: boolean; autoHide: boolean }) => Promise<{ enabled: boolean; autoHide: boolean }>;
-      onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'notes') => void) => () => void;
+      onEdgeAction: (callback: (action: 'agent' | 'microphone' | 'transcribe') => void) => () => void;
       notesList: () => Promise<NotesIndex>;
       notesTrash: () => Promise<{id:string;label:string;kind:string;deletedAt:string}[]>;
       notesRestore: (id:string) => Promise<NotesIndex>;
@@ -143,6 +148,7 @@ declare global {
       notesMove: (value: { id: string; parentId?: string; beforeId?:string }) => Promise<NotesIndex>;
       notesDatabaseRead: (id: string) => Promise<import('./lib/database').NotesDatabase>;
       notesDatabasePage: (value: import('./lib/database').DatabasePageRequest) => Promise<import('./lib/database').DatabasePageResult>;
+      notesDatabaseRow: (value: {id:string;rowId?:string;pageId?:string}) => Promise<import('./lib/database').DatabasePageResult>;
       notesDatabasePatch: (value: import('./lib/database').DatabasePatch) => Promise<{revision:string}>;
       notesDatabasePageAction: (value: import('./lib/database').DatabasePageAction) => Promise<{revision:string}>;
       notesDatabaseOptions: (id: string) => Promise<{value:string;label:string}[]>;
@@ -164,6 +170,7 @@ declare global {
       niwaConnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;
       niwaDisconnectBrowser: () => Promise<{ mode: 'chrome' | 'bundled'; connected: boolean }>;
       niwaSend: (text: string) => Promise<void>;
+      brainstormCall: (action: string, value?: Record<string, unknown>) => Promise<import('./lib/brainstorm').BrainstormState>;
       niwaStartVoice: (sdp: string) => Promise<void>;
       niwaStopVoice: () => Promise<void>;
       niwaInterrupt: () => Promise<void>;

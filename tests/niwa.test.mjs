@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
-import { createNiwaMemory } from '../electron/niwa/host/niwa-memory.mjs';
-import { createNiwaHistory } from '../electron/niwa/host/niwa-history.mjs';
-import { workspacePath } from '../electron/niwa/host/niwa-tools.mjs';
-import shortcuts from '../electron/shortcuts.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
+import { createNiwaMemory } from '../host/niwa/host/niwa-memory.mjs';
+import { createNiwaHistory } from '../host/niwa/host/niwa-history.mjs';
+import { workspacePath } from '../host/niwa/host/niwa-tools.mjs';
+import shortcuts from '../host/shortcuts.cjs';
 mkdirSync('runtime/niwa-tests', { recursive: true });
 const directory = mkdtempSync(resolve('runtime/niwa-tests/run-'));
 const memory = createNiwaMemory(directory);

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createDuplexCleanup } = require('../electron/duplex-cleanup.cjs');
+const { createDuplexCleanup } = require('../host/duplex-cleanup.cjs');
 let requests = [], outputs = [], hold = false, waiting, liveWindows = 0;
 class Client extends EventEmitter {
   async initialize() {}
@@ -11,23 +11,12 @@ class Client extends EventEmitter {
   }
   close() { this.closed = true; }
 }
-class Window {
-  constructor(options) {
-    assert.equal(options.show, false); liveWindows++;
-    this.webContents = { session: { setPermissionRequestHandler: handler => handler(null, 'media', allowed => assert.equal(allowed, false)) }, executeJavaScript: async script => {
-      if (script.endsWith('offer()')) return 'v=0';
-      if (script.endsWith('.result')) {
-        if (hold) return new Promise((_, reject) => { waiting = reject; });
-        return outputs.shift();
-      }
-    } };
-  }
-  async loadFile() {}
-  isDestroyed() { return this.destroyed; }
-  destroy() { this.destroyed = true; liveWindows--; waiting?.(new Error('Destroyed')); waiting = null; }
+function createTransport() {
+  liveWindows++;let closed=false;
+  return {async call(method) { if(method==='offer')return 'v=0';if(method==='result'){if(hold)return new Promise((_,reject)=>{waiting=reject;});return outputs.shift();}}, async close(){if(closed)return;closed=true;liveWindows--;waiting?.(new Error('Closed'));waiting=null;} };
 }
 (async () => {
-  const manager = createDuplexCleanup({ BrowserWindow: Window, Client, binary: () => '', directory: process.cwd() });
+  const manager = createDuplexCleanup({ createTransport, Client, binary: () => '', directory: process.cwd() });
   outputs = ['malformed', '{"action":"dictate","target_language":null}\nValid cleanup.'];
   assert.equal((await manager.clean({ prompt: 'test' })).text, 'Valid cleanup.');
   assert.equal(requests.filter(r => r.method === 'thread/realtime/appendText').length, 2, 'One bounded format retry');

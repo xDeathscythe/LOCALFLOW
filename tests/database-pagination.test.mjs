@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
-import { createNotesService } from '../electron/notes-service.mjs';
+import { createNotesService } from '../host/notes-service.mjs';
 const root = mkdtempSync(join(tmpdir(), 'localflow-database-pages-'));
 const store = createNotesService(root, () => {});
 try {

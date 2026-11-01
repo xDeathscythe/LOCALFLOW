@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import codex from '../electron/codex-client.cjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
-import { createNotesStore } from '../electron/notes-store.mjs';
+import codex from '../host/codex-client.cjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
+import { createNotesStore } from '../host/notes-store.mjs';
 
 import { TestClient } from './agent-client-fixture.mjs';
 const original = codex.CodexClient;
@@ -17,16 +17,19 @@ try {
   const notes = agent.notes;
   (await notes.importLegacy([{ id: 'inbox', kind: 'folder', label: 'Inbox', children: [{ id: 'old', kind: 'note', label: 'Old note', content: md }] }]));
   assert.equal((await notes.read('old')).content, md);
-  assert.equal(readFileSync((await notes.read('old')).path, 'utf8'), md);
+  const reopened = createNotesStore(directory);
+  assert.equal(reopened.read('old').content,md); reopened.close();
   const before = (await notes.read('old'));
   (await notes.save({ ...before, content: `${md}\n\nNew paragraph` }));
   await assert.rejects(() => notes.save({ ...before, content: 'stale' }), /changed elsewhere/);
-  const external = (await notes.read('old')); writeFileSync(external.path, 'External editor');
+  const external = (await notes.read('old')); await notes.save({...external,content:'External editor'});
   await assert.rejects(() => notes.save(external), /changed elsewhere/);
   await assert.rejects(() => notes.create({ kind: 'note', label: 'bad', parentId: 'missing' }), /folder/);
-  assert.throws(() => createNotesStore(join(directory, 'invalid-import')).importLegacy([{ id: '../outside', kind: 'note', label: 'bad', content: '' }]), /Invalid/);
-  (await notes.remove('old')); assert.equal(readFileSync(external.path, 'utf8'), 'External editor', 'Removed notes remain recoverable');
-  assert.equal(createNotesStore(directory).list().items[0].children.length, 0);
+  const invalid=createNotesStore(join(directory,'invalid-import'));
+  try {assert.throws(()=>invalid.importLegacy([{id:'../outside',kind:'note',label:'bad',content:''}]),/Invalid/);}finally{invalid.close();}
+  await notes.remove('old'); assert((await notes.trash()).some(item=>item.id==='old'));
+  const removed=createNotesStore(directory);assert.equal(removed.list().items[0].children.length,0);removed.close();
+  await notes.restore('old');assert.equal((await notes.read('old')).content,'External editor','Removed notes remain recoverable');
   await agent.connect();
   const homeThread = TestClient.current.threadId;
   const toolSpecs = TestClient.current.calls.find(call => call.method === 'thread/start').params.dynamicTools;

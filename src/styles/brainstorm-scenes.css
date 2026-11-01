@@ -1,0 +1,207 @@
+/* Module scenes */
+.brainPage { max-width: 1060px; margin: 0 auto; padding: 36px 48px 56px; animation: brain-rise .45s var(--brain-ease) both; }
+.brainPage:has(.paths) { max-width: none; padding: 18px 24px 20px; height: 100%; }
+.sceneHeader { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 26px; align-items: center; margin-bottom: 40px; }
+.sceneHeader h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+.sceneHeader p { font-size: 14px; line-height: 1.55; color: var(--brain-soft); margin: 0; max-width: 56ch; }
+.sceneWaiting { max-width: 60ch; padding: 8px 0 24px; }
+.sceneWaiting p { font-family: var(--brain-voice); font-size: 17px; line-height: 1.7; margin: 0 0 18px; }
+.sceneWaiting div { display: flex; gap: 10px; }
+
+/* Guided beats */
+.beats { list-style: none; margin: 0; padding: 0; }
+.beat { position: relative; padding: 0 0 36px 42px; animation: brain-rise .55s var(--brain-ease) both; }
+.beat::before { content: ''; position: absolute; left: 7px; top: 22px; bottom: 2px; width: 1px; background: var(--brain-faint); }
+.beatNext { padding-bottom: 8px; }
+.beatNext::before { display: none; }
+.beatMark { position: absolute; left: 0; top: 3px; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--brain-line); background: var(--workspace-bg); transition: background .3s, box-shadow .3s, border-color .3s; }
+.beat:not(.beatNext):not([aria-current]) > .beatMark { background: var(--brain-line); border-color: transparent; }
+.beat[aria-current="step"] > .beatMark { background: var(--brain-lantern); border-color: var(--brain-lantern); box-shadow: 0 0 0 6px var(--brain-glow); }
+.beat > h2 { font-size: 13px; font-weight: 600; color: var(--brain-soft); margin: 0 0 14px; }
+.beatBody > .voice > .voiceTitle { font-size: 30px; }
+
+/* Source roots */
+.sourceRoots { margin-top: 18px; max-width: 760px; }
+.sourceRoots > svg { display: block; width: 100%; height: 30px; color: var(--brain-line); overflow: visible; }
+.sourceRoots ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.sourceRoots.hasRoots ul { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 10px; }
+.sourceRoots li { display: flex; align-items: flex-start; gap: 7px; min-width: 0; max-width: 300px; padding: 8px 11px; font-size: 12px; line-height: 1.45; border: 1px solid var(--brain-faint); border-radius: 9px; animation: brain-rise .5s var(--brain-ease) var(--d, 0ms) both; }
+.sourceRoots.hasRoots li { max-width: none; }
+.sourceRoots li svg { flex-shrink: 0; margin-top: 2px; color: var(--brain-lantern); }
+.sourceRoots li span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+.sourceRoots time { font-size: 11px; color: var(--brain-soft); white-space: nowrap; }
+.sourceNone { font-size: 13px; color: var(--brain-soft); }
+
+/* Paths: seed picker */
+.seeds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--brain-faint); }
+.seed { display: flex; flex-direction: column; gap: 10px; padding: 24px 24px 28px; animation: brain-rise .55s var(--brain-ease) calc(var(--i) * 130ms) both; }
+.seed + .seed { border-left: 1px solid var(--brain-faint); }
+.seed > svg { width: 120px; color: var(--brain-line); margin-bottom: 6px; }
+.seed .voiceTitle { font-size: 22px; margin: 0; }
+.seedBody { font-size: 15px; margin: 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.seedBranches { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; gap: 5px; font-size: 12px; color: var(--brain-soft); }
+.seedBranches li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.seedBranches li::before { content: ''; flex: 0 0 12px; height: 1px; background: var(--brain-line); }
+.seed .primaryButton { margin-top: auto; align-self: flex-start; }
+.pathPanel form input { flex: 1; min-width: 0; padding: 10px 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; }
+
+/* Paths: branching map */
+.paths { display: grid; grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: auto minmax(0, 1fr); gap: 14px 24px; height: 100%; min-height: 480px; }
+.pathTrail { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; list-style: none; margin: 0; padding: 0; font-family: var(--brain-voice); font-size: 15px; }
+.pathTrail li { display: flex; align-items: center; animation: brain-fade .4s both; }
+.pathTrail li + li::before { content: ''; width: 22px; height: 1px; margin: 0 6px; background: var(--brain-lantern); }
+.pathTrail button { padding: 4px 6px; border-radius: 6px; color: var(--brain-soft); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathTrail button[aria-current="step"] { color: var(--brain-ink); }
+.pathGraph { position: relative; overflow: auto; border-radius: 14px; border: 1px solid var(--brain-faint); background: radial-gradient(circle, var(--brain-faint) 1px, transparent 1.4px) 0 0 / 24px 24px; }
+.pathGraph > div { position: relative; }
+.pathGraph svg { position: absolute; left: 0; top: 0; overflow: visible; color: var(--brain-line); pointer-events: none; }
+.pathEdge { transition: color .4s; }
+.pathEdge.onTrail { color: var(--brain-lantern); stroke-width: 1.8; }
+.pathNode { position: absolute; width: 230px; height: 74px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 14px; text-align: left; border-radius: 11px; border: 1px solid var(--brain-faint); background: var(--niwa-color-surface-base); animation: brain-node .5s var(--brain-ease) calc(var(--i, 0) * 80ms + 300ms) both; transition: border-color .25s, box-shadow .25s, transform .25s var(--brain-ease); }
+.pathNode:hover { transform: translateY(-2px); border-color: var(--brain-line); }
+.pathNode strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathNode span { font-size: 12px; line-height: 1.4; color: var(--brain-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pathNode.isOwn { border-style: dashed; }
+.pathNode[data-trail="true"] { border-color: color-mix(in srgb, var(--brain-lantern) 45%, transparent); }
+.pathNode[aria-pressed="true"] { border-color: var(--brain-lantern); box-shadow: 0 0 0 5px var(--brain-glow); }
+.sprouts { position: absolute; left: calc(100% + 6px); top: 50%; width: 40px; height: 1px; pointer-events: none; }
+.sprouts b { position: absolute; left: 0; top: 0; width: 38px; height: 1.5px; background: var(--brain-lantern); transform-origin: left center; animation: brain-sprout 1.3s ease-in-out infinite; }
+.sprouts b:nth-child(1) { --r: -24deg; } .sprouts b:nth-child(2) { --r: 0deg; animation-delay: .15s; } .sprouts b:nth-child(3) { --r: 24deg; animation-delay: .3s; }
+@keyframes brain-sprout { 0% { transform: rotate(var(--r)) scaleX(0); opacity: 1; } 70% { transform: rotate(var(--r)) scaleX(1); opacity: 1; } 100% { transform: rotate(var(--r)) scaleX(1); opacity: 0; } }
+@keyframes brain-node { from { opacity: 0; transform: translateX(-14px) scale(.96); } }
+.pathPanel { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding: 4px 2px 4px 24px; border-left: 1px solid var(--brain-faint); animation: brain-rise .4s var(--brain-ease) both; }
+.pathPanel .voiceTitle { font-size: 22px; margin: 0; }
+.pathPanel label { display: grid; gap: 8px; }
+.pathPanel label span { font-size: 12px; color: var(--brain-soft); }
+.pathPanel textarea { width: 100%; min-height: 190px; resize: vertical; padding: 12px 14px; border-radius: 11px; border: 1px solid var(--brain-faint); background: transparent; color: inherit; font-family: var(--brain-voice); font-size: 15px; line-height: 1.7; }
+.pathPanel .primaryButton { align-self: flex-start; }
+.pathPanel form { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--brain-line); }
+.growing { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--brain-lantern); }
+
+/* Story */
+.timeline { position: relative; height: 112px; margin: 0 0 26px; }
+.timeline > svg { position: absolute; left: 0; right: 0; top: 20px; width: 100%; height: 40px; overflow: visible; color: var(--brain-line); }
+.timelineLit { fill: none; stroke: var(--brain-lantern); stroke-width: 2; stroke-linecap: round; transition: d .7s var(--brain-ease); }
+.bead { position: absolute; top: 33px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 140px; animation: brain-fade .5s ease var(--d, 0ms) both; }
+.beadDot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--brain-line); background: var(--workspace-bg); transition: background .3s, box-shadow .3s, border-color .3s; }
+.bead[data-reached="true"] .beadDot { border-color: var(--brain-lantern); }
+.bead[aria-current="step"] .beadDot { background: var(--brain-lantern); box-shadow: 0 0 0 6px var(--brain-glow); }
+.bead small { max-width: 130px; font-size: 12px; color: var(--brain-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bead[aria-current="step"] small { color: var(--brain-ink); }
+.storyPanel { max-width: 72ch; animation: brain-rise .45s var(--brain-ease) both; }
+.storyPanel .nextBeat { margin-top: 22px; }
+.patterns { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; }
+.patterns li { padding-left: 18px; border-left: 1px solid var(--brain-lantern); }
+.patterns strong { font-size: 14px; }
+.patterns .voice { margin: 6px 0 0; font-size: 16px; }
+.continuations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--brain-faint); }
+.continuations article { display: flex; flex-direction: column; padding: 22px 22px 26px; animation: brain-rise .5s var(--brain-ease) calc(var(--i) * 140ms + 300ms) both; }
+.continuations article + article { border-left: 1px solid var(--brain-faint); }
+.continuations .voiceTitle { font-size: 21px; }
+.continuations .voice { font-size: 15px; margin: 0 0 12px; }
+.question { font-family: var(--brain-voice); font-style: italic; font-size: 15px; line-height: 1.6; margin: 0 0 18px; }
+.continuations .primaryButton { margin-top: auto; align-self: flex-start; }
+
+/* Challenges */
+.ridge { display: block; width: 100%; height: auto; max-height: 180px; color: var(--brain-line); margin: -6px 0 30px; overflow: visible; }
+.marker .artLine, .marker .artDot { transition: color .3s, fill .3s; }
+.marker[data-focus="true"] { color: var(--brain-lantern); }
+.ascentColumns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); gap: 44px; }
+.ascentColumns h2 { font-size: 13px; font-weight: 600; color: var(--brain-soft); margin: 0 0 12px; }
+.trailList { list-style: none; margin: 0; padding: 0; }
+.trailList li { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--brain-faint); animation: brain-rise .5s var(--brain-ease) both; }
+.trailList li > svg { flex-shrink: 0; margin-top: 3px; color: var(--brain-lantern); }
+.trailList li.isStone > svg { color: var(--brain-soft); }
+.trailList strong { font-size: 14px; }
+.trailList p { margin: 4px 0 0; font-size: 13px; line-height: 1.55; color: var(--brain-soft); }
+.markers article { padding: 18px 22px 22px; border-left: 2px solid var(--brain-faint); transition: border-color .3s, background .3s; }
+.markers article + article { margin-top: 6px; }
+.markers article[data-focus="true"] { border-left-color: var(--brain-lantern); background: color-mix(in srgb, var(--brain-ink) 3%, transparent); }
+.markers .voiceTitle { font-size: 21px; margin-bottom: 8px; }
+.markers .voice { font-size: 15px; margin: 0 0 14px; }
+.firstStep { display: flex; gap: 10px; margin: 0 0 16px; font-size: 14px; line-height: 1.55; }
+.firstStep > svg { flex-shrink: 0; margin-top: 3px; color: var(--brain-lantern); }
+.firstStep b { display: block; font-size: 12px; font-weight: 600; color: var(--brain-lantern); margin-bottom: 2px; }
+
+/* Idea board preview */
+.constellationStage { position: relative; height: 470px; margin: 0 0 8px; }
+.constellationStage > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.starPin { position: absolute; transform: translate(-50%, -50%); width: 200px; padding: 12px 14px; border: 1px solid var(--brain-faint); border-radius: 11px; background: var(--niwa-color-surface-base); box-shadow: 0 10px 30px #0003; animation: brain-pin .55s var(--brain-ease) var(--d, 0ms) both; z-index: 2; }
+.starPin strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.starPin p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--brain-soft); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.threadLabel { position: absolute; transform: translate(-50%, -50%); max-width: 190px; padding: 3px 9px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--brain-lantern); background: var(--workspace-bg); border: 1px solid color-mix(in srgb, var(--brain-lantern) 35%, transparent); border-radius: 999px; z-index: 3; animation: brain-fade .5s ease var(--d, 0ms) both; }
+.constellationQuestion { margin: -12px 0 6px; font-size: 19px; font-style: italic; animation: brain-fade .8s ease .2s both; }
+@keyframes brain-pin { from { opacity: 0; transform: translate(-50%, -50%) scale(.88); } }
+
+/* Free thoughts */
+.stones { display: flex; gap: 18px; margin-bottom: 30px; }
+.stone { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--brain-line); display: grid; place-items: center; animation: brain-float 6s ease-in-out calc(var(--i) * -2s) infinite; transition: border-color .3s, box-shadow .3s; }
+.stone span { width: 6px; height: 6px; border-radius: 50%; background: var(--brain-line); transition: background .3s; }
+.stone[aria-selected="true"] { border-color: var(--brain-lantern); box-shadow: 0 0 0 6px var(--brain-glow); }
+.stone[aria-selected="true"] span { background: var(--brain-lantern); }
+.thought { max-width: 70ch; animation: brain-rise .45s var(--brain-ease) both; }
+.thought .voiceTitle { font-size: 32px; }
+.thought footer { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 26px; }
+.rating, .pager { display: inline-flex; gap: 2px; }
+.pager { margin-left: auto; }
+
+/* Conversation */
+.conversation { max-width: 74ch; margin: 0 auto; }
+.conversationSeed { padding-bottom: 24px; margin-bottom: 6px; border-bottom: 1px solid var(--brain-faint); }
+.conversationSeed .voice { color: var(--brain-soft); }
+.checkInToggle { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-size: 13px; color: var(--brain-soft); }
+.turn { margin: 26px 0; animation: brain-rise .4s var(--brain-ease) both; }
+.turn.user p { width: fit-content; max-width: 80%; margin: 0 0 0 auto; padding: 12px 16px; border-radius: 16px 16px 4px 16px; background: var(--niwa-control-bg); font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.turn.isPending p { opacity: .7; }
+.retryTurn { display: flex; margin: 6px 0 0 auto; color: var(--brain-lantern); }
+.pinTurn { margin-top: 4px; font-size: 11px; opacity: 0; }
+.turn:hover .pinTurn, .pinTurn:focus-visible { opacity: 1; }
+.thinking { width: 60px; height: 16px; color: var(--brain-lantern); }
+.thinking path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 1; animation: brain-think 1.8s ease-in-out infinite; }
+@keyframes brain-think { 0% { stroke-dashoffset: 1; } 50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -1; } }
+
+/* Idea board canvas */
+.brainBoard { margin-bottom: 18px; }
+.brainBoardTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 12px; }
+.brainBoardTools form { display: flex; gap: 6px; flex-wrap: wrap; }
+.brainBoard :is(input, select) { min-width: 0; color: inherit; background: transparent; border: 1px solid var(--brain-faint); border-radius: 8px; padding: 8px 10px; font: inherit; }
+.brainBoardTools input { max-width: 230px; }
+.brainBoard button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px; color: var(--brain-soft); }
+.brainBoard button:hover:not(:disabled) { background: var(--brain-faint); color: var(--brain-ink); }
+.brainBoardTools details { padding: 8px; }
+.brainBoardTools details form { margin-top: 10px; }
+.brainBoardViewport { overflow: auto; height: 460px; border: 1px solid var(--brain-faint); border-radius: 14px; }
+.brainBoardCanvas { position: relative; background: radial-gradient(circle, var(--brain-faint) 1px, transparent 1.4px) 0 0 / 24px 24px; }
+.brainBoardCanvas > svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+.brainBoardCanvas line { stroke-width: 1.5; }
+.brainBoardCanvas text { fill: var(--brain-lantern); font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: var(--workspace-bg); stroke-width: 5px; stroke-linejoin: round; }
+.brainPin { position: absolute; width: 220px; min-height: 96px; max-height: 210px; overflow: hidden; border: 1px solid var(--brain-faint); border-radius: 11px; background: var(--niwa-color-surface-base); box-shadow: 0 10px 26px #0003; animation: brain-pin-drop .4s var(--brain-ease) both; }
+@keyframes brain-pin-drop { from { opacity: 0; transform: translateY(-10px) scale(.96); } }
+.brainPin header { display: flex; align-items: center; gap: 4px; padding: 6px; border-bottom: 1px solid var(--brain-faint); }
+.brainPin header strong { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brainPin header button { padding: 3px; }
+.brainPin header button:first-child { touch-action: none; cursor: grab; }
+.brainPin .brainPinSocket { position: absolute; right: 4px; top: 34px; padding: 5px; color: var(--brain-lantern); background: var(--niwa-color-surface-base); cursor: crosshair; touch-action: none; }
+.brainWirePreview { stroke: var(--brain-lantern); stroke-dasharray: 5 4; }
+.brainPin img { width: 100%; height: 140px; object-fit: contain; }
+.brainPin p { margin: 0; padding: 12px; max-height: 140px; overflow: auto; white-space: pre-wrap; font-size: 12px; line-height: 1.6; }
+.brainPin a { display: block; padding: 8px; font-size: 11px; overflow-wrap: anywhere; }
+.brainBoardEmpty { padding: 50px; font-family: var(--brain-voice); font-size: 16px; line-height: 1.8; color: var(--brain-soft); }
+.brainConnectPins { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; }
+.brainConnectPins select { max-width: 170px; }
+.brainConnectPins input { flex: 1; }
+.brainConnections { margin-top: 14px; font-size: 12px; }
+.brainConnections p { display: flex; align-items: center; gap: 8px; }
+
+@media (max-width: 900px) {
+  .brainPage { padding: 24px 18px 40px; }
+  .sceneHeader { grid-template-columns: 72px minmax(0, 1fr); gap: 16px; }
+  .sceneHeader > button { grid-column: 1 / -1; justify-self: start; }
+  .seeds, .continuations { grid-template-columns: 1fr; }
+  .seed + .seed, .continuations article + article { border-left: 0; border-top: 1px solid var(--brain-faint); }
+  .ascentColumns { grid-template-columns: 1fr; gap: 28px; }
+  .paths { grid-template-columns: 1fr; grid-template-rows: auto 420px auto; height: auto; }
+  .pathPanel { border-left: 0; padding-left: 0; }
+  .constellationStage { height: 620px; }
+  .starPin { width: 150px; }
+}

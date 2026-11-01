@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createProjectStore } from '../electron/project-store.mjs';
+import { createProjectStore } from '../host/project-store.mjs';
 const directory = mkdtempSync(join(tmpdir(), 'localflow-projects-'));
 mkdirSync(join(directory, 'workspace', 'child'), { recursive: true });
 writeFileSync(join(directory, 'projects.json'), JSON.stringify({ folders: [

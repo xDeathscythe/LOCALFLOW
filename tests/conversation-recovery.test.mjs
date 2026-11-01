@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { createConversationStore } from '../electron/conversation-store.mjs';
-import { createNiwaHistory } from '../electron/niwa/host/niwa-history.mjs';
-import { createNiwaAgent } from '../electron/niwa-agent.mjs';
-import codex from '../electron/codex-client.cjs';
+import { createConversationStore } from '../host/conversation-store.mjs';
+import { createNiwaHistory } from '../host/niwa/host/niwa-history.mjs';
+import { createNiwaAgent } from '../host/niwa-agent.mjs';
+import codex from '../host/codex-client.cjs';
 import { TestClient } from './agent-client-fixture.mjs';
 
 mkdirSync('runtime/conversation-recovery', { recursive: true });
@@ -61,9 +61,17 @@ try {
   assert(events.some(event => event.type === 'error' && event.message.includes('original storage failure')));
   assert(events.some(event => event.type === 'message' && event.content === message.text), 'The response still reaches the UI');
   connection.exec('DROP TRIGGER fail_history');
+  connection.exec("CREATE TRIGGER fail_transcript BEFORE INSERT ON conversation_messages BEGIN SELECT RAISE(ROLLBACK, 'transcript storage failure'); END");
+  for (let index = 0; index < 205; index++) {
+    assert.doesNotThrow(() => TestClient.current.notify('item/completed', { item: { id: `pending-${index}`, type: 'agentMessage', text: `Retained ${index}` } }));
+  }
+  assert(events.some(event => event.type === 'message' && event.id === 'pending-204'), 'Trimming never hides an unsaved response');
+  assert.equal(agent.snapshot().messageTotal, 206, 'A failed flush retains the entire unsaved tail');
+  connection.exec('DROP TRIGGER fail_transcript');
   await agent.close();
   agent = createNiwaAgent(options);
-  assert(agent.snapshot().messages.some(item => item.id === message.id), 'Transcript survives reopening');
+  assert(agent.snapshot({ before: 1 }).messages.some(item => item.id === message.id), 'Transcript survives reopening and remains available through paging');
+  assert.equal(agent.snapshot().messageTotal, 206);
   assert.equal(connection.prepare('SELECT count(*) AS n FROM messages WHERE content=?').get(message.text).n, 1, 'Index catches up after recovery');
 } finally { await agent.close(); connection.close(); codex.CodexClient = originalClient; }
 console.log('CONVERSATION_RECOVERY_OK: SQLite full, rollback, pending retry, durable reopen, notification survival and index recovery');

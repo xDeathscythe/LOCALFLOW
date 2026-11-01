@@ -10,7 +10,7 @@ from time import perf_counter
 from typing import Any
 
 from codex_cleanup import clean_transcript
-from host_cleanup import clean_with_host, next_command
+from host_cleanup import clean_with_host, next_command, begin_job, end_job, check_cancelled
 from onnx_stt import is_onnx_stt_model, load_model as load_onnx_stt_model, model_cache_root, model_label, transcribe as transcribe_onnx
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -24,7 +24,8 @@ DEFAULT_CLEANUP_MODEL = "gpt-5.6-terra"
 DEFAULT_CLEANUP_REASONING_EFFORT = "medium"
 DEFAULT_CLEANUP_TIMEOUT = 180
 DEFAULT_WHISPER_DOWNLOAD_ROOT = str(Path(__file__).resolve().parents[1] / "models" / "whisper")
-ALLOWED_LANGUAGES = {"sr", "en", "auto"}
+# Exact provider codes from the pinned faster-whisper 1.2.1 tokenizer; no speech keyword routing.
+ALLOWED_LANGUAGES = {"auto", *json.loads(Path(__file__).with_name("whisper-languages.json").read_text(encoding="utf-8"))}
 LANGUAGE_OUTPUTS = {"sr": "Serbian Latin", "en": "English"}
 WHISPER_INITIAL_PROMPTS = {
     "sr": "Ovo je srpski govor na srpskoj latinici. Transkribuj samo srpski jezik latinicom.",
@@ -231,12 +232,14 @@ def warmup_model(request_id: str) -> None:
     emit({"id": request_id, "type": "result", "ok": True, "data": {"ready": True}})
 
 
-def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
+def transcribe_audio(request_id: str, audio_path: str, language: str | None = None) -> dict[str, Any]:
     path = Path(audio_path)
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
 
-    language = configured_language()
+    language = language or configured_language()
+    if language not in ALLOWED_LANGUAGES:
+        raise ValueError("Unsupported transcription language")
     model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
     if is_onnx_stt_model(model_name):
         emit(
@@ -279,6 +282,7 @@ def transcribe_audio(request_id: str, audio_path: str) -> dict[str, Any]:
     detected_language = getattr(info, "language", language)
     raw_segments = []
     for segment in segments:
+        check_cancelled(request_id)
         raw_segments.append(
             {
                 "start": segment.start,
@@ -441,7 +445,9 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
     audio_path = str(params.get("path") or "")
     options = params.get("options") if isinstance(params.get("options"), dict) else {}
 
-    result = transcribe_audio(request_id, audio_path)
+    transcript_only = options.get("transcriptOnly") is True
+    result = transcribe_audio(request_id, audio_path, str(options.get("language") or "auto")) if transcript_only else transcribe_audio(request_id, audio_path)
+    check_cancelled(request_id)
     emit(
         {
             "id": request_id,
@@ -455,7 +461,9 @@ def handle_transcribe(payload: dict[str, Any]) -> None:
             },
         }
     )
-    polished = polish_transcript(request_id, result["text"], options, result["language"])
+    # Meeting evidence must neither be rewritten nor enter the dictation context.
+    polished = "" if transcript_only else polish_transcript(request_id, result["text"], options, result["language"])
+    check_cancelled(request_id)
     emit(
         {
             "id": request_id,
@@ -505,6 +513,7 @@ def handle_line(line: str) -> None:
     request_id = str(payload.get("id") or "")
     action = payload.get("action")
     try:
+        begin_job(request_id)
         if action == "transcribe":
             handle_transcribe(payload)
             return
@@ -534,9 +543,15 @@ def handle_line(line: str) -> None:
                 "trace": traceback.format_exc(),
             }
         )
+    finally:
+        end_job(request_id)
 
 
 def main() -> None:
+    # NumPy's Windows DLL initialization deadlocks if a pipe reader is already blocked.
+    # All speech engines use NumPy; initialize it before starting that reader.
+    import numpy
+
     model_name = env("LOCALFLOW_WHISPER_MODEL", DEFAULT_WHISPER_MODEL)
     emit(
         {

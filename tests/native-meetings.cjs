@@ -1,0 +1,111 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+module.exports = async function checkMeetings(page,browser,pid,directory) {
+  const call = (method,...args) => page.evaluate(({method,args}) => window.__TAURI__.core.invoke('native_call',{method,args}),{method,args});
+  const meeting = (method,value) => page.evaluate(({method,value}) => window.localflow.meetingCall(method,value),{method,value});
+  let edge;
+  for(let i=0;i<80;i++) { edge=browser.contexts().flatMap(context=>context.pages()).find(view=>view.url().endsWith('/edge.html')); if(edge)break; await page.waitForTimeout(50); }
+  assert(edge,'The native notch must be available.');
+  const errors=[]; edge.on('pageerror',error=>errors.push(error.message));
+  await call('edge-action','transcribe');
+  await page.waitForSelector('.meetingsPage');
+  const source=await meeting('sources');
+  assert(Array.isArray(source.devices) && Array.isArray(source.sessions));
+  assert.equal((await meeting('status')).active,null,'Inspecting audio devices never starts recording.');
+  await edge.evaluate(()=>{
+    window.morphSamples=[];
+    const observer=new MutationObserver(()=>{
+      if(!document.body.classList.contains('meeting-expanded'))return;
+      observer.disconnect(); const start=performance.now();
+      const sample=()=>{ window.morphSamples.push({t:performance.now()-start,width:document.querySelector('.meeting-sheet').getBoundingClientRect().width}); if(performance.now()-start<750)requestAnimationFrame(sample); };
+      requestAnimationFrame(sample);
+    }); observer.observe(document.body,{attributes:true,attributeFilter:['class']});
+  });
+  await meeting('offer',{callId:'native-ui-offer',title:'会議 العربية · local proof'});
+  await edge.waitForSelector('body.meeting-expanded');
+  await edge.waitForTimeout(800);
+  const frames=await edge.evaluate(()=>window.morphSamples);
+  assert(frames.some(frame=>frame.width>40 && frame.width<300),'The same notch interpolates through intermediate widths.');
+  assert(Math.abs(frames.at(-1).width-320)<1);
+  assert.equal(await edge.locator('.controls').getAttribute('data-target'),'transcribe');
+  const region=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-meeting-region.ps1'),'-NativeProcessId',String(pid)],{windowsHide:true,encoding:'utf8'});
+  assert.equal(region.status,0,region.stderr||region.stdout);
+  const order=spawnSync('powershell.exe',['-NoProfile','-File',path.resolve('tests/native-overlay-order.ps1'),'-NativeProcessId',String(pid)],{windowsHide:true,encoding:'utf8'});
+  assert.equal(order.status,0,order.stderr||order.stdout);
+  await edge.screenshot({path:path.join(directory,'meeting-notch-dark.png')});
+  await edge.locator('[data-meeting=accept]').click();
+  await page.waitForSelector('.meetingsPage');
+  assert.equal((await meeting('status')).active,null,'Accepting an ambiguous source opens selection without recording.');
+  await page.evaluate(()=>window.localflow.setAppearance('light'));
+  await edge.screenshot({path:path.join(directory,'meeting-notch-light.png')});
+  await page.evaluate(()=>window.localflow.setAppearance('dark'));
+  await edge.locator('[data-meeting=decline]').click();
+  await edge.waitForFunction(()=>!document.body.classList.contains('meeting-expanded'));
+  await edge.waitForTimeout(750);
+  assert((await edge.evaluate(()=>innerWidth))<=31);
+  await meeting('offer',{callId:'native-ui-offer'});
+  assert.equal((await meeting('status')).offer,null,'Declined call cannot offer again.');
+
+  // Windows rejects this nonexistent PID before opening either audio stream.
+  await meeting('offer',{callId:'invalid-source',processId:4294967295,application:'Removed test application',title:'Persisted failed capture'});
+  await edge.waitForSelector('body.meeting-expanded');
+  await edge.locator('[data-meeting=accept]').click();
+  await page.waitForFunction(async()=>{const state=await window.localflow.meetingCall('status');return !state.active && state.sessions.some(session=>session.title==='Persisted failed capture' && session.endedAt);});
+  const saved=(await meeting('status')).sessions.find(session=>session.title==='Persisted failed capture');
+  assert(saved.noteId && saved.errors.some(error=>error.includes('no longer available')));
+  assert.equal((await call('meeting-call',{action:'status'})).state,'idle');
+  await meeting('open-note',{id:saved.id});
+  await page.waitForSelector('.meetingNoteView');
+  const note=await page.evaluate(id=>window.localflow.notesRead(id),saved.noteId);
+  assert.equal(note.id,saved.noteId);
+  await page.screenshot({path:path.join(directory,'meeting-note.png')});
+
+  const fixture=JSON.parse(fs.readFileSync(path.join(directory,'profile/meeting-ui-fixture.json'),'utf8'));
+  await meeting('open-note',{id:fixture.id});
+  await page.getByRole('heading',{name:'Action items',exact:true}).waitFor();
+  assert.equal(await page.locator('.meetingSummaryContent h2').first().textContent(),'Action items');
+  assert(await page.getByRole('heading',{name:'Google account and Calendar',exact:true}).isVisible());
+  assert.equal(await page.locator('.meetingTranscript article').count(),0,'Full transcript is separate from the initial summary.');
+  const task=page.getByRole('checkbox',{name:'Prepare the recording prototype',exact:true});
+  await task.click();
+  await page.waitForFunction(async noteId=>(await window.localflow.meetingCall('read-note',{noteId})).actionStatus[0],fixture.noteId);
+  await page.waitForFunction(()=>document.querySelector('.meetingActionItems input')?.checked);
+  assert.equal(await page.locator('.notePageDesign').count(),1,'Switching meeting notes must not duplicate the page header.');
+  assert(await page.locator('.noteTitleInput').evaluate(input=>input.scrollHeight<=input.clientHeight+1),'The complete meeting title must remain visible.');
+  await page.screenshot({path:path.join(directory,'meeting-summary.png')});
+  await page.getByRole('button',{name:'Read transcript source 152',exact:true}).click();
+  await page.waitForSelector('.meetingTranscript article[data-highlighted=true]');
+  assert.match(await page.locator('.meetingTranscript article[data-highlighted=true]').textContent(),/Завршна провера 日本語 العربية/);
+  assert.equal(await page.locator('.meetingTranscript article').count(),100,'Long transcript renders a bounded page.');
+  await page.getByRole('textbox',{name:'Search full transcript'}).fill('日本語');
+  assert.equal(await page.locator('.meetingTranscript article').count(),1);
+  await page.screenshot({path:path.join(directory,'meeting-transcript.png')});
+  await page.getByRole('button',{name:'Edit note',exact:true}).click();
+  await page.waitForSelector('.noteProse');
+  await page.evaluate(()=>{const editor=document.querySelector('.noteProse').editor;editor.commands.setTextSelection(editor.state.doc.content.size-1);editor.commands.insertContent(' HANDWRITTEN FOLLOWUP');});
+  await page.getByRole('button',{name:'Summary',exact:true}).click();
+  assert.match((await page.evaluate(id=>window.localflow.notesRead(id),fixture.noteId)).content,/HANDWRITTEN FOLLOWUP/);
+  assert((await meeting('read-note',{noteId:fixture.noteId})).actionStatus[0]);
+  assert.equal(await page.locator('.notePageDesign').count(),1);
+
+  await page.getByRole('button',{name:'Open profile menu',exact:true}).click();
+  await page.locator('[data-section=settings]').click();
+  await page.waitForSelector('.accountSettings');
+  const account=await page.evaluate(()=>window.localflow.accountCall('status'));
+  assert.equal(account.configured,false);
+  assert(await page.getByRole('button',{name:'Continue with Google',exact:true}).isDisabled());
+  await call('edge-action','transcribe');
+  await page.locator('.meetingBrowser summary').click();
+  await page.getByRole('button',{name:'Create connection code',exact:true}).click();
+  await page.waitForSelector('.meetingPair input');
+  assert.match(await page.locator('.meetingPair input').inputValue(),/^localflow:/);
+  // Connection codes are credentials; no screenshot or persisted trace includes them.
+  await page.locator('.meetingPair input').evaluate(input=>input.style.visibility='hidden');
+  await page.screenshot({path:path.join(directory,'meetings-page.png')});
+  assert.deepEqual(errors,[]);
+  fs.writeFileSync(path.join(directory,'meeting-morph.json'),JSON.stringify(frames));
+  console.log('NATIVE_MEETINGS_OK: no automatic recording, morph frames, native hit region, topmost/no focus theft, source selection, decline dedup, failed capture recovery, topics/actions, persisted checklist, paginated full transcript, evidence links, Unicode search, manual Notes edit flush, Google setup state, extension pairing UI');
+};
